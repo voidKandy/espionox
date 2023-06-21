@@ -1,0 +1,263 @@
+
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15 
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15 
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15 
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15 
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15  clear
+
+
+ezrafreeman  …/SpellBook   master !   v20.3.0  ♥ 20:15  cd ..
+
+    gh
+
+    iterm2
+
+    nvim
+
+    nvim.backup
+
+    wandb
+
+     .DS_Store
+
+     starship.toml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                                                                                         ezrafreeman  ⛺︎/󰈙 /GitHu
+b  ♥ 20:16  ls
+Band_Classifier      SpellBook            WW1_Poet_Bot         bible-gpt            course22p2           mark_slide           voidkandy-web        zero2prod
+CLrusT               Termi-Bot.excalidraw WW1_primary_sources  chatbot-ui           learningRust         vkoffer              wav_to_image
+
+ezrafreeman  ⛺︎/󰈙 /GitHub  ♥ 20:16  cd ~/.confi
+cd: no such file or directory: /Users/ezrafreeman/.confi
+
+ezrafreeman  ⛺︎/󰈙 /GitHub  ♥ 20:16  nvim .
+
+ezrafreeman  ⛺︎/󰈙 /GitHub  ♥ 20:16  cd ~/.config
+
+ezrafreeman  ⛺︎/.config  ♥ 20:16  nvim .
+
+ezrafreeman  ⛺︎/.config  ♥ 20:16  cd ~
+
+ezrafreeman  ⛺︎  ♥ 20:17  ls
+Applications           Documents              Google Drive           Music                  Sites                  iCloud Drive (Archive)
+Creative Cloud Files   Downloads              Library                Pictures               Spitfire               mambaforge
+Desktop                Exercism               Movies                 Public                 Splice                 pydownloads
+
+ezrafreeman  ⛺︎  ♥ 20:17  ls -a
+.                                      .gitconfig                             .ssh                                   Creative Cloud Files
+..                                     .idlerc                                .tcshrc                                Desktop
+.517827.padl                           .ipython                               .terminfo                              Documents
+.CFUserTextEncoding                    .jupyter                               .vim                                   Downloads
+.DS_Store                              .lesshst                               .viminfo                               Exercism
+.Trash                                 .local                                 .vscode                                Google Drive
+.adobe                                 .lunarclient                           .vscode-oss                            Library
+.android                               .matplotlib                            .wget-hsts                             Movies
+.bash_history                          .mongodb                               .xonshrc                               Music
+.bash_profile                          .mysql_history                         .zcompdump-Ezra's Space Book-5.8.1     Pictures
+.bash_sessions                         .netrc                                 .zcompdump-Ezra's Space Book-5.8.1.zwc Public
+.cache                                 .npm                                   .zprofile                              Sites
+.cargo                                 .oh-my-zsh                             .zsh_history                           Spitfire
+.conda                                 .oracle_jre_usage                      .zsh_sessions                          Splice
+.config                                .paperspace                            .zshenv                                iCloud Drive (Archive)
+.docker                                .profile                               .zshrc                                 mambaforge
+.fastai                                .psql_history                          .zshrc.pre-oh-my-zsh                   pydownloads
+.fxhome-helper                         .python_history                        .zshrcp
+.giget                                 .rustup                                Applications
+
+ezrafreeman  ⛺︎  ♥ 20:17  nvim .zshrc
+
+ezrafreeman  ⛺︎  ♥ 20:18  cfg
+zsh: command not found: cfg
+
+ezrafreeman  ⛺︎  ♥ 20:18  source .zshrc
+.zshrc:111: bad assignment
+➜  ~ nvim .zshrc
+➜  ~ source .zshrc
+
+ezrafreeman  ⛺︎  ♥ 20:20  cfg
+
+ezrafreeman  ⛺︎/.config  ♥ 20:20  nvim .
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:23  gdir
+
+ezrafreeman  ⛺︎/󰈙 /GitHub  ♥ 20:24  cd voidkandy-web
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:24  cfg
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:24  nv
+
+🍎  ⛺︎/⚙  ♥ 20:25  nv
+[WARN] - (starship::config): Error in 'Username' at 'username': Unknown key
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:28  nv
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:29  cd -
+~/Documents/GitHub/voidkandy-web
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:29  ls
+cosmic-cluster front-end
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:29  cd -
+~/.config
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:29  nv
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:32  cd -
+~/Documents/GitHub/voidkandy-web
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:32 
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:32  source ~/.config/starship.toml
+/Users/ezrafreeman/.config/starship.toml:1: bad math expression: operand expected at `'
+
+ezrafreeman  …/voidkandy-web   main !?  ♥ 20:33  cd -
+~/.config
+
+ezrafreeman  ⛺︎/⚙  ♥ 20:33  nv
+
+⎈ ⛺︎/⚙  ♥ 20:37  source ~/.config/starship.toml
+/Users/ezrafreeman/.config/starship.toml:1: bad math expression: operand expected at `'
+
+⎈ ⛺︎/⚙  ♥ 20:37  nv
+
+⎈ezrafreeman  ⛺︎/⚙ ⏲ 20:39  source ~/.config/starship.toml
+/Users/ezrafreeman/.config/starship.toml:1: bad math expression: operand expected at `'
+
+⎈ezrafreeman  ⛺︎/⚙ ⏲ 20:39  nv
+
+ ⨿  ⛺︎/⚙ ⏲ 20:41  cd -
+~/Documents/GitHub/voidkandy-web
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:41  nv
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:41  cd cosmic_cluster; nv
+cd: no such file or directory: cosmic_cluster
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:41  cd cosmic_cluster;
+cd: no such file or directory: cosmic_cluster
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:41  cd cosmic_cluster
+cd: no such file or directory: cosmic_cluster
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:42  ls
+cosmic-cluster front-end
+
+ ⨿  …/voidkandy-web   main !? ⏲ 20:42  cd cosmic-cluster
+
+ ⨿  …/voidkandy-web/cosmic-cluster   main !?   v20.3.0 ⏲ 20:42   nv
+
+ ⨿  …/voidkandy-web/cosmic-cluster   main !?   v20.3.0 ⏲ 20:42  cfg
+
+ ⨿  ⛺︎/⚙ ⏲ 20:42  nv
+
+ ⨿  ⛺︎/⚙ ⏲ 20:49  cd -
+~/Documents/GitHub/voidkandy-web/cosmic-cluster
+
+ ⨿  …/voidkandy-web/cosmic-cluster   main !?   v20.3.0 ⏲ 20:49  clear
+
+
+ ⨿  …/voidkandy-web/cosmic-cluster   main !?   v20.3.0 ⏲ 20:49 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
