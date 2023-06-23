@@ -59,11 +59,6 @@ impl File {
             summary_embedding: Vec::new(),
         }
     }
-    // fn build(&mut self) -> Result<&mut File, &'static str> {
-    //     self.content =
-    //         .unwrap_or_else(|err| format!("Failed to read string {}", err));
-    //     Ok(self)
-    // }
 }
 
 impl Directory {
@@ -100,5 +95,3 @@ impl Directory {
         Ok((children, files))
     }
 }
-
-// Should return content & name of file
