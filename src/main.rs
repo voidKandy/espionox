@@ -1,13 +1,15 @@
 use std::io;
 use std::process::Command;
 
+pub mod config;
 pub mod gpt_complete;
 pub mod panes;
-pub mod walk;
 
 fn main() {
-    let root = walk::walk_directory("test-dir").unwrap();
+    let root = config::Directory::build("test-dir").unwrap();
     println!("{}", root);
+    let rand_content = &root.files[0].content;
+    println!("{rand_content}");
     // let total_iterations = 5;
     // watch(total_iterations).unwrap();
 }
