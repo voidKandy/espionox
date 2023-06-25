@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 dotenv = "0.15.0"
+inquire = "0.6.2"
 reqwest = { version = "0.11.18", features = ['json']}
 serde = "1.0.164"
 serde_derive = "1.0.164"
 serde_json = "1.0.97"
+tmux_interface = "0.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
 
