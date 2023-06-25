@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod session;
+pub mod tests;
 use session::pane::Pane;
 use std::env;
 use tokio;
@@ -12,12 +13,13 @@ async fn main() {
     }
     let agent = agent::Agent::init();
     let prompt = agent.initial_prompt();
-    println!(
-        "{}",
-        agent.send_prompt(&prompt).await.unwrap().choices[0]
-            .message
-            .content
-    );
+    let _ = agent.function_prompt(&prompt).await;
+    // println!(
+    //     "{}",
+    //     agent.prompt(&prompt).await.unwrap().choices[0]
+    //         .message
+    //         .content
+    // );
     // let root = config::Directory::build("test-dir").unwrap();
     // println!("{}", root);
     // let rand_content = &root.files[0].content;
