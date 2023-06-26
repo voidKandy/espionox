@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod session;
 pub mod tests;
+use agent::functions::FnEnum;
 use session::pane::Pane;
 use std::env;
 use tokio;
@@ -12,8 +13,10 @@ async fn main() {
         Err(_) => println!("Make sure your terminal is running inside a Tmux session."),
     }
     let agent = agent::Agent::init();
+    let function = FnEnum::GetCommands.get_function();
+    println!("{}", function.render());
     let prompt = agent.initial_prompt();
-    let _ = agent.function_prompt(&prompt).await;
+    let _ = agent.function_prompt(&prompt, function).await;
     // println!(
     //     "{}",
     //     agent.prompt(&prompt).await.unwrap().choices[0]

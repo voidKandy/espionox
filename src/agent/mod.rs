@@ -2,9 +2,11 @@ pub mod functions;
 use inquire::Text;
 use reqwest::Client;
 use serde_derive::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::env;
 use std::fs;
+
+use self::functions::Function;
 
 #[derive(Debug, Deserialize)]
 pub struct GptResponse {
@@ -71,10 +73,7 @@ impl Agent {
     pub fn initial_prompt(&self) -> String {
         Text::new("Ayo whaddup").prompt().unwrap()
     }
-    pub async fn prompt(
-        &self,
-        prompt: &str,
-    ) -> Result<GptResponse, Box<dyn std::error::Error>> {
+    pub async fn prompt(&self, prompt: &str) -> Result<GptResponse, Box<dyn std::error::Error>> {
         let response = self.config.client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
@@ -89,37 +88,26 @@ impl Agent {
     pub async fn function_prompt(
         &self,
         prompt: &str,
+        function: Function,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("{:?}", format!("bearer {}", self.config.api_key));
-        let response = self.config.client
+        let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
+        let payload = json!({
+            "model": "gpt-3.5-turbo-0613",
+            "messages": [
+                {"role": "system", "content": self.config.system_message},
+                {"role": "user", "content": prompt}
+            ],
+            "functions": [functions_json],
+            "function_call": {"name": function.name}
+        });
+        println!("{}", &payload);
+        let response = self
+            .config
+            .client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("content-type", "application/json")
-            .json(&json!({ 
-                "model": "gpt-3.5-turbo-0613",
-                "messages": [{"role": "system", "content": self.config.system_message}, {"role": "user", "content": prompt}], 
-                "functions": [
-                {
-                  "name": "get_commands",
-                  "description": "get a list of terminal commands to run on mac os",
-                  "parameters": {
-                    "type": "object",
-                    "properties": {
-                      "commands": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "description": "a terminal command string"
-                        },
-                        "description": "list of terminal commands to be executed"
-                      }
-                    },
-                    "required": ["commands"]
-                  }
-                }
-                ],
-                "function_call":{"name": "get_commands"}
-            }))
+            .json(&payload)
             .send()
             .await?;
         println!("{:?}", response.text().await?);
@@ -136,7 +124,6 @@ impl Agent {
         response.choices[0].message.content.clone()
     }
 }
-
 
 #[allow(unused)]
 pub fn explain_execute_or_generate(prompt: String) {
