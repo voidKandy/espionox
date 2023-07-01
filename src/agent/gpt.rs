@@ -1,10 +1,9 @@
+use super::fn_render::Function;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
 use std::env;
-use std::fs;
-
-use crate::agent::fn_render::Function;
+use std::error::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct GptResponse {
@@ -19,7 +18,8 @@ pub struct Choice {
 
 #[derive(Debug, Deserialize)]
 pub struct Message {
-    pub content: String,
+    pub content: Option<String>,
+    pub function_call: Option<Value>,
 }
 
 pub struct Gpt {
@@ -68,10 +68,7 @@ impl Gpt {
             permissions,
         }
     }
-    pub async fn completion(
-        &self,
-        prompt: &str,
-    ) -> Result<GptResponse, Box<dyn std::error::Error>> {
+    pub async fn completion(&self, prompt: &str) -> Result<GptResponse, Box<dyn Error>> {
         let response = self.config.client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
@@ -83,28 +80,28 @@ impl Gpt {
         let gpt_response: GptResponse = response.json().await?;
         Ok(gpt_response)
     }
+
     pub async fn function_completion(
         &self,
         prompt: &str,
-        function: Function,
-    ) -> Result<GptResponse, Box<dyn std::error::Error>> {
+        function: &Function,
+    ) -> Result<GptResponse, Box<dyn Error>> {
         let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
         let payload = json!({
             "model": "gpt-3.5-turbo-0613",
             "messages": [
                 {"role": "system", "content": self.config.system_message},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt.to_string()}
             ],
             "functions": [functions_json],
             "function_call": {"name": function.name}
         });
-        println!("{payload}");
         let response = self
             .config
             .client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .header("content-type", "application/json")
+            .header("Content-Type", "application/json")
             .json(&payload)
             .send()
             .await?;

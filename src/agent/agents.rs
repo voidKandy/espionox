@@ -1,81 +1,115 @@
+use super::fn_enums::FnEnum;
 use super::fn_render::Function;
 use super::gpt::Gpt;
 use inquire::Text;
+use serde_json::Value;
 use std::error::Error;
 use std::fs;
-// pub Gpt
 
-pub struct GptBody {
+pub struct Agent {
     pub handler: Option<Gpt>,
     pub system_prompt: String,
     pub functions: Option<Vec<Function>>,
 }
-// pub enum Agents {
-//     ChatAgent,
-//     BrainstormAgent,
-//     IoAgent,
-// }
+pub enum PromptAgents {
+    ChatAgent,
+    // BrainstormAgent(Prompt),
+}
+pub enum FunctionAgents {
+    IoAgent,
+}
 //
-impl GptBody {
-    pub fn create_handler(&mut self) {
-        self.handler = Some(Gpt::init(self.system_prompt))
-    }
-    pub async fn prompt(
-        &self,
-        prompt: &str,
-        function: Option<Function>,
-    ) -> Result<String, Box<dyn Error>> {
+impl Agent {
+    pub async fn prompt(&self, prompt: &str) -> Result<String, Box<dyn Error>> {
         if let Some(gpt) = &self.handler {
             match gpt.completion(&prompt).await {
-                Ok(response) => Ok(response.choices[0].message.content.to_owned()),
+                Ok(response) => Ok(response.choices[0].message.content.to_owned().unwrap()),
                 Err(err) => Err(err),
             }
         } else {
-            Err("No handler in GptBody".into())
+            Err("Agent doesn't have a handler".into())
         }
     }
     pub async fn fn_prompt(
         &self,
         prompt: &str,
-        function: Function,
-    ) -> Result<Vec<String>, Box<dyn Error>> {
+        function: &Function,
+    ) -> Result<Value, Box<dyn Error>> {
         if let Some(gpt) = &self.handler {
             match gpt.function_completion(prompt, function).await {
                 Ok(response) => Ok(response
                     .choices
                     .into_iter()
-                    .map(|c| c.message.content)
-                    .collect()),
+                    .next()
+                    .unwrap()
+                    .message
+                    .function_call
+                    .to_owned()
+                    .unwrap()),
                 Err(err) => Err(err),
             }
         } else {
-            Err("No handler in GptBody".into())
+            Err("Agent doesn't have a handler".into())
         }
     }
 }
 
-pub trait Agent {
-    fn init(&self) -> GptBody;
-    fn initial_prompt(&self) -> String {
+impl PromptAgents {
+    pub fn init(&self) -> Agent {
+        Agent {
+            handler: self.get_handler(),
+            system_prompt: self.get_sys_prompt(),
+            functions: None,
+        }
+    }
+    pub fn get_prompt(&self) -> String {
         Text::new("Ayo whaddup").prompt().unwrap()
+    }
+    pub fn get_handler(&self) -> Option<Gpt> {
+        Some(Gpt::init(self.get_sys_prompt()))
+    }
+    pub fn get_sys_prompt(&self) -> String {
+        match self {
+            PromptAgents::ChatAgent => String::from("You are a state of the art coding ai, help users with any computer programming related questions."),
+        }
     }
 }
 
-// ------------------- Prompt Agents ------------------- //
-// pub struct BrainstormAgent(pub Agent);
-pub struct Chat {
-    pub functions: Vec<Function>,
-}
-
-impl Agent for Chat {
-    fn init(&self) -> GptBody {
-        let mut gpt = GptBody {
-            handler: None,
-            system_prompt: String::from("You are a super cool chatbot ai 🪃"),
-            functions: Some(self.functions),
-        };
-        gpt.create_handler();
-        gpt
+impl FunctionAgents {
+    pub fn init(&self) -> Agent {
+        Agent {
+            handler: self.get_handler(),
+            system_prompt: self.get_sys_prompt(),
+            functions: self.get_functions(),
+        }
+    }
+    pub fn get_prompt(&self) -> String {
+        Text::new("Here to do some operations ⚙️").prompt().unwrap()
+    }
+    pub fn get_handler(&self) -> Option<Gpt> {
+        Some(Gpt::init(self.get_sys_prompt()))
+    }
+    pub fn get_functions(&self) -> Option<Vec<Function>> {
+        match self {
+            FunctionAgents::IoAgent => Some(vec![FnEnum::GetCommands.get_function()]),
+        }
+    }
+    pub fn get_sys_prompt(&self) -> String {
+        match self {
+            FunctionAgents::IoAgent => String::from(
+                "You are an Io agent, you perform simple IO functions based on user input",
+            ),
+        }
+    }
+    pub fn parse_response(&self, response: Value) -> Option<Vec<String>> {
+        let arguments = response.get("arguments")?.as_str()?;
+        let parsed_arguments = serde_json::from_str::<Value>(arguments).ok()?;
+        let commands = parsed_arguments.get("commands")?.as_array()?;
+        let command_strings = commands
+            .iter()
+            .filter_map(|command| command.as_str().map(String::from))
+            .collect::<Vec<String>>();
+        Some(command_strings)
     }
 }
 // impl BrainstormAgent {

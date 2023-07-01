@@ -3,6 +3,18 @@ pub struct Function {
     pub description: String,
     pub perameters: Perameters,
 }
+pub struct Perameters {
+    pub type_dec: String,
+    pub properties: Box<Vec<Property>>,
+    pub required: Vec<String>,
+}
+#[derive(Clone)]
+pub struct Property {
+    name: String,
+    return_value: String,
+    items: Vec<(String, String)>,
+    description: String,
+}
 
 impl Function {
     pub fn new(name: &str, description: &str, perameters: Perameters) -> Function {
@@ -22,12 +34,6 @@ impl Function {
             self.perameters.render(),
         )
     }
-}
-
-pub struct Perameters {
-    pub type_dec: String,
-    pub properties: Box<Vec<Property>>,
-    pub required: Vec<String>,
 }
 
 impl Perameters {
@@ -61,14 +67,6 @@ impl Perameters {
             type_dec, properties, required
         )
     }
-}
-
-#[derive(Clone)]
-pub struct Property {
-    name: String,
-    return_value: String,
-    items: Vec<(String, String)>,
-    description: String,
 }
 
 impl Property {
