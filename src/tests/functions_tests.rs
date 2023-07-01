@@ -58,22 +58,7 @@ fn function_deserialization() {
 }
 #[test]
 fn test_function_render() {
-    let properties = [Property::new(
-        "commands",
-        "array",
-        "a list of terminal commands to be executed",
-        &[
-            ("type", "string"),
-            ("description", "a terminal command string"),
-        ],
-    )];
-    let perameters = Perameters::new("object", &properties, &["commands"]);
-    let function = Function::new(
-        "get_commands",
-        "get a list of terminal commands to run on mac os",
-        perameters,
-    );
-
+    let function = FnEnum::GetCommands.get_function();
     let expected_result = json!({
         "name": "get_commands",
         "description": "get a list of terminal commands to run on mac os",
