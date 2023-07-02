@@ -71,6 +71,8 @@ impl Gpt {
             permissions,
         }
     }
+
+    // Create something to handle 'Context'
     pub async fn completion(&self, prompt: &str) -> Result<GptResponse, Box<dyn Error>> {
         let response = self.config.client
             .post(&self.config.url.clone())
