@@ -1,4 +1,4 @@
-pub mod agents;
-pub mod fn_enums;
-pub mod fn_render;
+pub mod context;
+pub mod functions;
 pub mod gpt;
+pub mod handler;

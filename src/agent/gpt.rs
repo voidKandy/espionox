@@ -1,4 +1,4 @@
-use super::fn_render::Function;
+use super::functions::config::Function;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};

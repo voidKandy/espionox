@@ -1,8 +1,9 @@
-use super::fn_enums::FnEnum;
-use super::fn_render::Function;
+use super::functions::config::Function;
+use super::functions::enums::FnEnum;
 use super::gpt::Gpt;
 use inquire::Text;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 
@@ -72,6 +73,9 @@ impl SpecialAgent {
             .filter_map(|command| command.as_str().map(String::from))
             .collect::<Vec<String>>();
         Some(command_strings)
+    }
+    pub fn get_context(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
     }
 }
 
