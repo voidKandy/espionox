@@ -1,3 +1,3 @@
 pub mod agents;
-#[cfg(test)]
+pub mod context;
 pub mod functions;
