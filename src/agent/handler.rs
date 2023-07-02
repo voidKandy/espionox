@@ -1,15 +1,16 @@
+use super::context::manager::Context;
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
 use super::gpt::Gpt;
 use inquire::Text;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 
 pub struct AgentHandler {
     pub special_agent: SpecialAgent,
     pub agent: Agent,
+    pub context: Vec<Value>,
 }
 
 #[derive(Clone)]
@@ -25,17 +26,25 @@ pub enum SpecialAgent {
 
 // struct for handling two agents
 impl AgentHandler {
-    pub fn new(agent: SpecialAgent) -> AgentHandler {
+    pub fn new(special_agent: SpecialAgent) -> AgentHandler {
         AgentHandler {
-            special_agent: agent.clone(),
-            agent: agent.init_agent(),
+            special_agent: special_agent.clone(),
+            agent: special_agent.init_agent(),
+            context: special_agent.init_context(),
         }
     }
-    pub fn get_prompt(&self) -> String {
-        match self.special_agent {
-            SpecialAgent::ChatAgent => Text::new("Ayo whaddup").prompt().unwrap(),
-            SpecialAgent::IoAgent => Text::new("Here to do some operations ⚙️").prompt().unwrap(),
-        }
+    pub async fn prompt(&self) -> Result<String, Box<dyn Error>> {
+        self.agent.get_completion_response(&self.context).await
+    }
+    pub async fn function_prompt(&self, function: &Function) -> Result<Value, Box<dyn Error>> {
+        self.agent
+            .get_function_completion_response(&self.context, &function)
+            .await
+    }
+    pub fn update_context(&mut self, role: &str, content: &str) -> Result<(), Box<dyn Error>> {
+        self.special_agent
+            .append_message(&mut self.context, role, content);
+        Ok(())
     }
 }
 
@@ -64,6 +73,12 @@ impl SpecialAgent {
             SpecialAgent::IoAgent => Some(vec![FnEnum::GetCommands, FnEnum::RelevantFiles]),
         }
     }
+    pub fn get_user_prompt(&self) -> String {
+        match self {
+            SpecialAgent::ChatAgent => Text::new("Ayo whaddup").prompt().unwrap(),
+            SpecialAgent::IoAgent => Text::new("Here to do some operations ⚙️").prompt().unwrap(),
+        }
+    }
     pub fn parse_response(&self, response: Value) -> Option<Vec<String>> {
         let arguments = response.get("arguments")?.as_str()?;
         let parsed_arguments = serde_json::from_str::<Value>(arguments).ok()?;
@@ -74,16 +89,16 @@ impl SpecialAgent {
             .collect::<Vec<String>>();
         Some(command_strings)
     }
-    pub fn get_context(&self) -> Result<(), Box<dyn Error>> {
-        Ok(())
-    }
 }
 
 // Async Struct
 impl Agent {
-    pub async fn prompt(&self, prompt: &str) -> Result<String, Box<dyn Error>> {
+    pub async fn get_completion_response(
+        &self,
+        context: &Vec<Value>,
+    ) -> Result<String, Box<dyn Error>> {
         if let Some(gpt) = &self.handler {
-            match gpt.completion(&prompt).await {
+            match gpt.completion(context).await {
                 Ok(response) => Ok(response.choices[0].message.content.to_owned().unwrap()),
                 Err(err) => Err(err),
             }
@@ -91,13 +106,13 @@ impl Agent {
             Err("Agent doesn't have a handler".into())
         }
     }
-    pub async fn function_prompt(
+    pub async fn get_function_completion_response(
         &self,
-        prompt: &str,
+        context: &Vec<Value>,
         function: &Function,
     ) -> Result<Value, Box<dyn Error>> {
         if let Some(gpt) = &self.handler {
-            match gpt.function_completion(prompt, function).await {
+            match gpt.function_completion(context, function).await {
                 Ok(response) => Ok(response
                     .choices
                     .into_iter()
@@ -113,11 +128,11 @@ impl Agent {
             Err("Agent doesn't have a handler".into())
         }
     }
-    pub async fn summarize_file(&self, filepath: &str) -> String {
-        let file_contents = fs::read_to_string(filepath).expect("Couldn't read that boi");
-        let prompt = format!("Summarize the contents of this file: {}", file_contents);
-
-        let response = self.prompt(&prompt).await.unwrap();
-        response.to_owned()
-    }
+    // pub async fn summarize_file(&self, filepath: &str) -> String {
+    //     let file_contents = fs::read_to_string(filepath).expect("Couldn't read that boi");
+    //     let prompt = format!("Summarize the contents of this file: {}", file_contents);
+    //
+    //     let response = self.prompt(&prompt).await.unwrap();
+    //     response.to_owned()
+    // }
 }

@@ -73,12 +73,15 @@ impl Gpt {
     }
 
     // Create something to handle 'Context'
-    pub async fn completion(&self, prompt: &str) -> Result<GptResponse, Box<dyn Error>> {
-        let response = self.config.client
+    pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
+        let payload = json!({"model": "gpt-3.5-turbo", "messages": context, "max_tokens": 2000, "n": 1, "stop": null});
+        let response = self
+            .config
+            .client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Content-Type", "application/json")
-            .json(&json!({ "model": "gpt-3.5-turbo", "messages": [{"role": "system", "content": self.config.system_message}, {"role": "user", "content": prompt}], "max_tokens": 2000, "n": 1, "stop": null }))
+            .json(&payload)
             .send()
             .await?;
 
@@ -88,16 +91,13 @@ impl Gpt {
 
     pub async fn function_completion(
         &self,
-        prompt: &str,
+        context: &Vec<Value>,
         function: &Function,
     ) -> Result<GptResponse, Box<dyn Error>> {
         let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
         let payload = json!({
             "model": "gpt-3.5-turbo-0613",
-            "messages": [
-                {"role": "system", "content": self.config.system_message},
-                {"role": "user", "content": prompt.to_string()}
-            ],
+            "messages": context,
             "functions": [functions_json],
             "function_call": {"name": function.name}
         });
