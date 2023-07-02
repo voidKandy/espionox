@@ -8,7 +8,7 @@ use serde_json::Value;
 
 #[test]
 fn function_deserialization() {
-    let function = FnEnum::GetCommands.get_function();
+    let function = FnEnum::GetCommands.to_function();
     println!("{}", function.render());
 
     let function_json = json!({
@@ -58,7 +58,7 @@ fn function_deserialization() {
 }
 #[test]
 fn test_function_render() {
-    let function = FnEnum::GetCommands.get_function();
+    let function = FnEnum::GetCommands.to_function();
     let expected_result = json!({
         "name": "get_commands",
         "description": "get a list of terminal commands to run on mac os",

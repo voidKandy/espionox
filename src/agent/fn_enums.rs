@@ -1,5 +1,6 @@
 use crate::agent::fn_render::{Function, Perameters, Property};
 
+#[derive(Clone)]
 pub enum FnEnum {
     // GeneralDescription,
     GetCommands,
@@ -7,7 +8,7 @@ pub enum FnEnum {
 }
 
 impl FnEnum {
-    pub fn get_function(&self) -> Function {
+    pub fn to_function(&self) -> Function {
         match self {
             // FnEnum::GeneralDescription => {
             //     let properties = [Property::new(

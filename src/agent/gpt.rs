@@ -22,17 +22,20 @@ pub struct Message {
     pub function_call: Option<Value>,
 }
 
+#[derive(Clone)]
 pub struct Gpt {
     pub config: GptConfig,
     pub permissions: GptPermissions,
 }
 
+#[derive(Clone)]
 pub struct GptPermissions {
     pub write: bool,
     pub read: bool,
     pub execute: bool,
 }
 
+#[derive(Clone)]
 pub struct GptConfig {
     api_key: String,
     client: Client,
