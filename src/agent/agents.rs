@@ -6,13 +6,15 @@ use serde_json::Value;
 use std::error::Error;
 use std::fs;
 
-pub struct AgentHandler(pub SpecialAgent, pub Agent);
+pub struct AgentHandler {
+    pub special_agent: SpecialAgent,
+    pub agent: Agent,
+}
 
 #[derive(Clone)]
 pub struct Agent {
     pub handler: Option<Gpt>,
     pub system_prompt: String,
-    pub functions: Option<Vec<FnEnum>>,
 }
 #[derive(Clone)]
 pub enum SpecialAgent {
@@ -23,20 +25,16 @@ pub enum SpecialAgent {
 // struct for handling two agents
 impl AgentHandler {
     pub fn new(agent: SpecialAgent) -> AgentHandler {
-        AgentHandler(agent.clone(), agent.init_agent())
+        AgentHandler {
+            special_agent: agent.clone(),
+            agent: agent.init_agent(),
+        }
     }
     pub fn get_prompt(&self) -> String {
-        match self.0 {
+        match self.special_agent {
             SpecialAgent::ChatAgent => Text::new("Ayo whaddup").prompt().unwrap(),
             SpecialAgent::IoAgent => Text::new("Here to do some operations ⚙️").prompt().unwrap(),
         }
-    }
-    pub async fn summarize_file(&self, filepath: &str) -> String {
-        let file_contents = fs::read_to_string(filepath).expect("Couldn't read that boi");
-        let prompt = format!("Summarize the contents of this file: {}", file_contents);
-
-        let response = self.1.prompt(&prompt).await.unwrap();
-        response.to_owned()
     }
 }
 
@@ -46,7 +44,6 @@ impl SpecialAgent {
         Agent {
             handler: self.get_handler(),
             system_prompt: self.get_sys_prompt(),
-            functions: self.get_functions(),
         }
     }
     pub fn get_handler(&self) -> Option<Gpt> {
@@ -90,7 +87,7 @@ impl Agent {
             Err("Agent doesn't have a handler".into())
         }
     }
-    pub async fn fn_prompt(
+    pub async fn function_prompt(
         &self,
         prompt: &str,
         function: &Function,
@@ -111,5 +108,12 @@ impl Agent {
         } else {
             Err("Agent doesn't have a handler".into())
         }
+    }
+    pub async fn summarize_file(&self, filepath: &str) -> String {
+        let file_contents = fs::read_to_string(filepath).expect("Couldn't read that boi");
+        let prompt = format!("Summarize the contents of this file: {}", file_contents);
+
+        let response = self.prompt(&prompt).await.unwrap();
+        response.to_owned()
     }
 }
