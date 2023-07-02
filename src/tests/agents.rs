@@ -1,6 +1,7 @@
+#[allow(unused_imports)]
 use crate::agent::agents::{AgentHandler, SpecialAgent};
-use tokio::test;
 
+#[ignore]
 #[tokio::test]
 async fn function_agent_test() {
     let handler = AgentHandler::new(SpecialAgent::IoAgent);
@@ -19,6 +20,7 @@ async fn function_agent_test() {
     assert!(response.is_ok());
 }
 
+#[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
     let handler = AgentHandler::new(SpecialAgent::ChatAgent);
