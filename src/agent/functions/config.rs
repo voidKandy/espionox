@@ -10,10 +10,10 @@ pub struct Perameters {
 }
 #[derive(Clone)]
 pub struct Property {
-    name: String,
-    return_value: String,
-    items: Vec<(String, String)>,
-    description: String,
+    pub name: String,
+    pub return_value: String,
+    pub items: Vec<(String, String)>,
+    pub description: String,
 }
 
 impl Function {

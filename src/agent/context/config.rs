@@ -56,4 +56,7 @@ impl Context {
             &format!("{} Files: {}", message, payload.join(",")),
         )
     }
+    pub fn refresh_pane(&mut self) {
+        self.panes.push(Pane::capture())
+    }
 }

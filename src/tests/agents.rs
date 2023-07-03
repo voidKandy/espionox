@@ -13,11 +13,11 @@ async fn function_agent_test() {
         .get_functions()
         .as_ref()
         .unwrap()
-        // Get commands test
         .get(0)
         .unwrap()
         .to_function();
     let response = handler.function_prompt(function).await;
+    println!("{:?}", &response);
     assert!(response.is_ok());
 }
 
@@ -42,11 +42,11 @@ fn update_agent_context_test() {
     assert_ne!(context_before, &handler.context.messages);
 }
 
-#[test]
-fn watcher_test() {
-    use std::thread;
-    let handle = thread::spawn(|| {
-        let mut handler = AgentHandler::new(SpecialAgent::WatcherAgent);
-    });
-    loop {}
-}
+// #[test]
+// fn watcher_test() {
+//     use std::thread;
+//     let mut handler = AgentHandler::new(SpecialAgent::WatcherAgent);
+//     loop {
+//         handler.context.refresh_pane()
+//     }
+// }

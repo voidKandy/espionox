@@ -6,7 +6,7 @@ use serde_json::Value;
 #[test]
 fn function_deserialization() {
     let function = FnEnum::GetCommands.to_function();
-    println!("{}", function.render());
+    // println!("{}", function.render());
 
     let function_json = json!({
         "name": "get_commands",
