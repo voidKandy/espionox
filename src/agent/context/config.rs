@@ -28,13 +28,15 @@ impl Context {
             guidance: None,
         }
     }
-    pub fn make_relevant(&mut self, dirs: Option<Vec<Directory>>, files: Option<Vec<File>>) {
+    pub fn make_relevant(&mut self, dirs: Option<&Vec<Directory>>, files: Option<&Vec<File>>) {
         match dirs {
-            Some(ds) => ds.into_iter().for_each(|d| self.directories.push(d)),
+            Some(ds) => ds
+                .into_iter()
+                .for_each(|d| self.directories.push(d.clone())),
             None => {}
         };
         match files {
-            Some(fs) => fs.into_iter().for_each(|f| self.files.push(f)),
+            Some(fs) => fs.into_iter().for_each(|f| self.files.push(f.clone())),
             None => {}
         }
     }
@@ -57,6 +59,6 @@ impl Context {
         )
     }
     pub fn refresh_pane(&mut self) {
-        self.panes.push(Pane::capture())
+        self.panes.push(Pane::capture(Some(25)))
     }
 }

@@ -1,5 +1,5 @@
+use super::api::gpt::Gpt;
 use super::functions::enums::FnEnum;
-use super::gpt::Gpt;
 use inquire::Text;
 
 #[derive(Clone)]

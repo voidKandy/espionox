@@ -44,7 +44,6 @@ fn update_agent_context_test() {
 
 // #[test]
 // fn watcher_test() {
-//     use std::thread;
 //     let mut handler = AgentHandler::new(SpecialAgent::WatcherAgent);
 //     loop {
 //         handler.context.refresh_pane()

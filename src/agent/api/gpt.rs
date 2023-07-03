@@ -1,4 +1,4 @@
-use super::functions::config::Function;
+use super::super::functions::config::Function;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
@@ -95,7 +95,6 @@ impl Gpt {
         Gpt { config }
     }
 
-    // Create something to handle 'Context'
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
         let payload = json!({"model": "gpt-3.5-turbo", "messages": context, "max_tokens": 2000, "n": 1, "stop": null});
         let response = self

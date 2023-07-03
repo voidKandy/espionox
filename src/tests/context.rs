@@ -1,9 +1,14 @@
 #[cfg(test)]
-use crate::agent::context::tmux_session::Pane;
-use crate::agent::context::walk::{Directory, File};
+#[allow(unused)]
+use crate::agent::context::{
+    config::Context,
+    tmux_session::Pane,
+    walk::{Directory, File},
+};
 
 #[allow(dead_code)]
 const TEST_DIRECTORY: &str = "./src/tests/test-dir";
+#[allow(dead_code)]
 const TEST_FILE: &str = "./src/tests/test-dir/test2.txt";
 
 #[test]
@@ -18,9 +23,21 @@ fn walk_test() {
 
 #[test]
 fn capture_pane_test() {
-    let pane = Pane::capture();
+    let window_size: u16 = 20;
+    let pane = Pane::capture(Some(window_size));
+    println!("{:?}", &pane);
+    // assert_eq!(pane.content.lines().count().clone(), window_size as usize);
     let response = pane.write_to(TEST_FILE);
     assert!(response.is_ok())
+}
+
+#[test]
+fn make_relevant_test() {
+    let mut context = Context::new(None);
+    let root = Directory::build(TEST_DIRECTORY).unwrap();
+    context.make_relevant(Some(&vec![root.clone()]), Some(&root.files));
+    assert_eq!(context.directories.len(), 1);
+    assert_eq!(context.files.len(), root.files.len());
 }
 
 #[ignore]

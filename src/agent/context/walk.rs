@@ -13,6 +13,7 @@ pub struct File {
     pub summary_embedding: Vec<f64>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Directory {
     pub dirpath: Box<Path>,
     pub children: Vec<Directory>,

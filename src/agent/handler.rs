@@ -1,7 +1,7 @@
 use super::agents::SpecialAgent;
+use super::api::gpt::Gpt;
 use super::context::config::Context;
 use super::functions::config::Function;
-use super::gpt::Gpt;
 use std::error::Error;
 
 pub struct AgentHandler {
