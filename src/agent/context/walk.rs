@@ -1,4 +1,4 @@
-use crate::agent::handler::{AgentHandler, SpecialAgent};
+use crate::agent::{agents::SpecialAgent, handler::AgentHandler};
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -63,7 +63,10 @@ impl File {
     }
     pub async fn summarize(&mut self) -> Result<(), Box<dyn Error>> {
         let mut handler = AgentHandler::new(SpecialAgent::SummarizeAgent);
-        match handler.summarize_file(self.clone()).await {
+        handler
+            .context
+            .deliver_files_to_messages(vec![self.clone()], "Here is the file: ");
+        match handler.prompt().await {
             Ok(summary) => Ok(self.summary = summary),
             Err(err) => Err(err),
         }
