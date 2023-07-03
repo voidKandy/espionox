@@ -5,7 +5,7 @@ use crate::agent::handler::{AgentHandler, SpecialAgent};
 #[tokio::test]
 async fn function_agent_test() {
     let mut handler = AgentHandler::new(SpecialAgent::IoAgent);
-    let prompt = String::from("I need to make a shell file that opens a tmus session");
+    let prompt = String::from("I need to make a shell file that opens a tmux session");
     handler.update_context("user", &prompt).unwrap();
 
     let function = &handler
@@ -30,4 +30,14 @@ async fn prompt_agent_test() {
 
     let response = handler.prompt().await;
     assert!(response.is_ok());
+}
+
+#[test]
+fn update_agent_context_test() {
+    let mut handler = AgentHandler::new(SpecialAgent::ChatAgent);
+    let context_before = &handler.context.clone();
+    let prompt = String::from("Hello chat agent");
+    handler.update_context("user", &prompt).unwrap();
+
+    assert_ne!(context_before, &handler.context);
 }
