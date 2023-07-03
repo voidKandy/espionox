@@ -1,8 +1,10 @@
+use crate::agent::handler::{AgentHandler, SpecialAgent};
+use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct File {
     pub filepath: Box<Path>,
     pub content: String,
@@ -57,6 +59,13 @@ impl File {
             content_embedding: Vec::new(),
             summary: String::new(),
             summary_embedding: Vec::new(),
+        }
+    }
+    async fn summarize(&mut self) -> Result<(), Box<dyn Error>> {
+        let mut handler = AgentHandler::new(SpecialAgent::SummarizeAgent);
+        match handler.summarize_file(self.clone()).await {
+            Ok(summary) => Ok(self.summary = summary),
+            Err(err) => Err(err),
         }
     }
 }
