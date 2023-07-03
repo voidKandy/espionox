@@ -9,10 +9,31 @@ pub struct Context {
     pub guidance: Option<String>,
 }
 
+impl Context {
+    fn new(messages: Vec<Value>) -> Context {
+        Context {
+            messages,
+            files: vec![],
+            directories: vec![],
+            guidance: None,
+        }
+    }
+    fn make_relevant(&mut self, dirs: Option<Vec<Directory>>, files: Option<Vec<File>>) {
+        match dirs {
+            Some(ds) => ds.into_iter().for_each(|d| self.directories.push(d)),
+            None => {}
+        };
+        match files {
+            Some(fs) => fs.into_iter().for_each(|f| self.files.push(f)),
+            None => {}
+        }
+    }
+}
+
 pub trait Contextual {
     fn init_context(&self, prompt: Option<&str>) -> Context;
-    fn append_message(&self, context: &mut Vec<Value>, role: &str, content: &str);
-    fn append_files_to_messages(&self, context: &mut Vec<Value>, files: Vec<File>, message: &str);
+    fn append_to_messages(&self, context: &mut Vec<Value>, role: &str, content: &str);
+    fn deliver_files_to_messages(&self, context: &mut Vec<Value>, files: Vec<File>, message: &str);
 }
 pub trait Operations {
     fn parse_response(&self, response: Value) -> Option<Vec<String>>;
@@ -20,21 +41,20 @@ pub trait Operations {
 
 impl Contextual for SpecialAgent {
     fn init_context(&self, prompt: Option<&str>) -> Context {
-        let mut messages: Vec<Value> = vec![];
         if let Some(prompt) = prompt {
-            messages.push(json!({"role": "system", "content": prompt}));
+            return Context::new(vec![(json!({"role": "system", "content": prompt}))]);
         };
-        Context {
-            messages: vec![],
-            files: vec![],
-            directories: vec![],
-            guidance: None,
-        }
+        Context::new(vec![])
     }
-    fn append_message(&self, context: &mut Vec<Value>, role: &str, content: &str) {
-        context.push(json!({"role": role, "content": content}))
+    fn append_to_messages(&self, messages: &mut Vec<Value>, role: &str, content: &str) {
+        messages.push(json!({"role": role, "content": content}))
     }
-    fn append_files_to_messages(&self, context: &mut Vec<Value>, files: Vec<File>, message: &str) {
+    fn deliver_files_to_messages(
+        &self,
+        messages: &mut Vec<Value>,
+        files: Vec<File>,
+        message: &str,
+    ) {
         let mut payload = vec![];
         files.iter().for_each(|f| {
             payload.push(format!(
@@ -43,8 +63,8 @@ impl Contextual for SpecialAgent {
                 &f.summary
             ));
         });
-        self.append_message(
-            context,
+        self.append_to_messages(
+            messages,
             "system",
             &format!("{} Files: {}", message, payload.join(",")),
         )

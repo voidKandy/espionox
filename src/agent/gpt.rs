@@ -25,14 +25,6 @@ pub struct Message {
 #[derive(Clone)]
 pub struct Gpt {
     pub config: GptConfig,
-    pub permissions: GptPermissions,
-}
-
-#[derive(Clone)]
-pub struct GptPermissions {
-    pub write: bool,
-    pub read: bool,
-    pub execute: bool,
 }
 
 #[derive(Clone)]
@@ -61,15 +53,7 @@ impl GptConfig {
 impl Gpt {
     pub fn init(sys_message: String) -> Gpt {
         let config = GptConfig::init(sys_message);
-        let permissions = GptPermissions {
-            write: true,
-            read: true,
-            execute: true,
-        };
-        Gpt {
-            config,
-            permissions,
-        }
+        Gpt { config }
     }
 
     // Create something to handle 'Context'

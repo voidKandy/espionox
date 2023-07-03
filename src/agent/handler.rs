@@ -45,13 +45,13 @@ impl AgentHandler {
     }
     pub fn update_context(&mut self, role: &str, content: &str) -> Result<(), Box<dyn Error>> {
         self.special_agent
-            .append_message(&mut self.context.messages, role, content);
+            .append_to_messages(&mut self.context.messages, role, content);
         Ok(())
     }
     pub async fn summarize_file(&mut self, file: File) -> Result<String, Box<dyn Error>> {
         match self.special_agent {
             SpecialAgent::SummarizeAgent => {
-                self.special_agent.append_files_to_messages(
+                self.special_agent.deliver_files_to_messages(
                     &mut self.context.messages,
                     vec![file],
                     "Here is the file: ",
