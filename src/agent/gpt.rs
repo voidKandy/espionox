@@ -5,18 +5,17 @@ use serde_json::{json, Value};
 use std::env;
 use std::error::Error;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
 }
 
-// todo!("create Gpt Response enum for both chat & function ");
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Choice {
     pub message: Message,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Message {
     pub content: Option<String>,
     pub function_call: Option<Value>,
@@ -33,6 +32,46 @@ pub struct GptConfig {
     client: Client,
     url: String,
     pub system_message: String,
+}
+
+impl GptResponse {
+    pub fn parse_response(&self) -> Result<String, Box<dyn Error>> {
+        match self.choices[0].message.content.to_owned() {
+            Some(response) => Ok(response),
+            None => Err("Unable to parse completion response".into()),
+        }
+    }
+    pub fn parse_fn_response(&self, fn_name: &str) -> Result<Vec<String>, Box<dyn Error>> {
+        match self
+            .choices
+            .to_owned()
+            .into_iter()
+            .next()
+            .unwrap()
+            .message
+            .function_call
+        {
+            Some(response) => {
+                println!("{:?}", response);
+                let args_json = response
+                    .get("arguments")
+                    .expect("Couldn't parse arguments")
+                    .as_str()
+                    .unwrap();
+
+                let args_value = serde_json::from_str::<Value>(args_json)?;
+                let commands = args_value[fn_name].as_array().unwrap();
+
+                let command_strings: Vec<String> = commands
+                    .iter()
+                    .filter_map(|command| command.as_str().map(String::from))
+                    .collect();
+
+                Ok(command_strings)
+            }
+            None => Err("Unable to parse completion response".into()),
+        }
+    }
 }
 
 impl GptConfig {

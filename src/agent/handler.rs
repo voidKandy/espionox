@@ -1,50 +1,54 @@
-use super::agents::{Agent, SpecialAgent};
+use super::agents::SpecialAgent;
 use super::context::config::Context;
 use super::functions::config::Function;
-use serde_json::Value;
+use super::gpt::Gpt;
 use std::error::Error;
 
 pub struct AgentHandler {
     pub special_agent: SpecialAgent,
-    pub agent: Agent,
+    pub gpt: Gpt,
     pub context: Context,
-}
-
-pub trait Operations {
-    fn infer_problem() {}
-    fn parse_response(&self, response: Value) -> Option<Vec<String>>;
 }
 
 impl AgentHandler {
     pub fn new(special_agent: SpecialAgent) -> AgentHandler {
         AgentHandler {
             special_agent: special_agent.clone(),
-            agent: special_agent.init_agent(),
+            gpt: special_agent.get_gpt(),
             context: Context::new(Some(&special_agent.get_sys_prompt())),
         }
     }
-    pub async fn prompt(&self) -> Result<String, Box<dyn Error>> {
-        self.agent
-            .get_completion_response(&self.context.messages)
-            .await
+    pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
+        match self
+            .gpt
+            .completion(&self.context.messages)
+            .await?
+            .parse_response()
+        {
+            Ok(content) => {
+                self.context.append_to_messages("assistant", &content);
+                Ok(content)
+            }
+            Err(err) => Err(err),
+        }
     }
-    pub async fn function_prompt(&self, function: &Function) -> Result<Value, Box<dyn Error>> {
-        self.agent
-            .get_function_completion_response(&self.context.messages, &function)
-            .await
-    }
-}
-
-impl Operations for AgentHandler {
-    fn infer_problem() {}
-    fn parse_response(&self, response: Value) -> Option<Vec<String>> {
-        let arguments = response.get("arguments")?.as_str()?;
-        let parsed_arguments = serde_json::from_str::<Value>(arguments).ok()?;
-        let commands = parsed_arguments.get("commands")?.as_array()?;
-        let command_strings = commands
-            .iter()
-            .filter_map(|command| command.as_str().map(String::from))
-            .collect::<Vec<String>>();
-        Some(command_strings)
+    pub async fn function_prompt(
+        &mut self,
+        function: &Function,
+    ) -> Result<Vec<String>, Box<dyn Error>> {
+        match self
+            .gpt
+            .function_completion(&self.context.messages, &function)
+            .await?
+            .parse_fn_response(&function.perameters.properties[0].name)
+        {
+            Ok(content) => {
+                content.clone().into_iter().for_each(|c| {
+                    self.context.append_to_messages("assistant", &c);
+                });
+                Ok(content)
+            }
+            Err(err) => Err(err),
+        }
     }
 }
