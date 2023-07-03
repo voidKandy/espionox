@@ -46,7 +46,7 @@ impl AgentHandler {
             .append_message(&mut self.context, role, content);
         Ok(())
     }
-    pub async fn summarize_file(&mut self, file_content: File) -> Result<String, Box<dyn Error>> {
+    pub async fn summarize_file(&mut self, file: File) -> Result<String, Box<dyn Error>> {
         match self.special_agent {
             SpecialAgent::SummarizeAgent => {
                 self.special_agent.append_files(
@@ -94,16 +94,6 @@ impl SpecialAgent {
             SpecialAgent::IoAgent => Text::new("Here to do some operations ⚙️").prompt().unwrap(),
             _ => Text::new("Ayo whaddup").prompt().unwrap(),
         }
-    }
-    pub fn parse_response(&self, response: Value) -> Option<Vec<String>> {
-        let arguments = response.get("arguments")?.as_str()?;
-        let parsed_arguments = serde_json::from_str::<Value>(arguments).ok()?;
-        let commands = parsed_arguments.get("commands")?.as_array()?;
-        let command_strings = commands
-            .iter()
-            .filter_map(|command| command.as_str().map(String::from))
-            .collect::<Vec<String>>();
-        Some(command_strings)
     }
 }
 

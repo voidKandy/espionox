@@ -61,7 +61,7 @@ impl File {
             summary_embedding: Vec::new(),
         }
     }
-    async fn summarize(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn summarize(&mut self) -> Result<(), Box<dyn Error>> {
         let mut handler = AgentHandler::new(SpecialAgent::SummarizeAgent);
         match handler.summarize_file(self.clone()).await {
             Ok(summary) => Ok(self.summary = summary),
