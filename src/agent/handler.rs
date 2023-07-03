@@ -1,11 +1,11 @@
 use super::context::manager::Context;
+use super::context::walk::File;
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
 use super::gpt::Gpt;
 use inquire::Text;
 use serde_json::Value;
 use std::error::Error;
-use std::fs;
 
 pub struct AgentHandler {
     pub special_agent: SpecialAgent,
@@ -22,15 +22,15 @@ pub struct Agent {
 pub enum SpecialAgent {
     ChatAgent,
     IoAgent,
+    SummarizeAgent,
 }
 
-// struct for handling two agents
 impl AgentHandler {
     pub fn new(special_agent: SpecialAgent) -> AgentHandler {
         AgentHandler {
             special_agent: special_agent.clone(),
             agent: special_agent.init_agent(),
-            context: special_agent.init_context(),
+            context: special_agent.init_context(None),
         }
     }
     pub async fn prompt(&self) -> Result<String, Box<dyn Error>> {
@@ -45,6 +45,19 @@ impl AgentHandler {
         self.special_agent
             .append_message(&mut self.context, role, content);
         Ok(())
+    }
+    pub async fn summarize_file(&mut self, file_content: File) -> Result<String, Box<dyn Error>> {
+        match self.special_agent {
+            SpecialAgent::SummarizeAgent => {
+                self.special_agent.append_files(
+                    &mut self.context,
+                    vec![file],
+                    "Here is the file: ",
+                );
+                self.prompt().await
+            }
+            _ => Err("Summarize only implemented for summarize agent".into()),
+        }
     }
 }
 
@@ -65,18 +78,21 @@ impl SpecialAgent {
             SpecialAgent::IoAgent => String::from(
                 "You are an Io agent, you perform simple IO functions based on user input",
             ),
+            SpecialAgent::SummarizeAgent => String::from("You are a state of the art code summarizing ai. Create a thorough yet succinct summary of the file provided."),
         }
     }
     pub fn get_functions(&self) -> Option<Vec<FnEnum>> {
         match self {
             SpecialAgent::ChatAgent => None,
+            SpecialAgent::SummarizeAgent => None,
             SpecialAgent::IoAgent => Some(vec![FnEnum::GetCommands, FnEnum::RelevantFiles]),
         }
     }
     pub fn get_user_prompt(&self) -> String {
         match self {
-            SpecialAgent::ChatAgent => Text::new("Ayo whaddup").prompt().unwrap(),
+            SpecialAgent::ChatAgent => Text::new("Chat with me :)").prompt().unwrap(),
             SpecialAgent::IoAgent => Text::new("Here to do some operations ⚙️").prompt().unwrap(),
+            _ => Text::new("Ayo whaddup").prompt().unwrap(),
         }
     }
     pub fn parse_response(&self, response: Value) -> Option<Vec<String>> {
@@ -91,7 +107,6 @@ impl SpecialAgent {
     }
 }
 
-// Async Struct
 impl Agent {
     pub async fn get_completion_response(
         &self,
@@ -128,11 +143,4 @@ impl Agent {
             Err("Agent doesn't have a handler".into())
         }
     }
-    // pub async fn summarize_file(&self, filepath: &str) -> String {
-    //     let file_contents = fs::read_to_string(filepath).expect("Couldn't read that boi");
-    //     let prompt = format!("Summarize the contents of this file: {}", file_contents);
-    //
-    //     let response = self.prompt(&prompt).await.unwrap();
-    //     response.to_owned()
-    // }
 }
