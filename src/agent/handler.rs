@@ -1,4 +1,4 @@
-use super::context::manager::Context;
+use super::context::manager::{Context, Contextual};
 use super::context::walk::File;
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
@@ -10,7 +10,7 @@ use std::error::Error;
 pub struct AgentHandler {
     pub special_agent: SpecialAgent,
     pub agent: Agent,
-    pub context: Vec<Value>,
+    pub context: Context,
 }
 
 #[derive(Clone)]
@@ -34,23 +34,25 @@ impl AgentHandler {
         }
     }
     pub async fn prompt(&self) -> Result<String, Box<dyn Error>> {
-        self.agent.get_completion_response(&self.context).await
+        self.agent
+            .get_completion_response(&self.context.messages)
+            .await
     }
     pub async fn function_prompt(&self, function: &Function) -> Result<Value, Box<dyn Error>> {
         self.agent
-            .get_function_completion_response(&self.context, &function)
+            .get_function_completion_response(&self.context.messages, &function)
             .await
     }
     pub fn update_context(&mut self, role: &str, content: &str) -> Result<(), Box<dyn Error>> {
         self.special_agent
-            .append_message(&mut self.context, role, content);
+            .append_message(&mut self.context.messages, role, content);
         Ok(())
     }
     pub async fn summarize_file(&mut self, file: File) -> Result<String, Box<dyn Error>> {
         match self.special_agent {
             SpecialAgent::SummarizeAgent => {
-                self.special_agent.append_files(
-                    &mut self.context,
+                self.special_agent.append_files_to_messages(
+                    &mut self.context.messages,
                     vec![file],
                     "Here is the file: ",
                 );
@@ -61,7 +63,6 @@ impl AgentHandler {
     }
 }
 
-// Struct for instantiating Agent
 impl SpecialAgent {
     pub fn init_agent(&self) -> Agent {
         Agent {
@@ -75,9 +76,7 @@ impl SpecialAgent {
     pub fn get_sys_prompt(&self) -> String {
         match self {
             SpecialAgent::ChatAgent => String::from("You are a state of the art coding ai, help users with any computer programming related questions."),
-            SpecialAgent::IoAgent => String::from(
-                "You are an Io agent, you perform simple IO functions based on user input",
-            ),
+            SpecialAgent::IoAgent => String::from( "You are an Io agent, you perform simple IO functions based on user input"),
             SpecialAgent::SummarizeAgent => String::from("You are a state of the art code summarizing ai. Create a thorough yet succinct summary of the file provided."),
         }
     }

@@ -35,9 +35,9 @@ async fn prompt_agent_test() {
 #[test]
 fn update_agent_context_test() {
     let mut handler = AgentHandler::new(SpecialAgent::ChatAgent);
-    let context_before = &handler.context.clone();
+    let context_before = &handler.context.messages.clone();
     let prompt = String::from("Hello chat agent");
     handler.update_context("user", &prompt).unwrap();
 
-    assert_ne!(context_before, &handler.context);
+    assert_ne!(context_before, &handler.context.messages);
 }
