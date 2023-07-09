@@ -1,12 +1,11 @@
 use super::tmux_session::Pane;
 use super::walk::{Directory, File};
 use serde_json::{json, Value};
-
 pub struct Context {
     pub messages: Vec<Value>,
     pub files: Vec<File>,
     pub directories: Vec<Directory>,
-    pub panes: Vec<Pane>,
+    pub pane: Pane,
     pub guidance: Option<String>,
 }
 
@@ -24,7 +23,7 @@ impl Context {
             messages,
             files: vec![],
             directories: vec![],
-            panes: vec![],
+            pane: Pane::new(),
             guidance: None,
         }
     }
@@ -57,8 +56,5 @@ impl Context {
             "system",
             &format!("{} Files: {}", message, payload.join(",")),
         )
-    }
-    pub fn refresh_pane(&mut self) {
-        self.panes.push(Pane::capture(Some(25)))
     }
 }
