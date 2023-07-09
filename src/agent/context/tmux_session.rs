@@ -1,6 +1,5 @@
 use inquire::Text;
 use std::collections::HashMap;
-#[allow(unused)]
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
@@ -10,7 +9,7 @@ pub struct Pane {
     pub name: String,
     pub contents: HashMap<String, String>,
     pub pwd: String,
-    start_end_patterns: (String, String),
+    match_patterns: (String, String),
 }
 
 impl Pane {
@@ -21,7 +20,7 @@ impl Pane {
             name: String::from("tmux-monitor:0.1"),
             contents: HashMap::new(),
             pwd: Pane::get_pwd(),
-            start_end_patterns: (default_start_pattern, default_end_pattern),
+            match_patterns: (default_start_pattern, default_end_pattern),
         }
     }
     pub fn get_pwd() -> String {
@@ -42,13 +41,13 @@ impl Pane {
         String::from_utf8_lossy(&command.stdout).to_string()
     }
 
-    fn parse_pane(&self, content: String) -> String {
+    fn get_last_output(&self, content: String) -> String {
         let start_idcs: Vec<_> = content
-            .match_indices(&self.start_end_patterns.0)
-            .map(|(i, _)| i + self.start_end_patterns.0.len() + 1)
+            .match_indices(&self.match_patterns.0)
+            .map(|(i, _)| i + self.match_patterns.0.len() + 1)
             .collect();
         let end_idcs: Vec<_> = content
-            .match_indices(&self.start_end_patterns.1)
+            .match_indices(&self.match_patterns.1)
             .map(|(i, _)| i)
             .collect();
 
@@ -58,11 +57,14 @@ impl Pane {
     pub fn watch(&mut self) {
         loop {
             let prompt = Text::new("::: ").prompt().unwrap();
-            let command = format!(
-                r#"{} | awk 'BEGIN {{ print "{}"}} {{ print }} END {{ print "{}" }}'"#,
-                prompt, &self.start_end_patterns.0, &self.start_end_patterns.1
-            );
-
+            let pargs: Vec<&str> = prompt.split(" ").collect();
+            let command = match pargs[0] {
+                "cd" => prompt.clone(),
+                _ => format!(
+                    r#"{} | awk 'BEGIN {{ print "{}"}} {{ print }} END {{ print "{}" }}'"#,
+                    prompt, &self.match_patterns.0, &self.match_patterns.1,
+                ),
+            };
             let args = ["send-keys", "-t", &self.name, &command, "Enter"];
             Command::new("tmux")
                 .args(args)
@@ -72,7 +74,8 @@ impl Pane {
 
             let command_output_string = self.capture_content();
             self.contents
-                .insert(prompt, self.parse_pane(command_output_string));
+                .insert(prompt, self.get_last_output(command_output_string));
+            println!("{:?}", self.contents);
         }
     }
 }

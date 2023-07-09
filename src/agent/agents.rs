@@ -16,7 +16,7 @@ impl SpecialAgent {
     pub fn get_sys_prompt(&self) -> String {
         match self {
             SpecialAgent::ChatAgent => String::from("You are a state of the art coding ai, help users with any computer programming related questions."),
-            SpecialAgent::WatcherAgent => String::from( "You are an Watcher agent, you watch the virtual actions of your human friend and help them."),
+            SpecialAgent::WatcherAgent => String::from("You are an Watcher agent, you watch the virtual actions of your human friend and help them."),
             SpecialAgent::SummarizeAgent => String::from("You are a state of the art code summarizing ai. Create a thorough yet succinct summary of the file provided."),
         }
     }
