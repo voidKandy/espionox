@@ -7,6 +7,11 @@ use tokio;
 async fn main() {
     match env::var("TMUX") {
         Ok(tmux_var) => println!("📺 Tmux session: {}", tmux_var),
-        Err(_) => println!("❗️Make sure your terminal is running inside a Tmux session❗️"),
+        Err(_) => println!(
+            "❗️Make sure your terminal is running inside a Tmux session❗️\n|run src/start.sh|\n"
+        ),
     }
+
+    // let pane = agent::context::tmux_session::Pane::new();
+    // pane.watch();
 }
