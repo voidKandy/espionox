@@ -41,11 +41,3 @@ fn update_agent_context_test() {
 
     assert_ne!(context_before, &handler.context.messages);
 }
-
-// #[test]
-// fn watcher_test() {
-//     let mut handler = AgentHandler::new(SpecialAgent::WatcherAgent);
-//     loop {
-//         handler.context.refresh_pane()
-//     }
-// }
