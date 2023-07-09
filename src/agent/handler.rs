@@ -2,7 +2,9 @@ use super::agents::SpecialAgent;
 use super::api::gpt::Gpt;
 use super::context::config::Context;
 use super::functions::config::Function;
+use inquire::Text;
 use std::error::Error;
+use std::process::Command;
 
 pub struct AgentHandler {
     pub special_agent: SpecialAgent,
