@@ -1,29 +1,83 @@
-use super::agents::SpecialAgent;
 use super::api::gpt::Gpt;
-use super::context::config::Context;
+use super::context::{
+    config::{Context, Contextual},
+    walk::File,
+};
 use super::functions::config::Function;
-use inquire::Text;
+use super::functions::enums::FnEnum;
 use std::error::Error;
-use std::process::Command;
 
 pub struct AgentHandler {
-    pub special_agent: SpecialAgent,
     pub gpt: Gpt,
     pub context: Context,
 }
 
 impl AgentHandler {
-    pub fn new(special_agent: SpecialAgent) -> AgentHandler {
+    pub fn new() -> AgentHandler {
+        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         AgentHandler {
-            special_agent: special_agent.clone(),
-            gpt: special_agent.get_gpt(),
-            context: Context::new(Some(&special_agent.get_sys_prompt())),
+            gpt: Gpt::init(&init_prompt),
+            context: Context::new("main", Some(&init_prompt)),
         }
     }
+
+    pub async fn summarize(&mut self, content: String) -> String {
+        self.context.change_conversation("summarize");
+        let summarize_prompt = format!("Summarize the given code to the best of your ability. Be as succinct as possible while also being as thorough as possible. Content: {}", content);
+        self.context.append_to_messages("system", &summarize_prompt);
+        let summary = self.prompt().await.unwrap();
+        self.context.drop_conversation();
+        summary
+    }
+
+    pub async fn monitor_user(&mut self) {
+        // loop {
+        self.context.pane.watch();
+        if self.context.pane.is_problematic() {
+            println!("[PROBLEM DETECTED]");
+            println!("{:?}", self.handle_problem().await.unwrap())
+        };
+        // }
+    }
+
+    async fn handle_problem(&mut self) -> Result<Vec<String>, Box<dyn Error>> {
+        match self.context.pane.contents.iter().last() {
+            Some((last_in, last_out)) => {
+                let content = format!(
+                    "This command was run: {}, Which resulted in this error: {}",
+                    last_in, last_out
+                );
+                self.context.append_to_messages("system", &content);
+                let relevant_files = self
+                    .function_prompt(&FnEnum::RelevantFiles.to_function())
+                    .await
+                    .unwrap();
+
+                println!("{relevant_files:?}");
+                relevant_files
+                    .into_iter()
+                    .map(|f| File::build(&f))
+                    .collect::<Vec<File>>()
+                    .make_relevant(&mut self.context);
+            }
+            None => {
+                return Err("No context".into());
+            }
+        }
+        self.context.append_to_messages("system", "Given the files and the given error message, clearly express what the most urgent problem and and what files it pertains to.");
+        println!("{}", self.prompt().await.unwrap());
+        let tasks = self
+            .function_prompt(&FnEnum::ProblemSolveTasklist.to_function())
+            .await
+            .unwrap();
+        self.function_prompt(&FnEnum::ExecuteGenerateRead.to_function())
+            .await
+    }
+
     pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
         match self
             .gpt
-            .completion(&self.context.messages)
+            .completion(&self.context.current_messages())
             .await?
             .parse_response()
         {
@@ -34,13 +88,14 @@ impl AgentHandler {
             Err(err) => Err(err),
         }
     }
+
     pub async fn function_prompt(
         &mut self,
         function: &Function,
     ) -> Result<Vec<String>, Box<dyn Error>> {
         match self
             .gpt
-            .function_completion(&self.context.messages, &function)
+            .function_completion(&self.context.current_messages(), &function)
             .await?
             .parse_fn_response(&function.perameters.properties[0].name)
         {

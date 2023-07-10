@@ -90,8 +90,8 @@ impl GptConfig {
 }
 
 impl Gpt {
-    pub fn init(sys_message: String) -> Gpt {
-        let config = GptConfig::init(sys_message);
+    pub fn init(sys_message: &str) -> Gpt {
+        let config = GptConfig::init(sys_message.to_string());
         Gpt { config }
     }
 
@@ -132,7 +132,9 @@ impl Gpt {
             .json(&payload)
             .send()
             .await?;
+        // println!("{:?}", &response.text().await);
         let gpt_response = response.json().await?;
         Ok(gpt_response)
+        // Err("tst".into())
     }
 }
