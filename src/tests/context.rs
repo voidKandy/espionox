@@ -1,10 +1,11 @@
-#[cfg(test)]
-#[allow(unused)]
 use crate::agent::context::{
-    config::Context,
+    config::{Context, Contextual},
     tmux_session::Pane,
     walk::{Directory, File},
 };
+#[cfg(test)]
+#[allow(unused)]
+use std::path::PathBuf;
 
 #[allow(dead_code)]
 const TEST_DIRECTORY: &str = "./src/tests/test-dir";
@@ -21,50 +22,56 @@ fn walk_test() {
     assert_eq!(test1_content, "hello from test 1\n")
 }
 
-// #[ignore]
-// #[test]
-// fn update_test() {
-//     let mut pane = Pane::new();
-//     pane.update(None);
-//     // println!("{:?}", &pane);
-//     // assert_eq!(pane.content.lines().count().clone(), window_size as usize);
-//     let response = pane.write_to(TEST_FILE);
-//     assert!(response.is_ok())
-// }
-//
-// #[test]
-// fn parse_pane_test() {
-//     let parse_test_string = String::from(
-//         r#"===START====chunk1===END===
-//         ===START====chunk2===END===
-//         ===START====chunk3===END==="#,
-//     );
-//     let parsed = Pane::parse_pane(parse_test_string);
-//     println!("Parsed pane: {:?}", parsed);
-//     assert_eq!(parsed, vec!["chunk1", "chunk2", "chunk3"]);
-// }
-//
 #[test]
-fn make_relevant_test() {
-    let mut context = Context::new(None);
-    let root = Directory::build(TEST_DIRECTORY).unwrap();
-    context.make_relevant(Some(&vec![root.clone()]), Some(&root.files));
-    assert_eq!(context.directories.len(), 1);
-    assert_eq!(context.files.len(), root.files.len());
+fn test_make_relevant() {
+    let files = vec![
+        File {
+            filepath: PathBuf::from("path/to/file1.txt").into(),
+            content_embedding: vec![],
+            content: "File 1 content".to_string(),
+            summary: "".to_string(),
+            summary_embedding: vec![],
+        },
+        File {
+            filepath: PathBuf::from("path/to/file2.txt").into(),
+            content_embedding: vec![],
+            content: "File 2 content".to_string(),
+            summary: "Summary of file 2".to_string(),
+            summary_embedding: vec![],
+        },
+    ];
+
+    let mut context = Context::new("test", None);
+
+    files.make_relevant(&mut context);
+
+    let messages = context.current_messages();
+    assert_eq!(messages.len(), 1);
+    let message = messages.first().unwrap();
+    assert_eq!(message["role"], "system");
+    assert_eq!(
+            message["content"].as_str().unwrap(),
+            "Relavent Files: [FilePath: path/to/file1.txt, Content: File 1 content, FilePath: path/to/file2.txt, Content: File 2 content, Summary: Summary of file 2]"
+        );
 }
 
-// #[ignore]
+#[ignore]
 #[test]
 fn watch_pane_test() {
     let mut pane = Pane::new();
     pane.watch();
 }
 
-#[ignore]
-#[tokio::test]
-async fn summarize_file_test() {
-    let mut root = Directory::build(TEST_DIRECTORY).unwrap();
-    let test_file = &mut root.files[0];
-    test_file.summarize().await.unwrap();
-    assert_ne!("".to_string(), test_file.summary);
+#[test]
+fn fail() {
+    assert!(false);
 }
+
+// #[ignore]
+// #[tokio::test]
+// async fn summarize_file_test() {
+//     let mut root = Directory::build(TEST_DIRECTORY).unwrap();
+//     let test_file = &mut root.files[0];
+//     test_file.summarize().await.unwrap();
+//     assert_ne!("".to_string(), test_file.summary);
+// }

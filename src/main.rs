@@ -11,7 +11,4 @@ async fn main() {
             "❗️Make sure your terminal is running inside a Tmux session❗️\n|run src/start.sh|\n"
         ),
     }
-
-    // let pane = agent::context::tmux_session::Pane::new();
-    // pane.watch();
 }

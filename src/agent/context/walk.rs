@@ -1,5 +1,3 @@
-use crate::agent::{agents::SpecialAgent, handler::AgentHandler};
-use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::Path;
@@ -53,7 +51,7 @@ impl fmt::Display for Directory {
 }
 
 impl File {
-    fn build(filepath: &str) -> File {
+    pub fn build(filepath: &str) -> File {
         File {
             content: fs::read_to_string(&filepath).unwrap_or_else(|e| e.to_string()),
             filepath: Path::new(filepath).into(),
@@ -62,16 +60,14 @@ impl File {
             summary_embedding: Vec::new(),
         }
     }
-    pub async fn summarize(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut handler = AgentHandler::new(SpecialAgent::SummarizeAgent);
-        handler
-            .context
-            .deliver_files_to_messages(vec![self.clone()], "Here is the file: ");
-        match handler.prompt().await {
-            Ok(summary) => Ok(self.summary = summary),
-            Err(err) => Err(err),
-        }
-    }
+    // pub async fn summarize(&mut self, handler: &mut AgentHandler) -> Result<(), Box<dyn Error>> {
+    //     handler.
+    //     handler.context.append_to_messages("system", &format!("Summarize  Create a thorough yet succinct summary of the file provided. Filename: {}, File: {}", self.filepath.display().to_string(), self.content));
+    //     match handler.prompt().await {
+    //         Ok(summary) => Ok(self.summary = summary),
+    //         Err(err) => Err(err),
+    //     }
+    // }
 }
 
 impl Directory {
