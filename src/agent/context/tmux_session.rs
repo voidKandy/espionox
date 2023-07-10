@@ -51,7 +51,6 @@ impl Pane {
         let command_output_string = self.capture_content();
         self.contents
             .insert(prompt, self.get_last_output(command_output_string));
-        println!("{:?}", self.contents);
     }
 
     pub fn is_problematic(&self) -> bool {
