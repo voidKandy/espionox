@@ -31,6 +31,38 @@ impl Pane {
         String::from_utf8_lossy(&pwd.stdout).trim().to_string()
     }
 
+    pub fn watch(&mut self) {
+        let prompt = Text::new("::: ").prompt().unwrap();
+        let pargs: Vec<&str> = prompt.split(" ").collect();
+        let command = match pargs[0] {
+            "cd" => prompt.clone(),
+            _ => format!(
+                r#"{} | awk 'BEGIN {{ print "{}"}} {{ print }} END {{ print "{}" }}'"#,
+                prompt, &self.match_patterns.0, &self.match_patterns.1,
+            ),
+        };
+        let args = ["send-keys", "-t", &self.name, &command, "Enter"];
+        Command::new("tmux")
+            .args(args)
+            .output()
+            .expect("failed to execute tmux command");
+        thread::sleep(Duration::from_millis(500));
+
+        let command_output_string = self.capture_content();
+        self.contents
+            .insert(prompt, self.get_last_output(command_output_string));
+        println!("{:?}", self.contents);
+    }
+
+    pub fn is_problematic(&self) -> bool {
+        let error_substrings = ["error", "failure", "problem"];
+        match self.contents.iter().last() {
+            Some((_, last_out)) => error_substrings
+                .iter()
+                .any(|substring| last_out.to_lowercase().contains(substring)),
+            None => false,
+        }
+    }
     fn capture_content(&self) -> String {
         let args = vec!["capture-pane", "-p", "-t", &self.name];
         let command = Command::new("tmux")
@@ -52,30 +84,5 @@ impl Pane {
             .collect();
 
         content[start_idcs[start_idcs.len() - 1]..end_idcs[end_idcs.len() - 1]].to_string()
-    }
-
-    pub fn watch(&mut self) {
-        loop {
-            let prompt = Text::new("::: ").prompt().unwrap();
-            let pargs: Vec<&str> = prompt.split(" ").collect();
-            let command = match pargs[0] {
-                "cd" => prompt.clone(),
-                _ => format!(
-                    r#"{} | awk 'BEGIN {{ print "{}"}} {{ print }} END {{ print "{}" }}'"#,
-                    prompt, &self.match_patterns.0, &self.match_patterns.1,
-                ),
-            };
-            let args = ["send-keys", "-t", &self.name, &command, "Enter"];
-            Command::new("tmux")
-                .args(args)
-                .output()
-                .expect("failed to execute tmux command");
-            thread::sleep(Duration::from_millis(500));
-
-            let command_output_string = self.capture_content();
-            self.contents
-                .insert(prompt, self.get_last_output(command_output_string));
-            println!("{:?}", self.contents);
-        }
     }
 }
