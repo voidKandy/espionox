@@ -1,6 +1,6 @@
-# tmux-monitor
+# Consoxide
 
-Prototyping a language model assisted tmux session
+Prototyping a language model assisted console
 
 ## Currently developing
 * Easy to use interface for quickly creating custom Openai agents that can leverage the GPT function calling api.
