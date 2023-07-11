@@ -1,12 +1,16 @@
 # Consoxide
 
-Prototyping a language model assisted console
+Breathing life into your console sessions with Ai!
 
-## Currently developing
-* Easy to use interface for quickly creating custom Openai agents that can leverage the GPT function calling api.
-* A function 'distillation' pipeline that turns user's simple queries into task list
-  * creating Execute, Generate, and Read agents that handle tasks
-* Embedding pipeline
+Consoxide puts the power of LLMs into your very own console! All you need is to run the `start.sh` file to get the tmux session running.
 
+## Current features
+* Agent 'watches' your commands in the agent tmux window. It can offer help with any errors that get run through that terminal window.
+* Dynamically updates context based on your actions
+* Summarize & embed files or entire directories
 
-May expand to a crate for interacting with Openai's language models & an example implementation of that library
+## In development
+* Long term memory using `pgvector` in a postgres SQL server
+* User tailored configuration
+* The ability to add arbitrary directories anywhere on your harddrive to long term memory
+  * Dynamicly update when changes are made
