@@ -55,6 +55,13 @@ fn test_make_relevant() {
         );
 }
 
+#[test]
+fn test_chunking_files() {
+    let test_file = File::build("./src/tests/agent/context.rs");
+    test_file.chunkify();
+    assert!(false);
+}
+
 #[ignore]
 #[test]
 fn watch_pane_test() {

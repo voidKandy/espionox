@@ -1,4 +1,4 @@
-use super::super::functions::config::Function;
+use crate::agent::functions::config::Function;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
@@ -96,7 +96,9 @@ impl Gpt {
     }
 
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
-        let payload = json!({"model": "gpt-3.5-turbo", "messages": context, "max_tokens": 2000, "n": 1, "stop": null});
+        let model = env::var("GPT_MODEL").unwrap();
+        let payload =
+            json!({"model": model, "messages": context, "max_tokens": 2000, "n": 1, "stop": null});
         let response = self
             .config
             .client
@@ -117,8 +119,9 @@ impl Gpt {
         function: &Function,
     ) -> Result<GptResponse, Box<dyn Error>> {
         let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
+        let model = env::var("GPT_MODEL").unwrap();
         let payload = json!({
-            "model": "gpt-3.5-turbo-0613",
+            "model": model,
             "messages": context,
             "functions": [functions_json],
             "function_call": {"name": function.name}

@@ -1,10 +1,10 @@
-use super::api::gpt::Gpt;
 use super::context::{
     config::{Context, Contextual},
     walk::File,
 };
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
+use crate::api::gpt::Gpt;
 use std::error::Error;
 
 pub struct AgentHandler {

@@ -1,3 +1,2 @@
-pub mod agents;
-pub mod context;
-pub mod functions;
+pub mod agent;
+pub mod api;
