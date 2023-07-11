@@ -12,6 +12,14 @@ pub struct File {
 }
 
 #[derive(Debug, Clone)]
+pub struct FileChunk {
+    pub parent_filepath: Box<Path>,
+    pub content: String,
+    pub content_embedding: Vec<f64>,
+    pub index: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct Directory {
     pub dirpath: Box<Path>,
     pub children: Vec<Directory>,
@@ -60,6 +68,22 @@ impl File {
             summary_embedding: Vec::new(),
         }
     }
+
+    pub fn chunkify(&self) -> Vec<FileChunk> {
+        let mut chunks = Vec::new();
+        let lines: Vec<&str> = self.content.lines().collect();
+        lines.chunks(50).enumerate().for_each(|(i, c)| {
+            chunks.push(FileChunk {
+                parent_filepath: self.filepath.clone(),
+                content: c.join("\n"),
+                content_embedding: Vec::new(),
+                index: i as u32,
+            });
+        });
+        // chunks.iter().for_each(|c| println!("{}", c.content));
+        chunks
+    }
+
     // pub async fn summarize(&mut self, handler: &mut AgentHandler) -> Result<(), Box<dyn Error>> {
     //     handler.
     //     handler.context.append_to_messages("system", &format!("Summarize  Create a thorough yet succinct summary of the file provided. Filename: {}, File: {}", self.filepath.display().to_string(), self.content));
