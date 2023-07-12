@@ -1,5 +1,5 @@
 use super::context::{
-    config::{Context, Contextual},
+    config::{Context, Contextual, Conversation},
     walk::File,
 };
 use super::functions::config::Function;
@@ -9,24 +9,25 @@ use std::error::Error;
 
 pub struct AgentHandler {
     pub gpt: Gpt,
-    pub context: Context,
+    pub context: Conversation,
 }
 
 impl AgentHandler {
-    pub fn new() -> AgentHandler {
+    pub fn new(context: Context) -> AgentHandler {
         let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         AgentHandler {
             gpt: Gpt::init(&init_prompt),
-            context: Context::new("main", Some(&init_prompt)),
+            context: *context.init(),
         }
     }
 
     pub async fn summarize(&mut self, content: &str) -> String {
-        self.context.change_conversation("summarize");
+        let c = self.context.context.clone();
+        self.context.switch(Context::Temporary);
         let summarize_prompt = format!("Summarize the given code to the best of your ability. Be as succinct as possible while also being as thorough as possible. Content: {}", content);
         self.context.append_to_messages("system", &summarize_prompt);
         let summary = self.prompt().await.unwrap();
-        self.context.drop_conversation();
+        self.context.switch(*c);
         summary
     }
 
@@ -49,10 +50,9 @@ impl AgentHandler {
                 )
             }
             None => {
-                return Err("No Context".into());
+                return Err("No Conversation".into());
             }
         };
-        self.context.change_conversation("ProblemSolving");
         self.context.append_to_messages("system", &content);
         let relevant_files = self
             .function_prompt(&FnEnum::RelevantFiles.to_function())
@@ -65,7 +65,7 @@ impl AgentHandler {
             .map(|f| File::build(&f))
             .collect::<Vec<File>>();
         for file in relevant_files.iter_mut() {
-            file.summary = self.summarize(&file.content).await;
+            file.summary = self.summarize(&file.content()).await;
         }
         relevant_files.make_relevant(&mut self.context);
 
@@ -111,7 +111,7 @@ impl AgentHandler {
     pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
         match self
             .gpt
-            .completion(&self.context.current_messages())
+            .completion(&self.context.messages)
             .await?
             .parse_response()
         {
@@ -129,7 +129,7 @@ impl AgentHandler {
     ) -> Result<Vec<String>, Box<dyn Error>> {
         match self
             .gpt
-            .function_completion(&self.context.current_messages(), &function)
+            .function_completion(&self.context.messages, &function)
             .await?
             .parse_fn_response(&function.perameters.properties[0].name)
         {

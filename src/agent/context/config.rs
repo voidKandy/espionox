@@ -1,80 +1,78 @@
 use super::tmux_session::Pane;
 use super::walk::{Directory, File};
 use serde_json::{json, Value};
-use std::collections::HashMap;
 
-#[derive(Clone)]
-pub struct Context {
-    pub messages: HashMap<String, Vec<Value>>,
-    current_conversation: String,
+#[derive(Clone, Eq, PartialEq)]
+pub struct Conversation {
+    pub messages: Vec<Value>,
+    pub context: Box<Context>,
     pub pane: Pane,
 }
 
 pub trait Contextual {
-    fn make_relevant(&self, context: &mut Context) {}
+    fn make_relevant(&self, context: &mut Conversation) {}
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub enum Context {
+    // LongTerm,
+    ShortTerm(Option<Box<Conversation>>),
+    Temporary,
 }
 
 impl Context {
-    pub fn new(name: &str, sys_prompt: Option<&str>) -> Context {
-        let messages = match sys_prompt {
-            Some(prompt) => {
-                let mut map = HashMap::new();
-                map.insert(
-                    name.to_string(),
-                    vec![(json!({"role": "system", "content": prompt}))],
-                );
-                map
-            }
-            None => {
-                let mut map = HashMap::new();
-                map.insert(name.to_string(), vec![]);
-                map
-            }
-        };
-        Context {
-            messages,
-            current_conversation: name.to_string(),
-            pane: Pane::new(),
+    pub fn init(self) -> Box<Conversation> {
+        match self {
+            // _ => self.load(),
+            Context::ShortTerm(Some(conversation)) => conversation,
+            Context::ShortTerm(None) => Conversation::new(vec![], self, Pane::new()),
+            Context::Temporary => Conversation::new(vec![], self, Pane::new()),
         }
     }
-    pub fn change_conversation(&mut self, name: &str) {
-        if self.messages.keys().all(|k| k != name) {
-            self.messages.insert(name.to_string(), vec![]);
-        };
-        self.current_conversation = name.to_string();
+}
+
+impl Conversation {
+    pub fn new(messages: Vec<Value>, context: Context, pane: Pane) -> Box<Conversation> {
+        Box::new(Conversation {
+            messages,
+            context: Box::new(context),
+            pane,
+        })
     }
-    pub fn drop_conversation(&mut self) {
-        self.messages.remove(&self.current_conversation);
-        let to_convo = self.messages.keys().nth(0).unwrap().to_owned();
-        self.change_conversation(&to_convo);
+    pub fn switch(&mut self, context: Context) {
+        *self = *context.init();
     }
+    // pub fn forget_about(f: fn(Conversation) -> <T>&mut self, ) ->  {
+    //     // if self.messages.keys().all(|k| k != name) {
+    //     //     self.messages.insert(name.to_string(), vec![]);
+    //     // };
+    //     // self.current_conversation = name.to_string();
+    // }
+    // pub fn drop_conversation(&mut self) {
+    //     self.messages.remove(&self.current_conversation);
+    //     let to_convo = self.messages.keys().nth(0).unwrap().to_owned();
+    //     self.change_conversation(&to_convo);
+    // }
     pub fn append_to_messages(&mut self, role: &str, content: &str) {
         self.messages
-            .entry(self.current_conversation.clone())
-            .and_modify(|c| c.push(json!({"role": role, "content": content})));
-    }
-    pub fn current_messages(&self) -> Vec<Value> {
-        self.messages
-            .get(&self.current_conversation)
-            .unwrap()
-            .to_vec()
+            .push(json!({"role": role, "content": content}));
     }
 }
 
 impl Contextual for Directory {
-    fn make_relevant(&self, context: &mut Context) {
+    fn make_relevant(&self, context: &mut Conversation) {
         let mut files_payload = vec![];
         self.files.iter().for_each(|f| {
             files_payload.push(match f.summary.as_str() {
                 "" => format!(
                     "FilePath: {}, Content: {}",
                     &f.filepath.display(),
-                    &f.content
+                    &f.content()
                 ),
                 _ => format!(
                     "FilePath: {}, Content: {}, Summary: {}",
                     &f.filepath.display(),
-                    &f.content,
+                    &f.content(),
                     &f.summary
                 ),
             })
@@ -100,19 +98,19 @@ impl Contextual for Directory {
 }
 
 impl Contextual for Vec<File> {
-    fn make_relevant(&self, context: &mut Context) {
+    fn make_relevant(&self, context: &mut Conversation) {
         let mut payload = vec![];
         self.iter().for_each(|f| {
             payload.push(match f.summary.as_str() {
                 "" => format!(
                     "FilePath: {}, Content: {}",
                     &f.filepath.display(),
-                    &f.content
+                    &f.content()
                 ),
                 _ => format!(
                     "FilePath: {}, Content: {}, Summary: {}",
                     &f.filepath.display(),
-                    &f.content,
+                    &f.content(),
                     &f.summary
                 ),
             })
@@ -125,7 +123,7 @@ impl Contextual for Vec<File> {
 }
 
 impl Contextual for Pane {
-    fn make_relevant(&self, context: &mut Context) {
+    fn make_relevant(&self, context: &mut Conversation) {
         context.append_to_messages(
             "system",
             &format!(

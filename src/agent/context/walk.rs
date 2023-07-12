@@ -5,8 +5,9 @@ use std::path::Path;
 #[derive(Debug, Clone)]
 pub struct File {
     pub filepath: Box<Path>,
-    pub content: String,
-    pub content_embedding: Vec<f64>,
+    chunks: Vec<FileChunk>,
+    // pub content: Option<String>,
+    // pub content_embedding: Vec<f64>,
     pub summary: String,
     pub summary_embedding: Vec<f64>,
 }
@@ -61,27 +62,35 @@ impl fmt::Display for Directory {
 impl File {
     pub fn build(filepath: &str) -> File {
         File {
-            content: fs::read_to_string(&filepath).unwrap_or_else(|e| e.to_string()),
+            // content: fs::read_to_string(&filepath).unwrap_or_else(|e| e.to_string()),
             filepath: Path::new(filepath).into(),
-            content_embedding: Vec::new(),
+            chunks: vec![],
+            // content_embedding: Vec::new(),
             summary: String::new(),
             summary_embedding: Vec::new(),
         }
+        .chunkify()
     }
 
-    pub fn chunkify(&self) -> Vec<FileChunk> {
-        let mut chunks = Vec::new();
-        let lines: Vec<&str> = self.content.lines().collect();
+    pub fn chunkify(&mut self) -> Self {
+        let content = fs::read_to_string(&self.filepath).unwrap_or_else(|e| e.to_string());
+        let lines: Vec<&str> = content.lines().collect();
         lines.chunks(50).enumerate().for_each(|(i, c)| {
-            chunks.push(FileChunk {
+            self.chunks.push(FileChunk {
                 parent_filepath: self.filepath.clone(),
                 content: c.join("\n"),
                 content_embedding: Vec::new(),
                 index: i as u32,
             });
         });
+        self.to_owned()
         // chunks.iter().for_each(|c| println!("{}", c.content));
-        chunks
+    }
+
+    pub fn content(&self) -> String {
+        let mut content: Vec<&str> = Vec::new();
+        self.chunks.iter().for_each(|c| content.push(&c.content));
+        content.join("\n")
     }
 
     // pub async fn summarize(&mut self, handler: &mut AgentHandler) -> Result<(), Box<dyn Error>> {
@@ -105,12 +114,12 @@ impl Directory {
             files,
         })
     }
+
     fn walk_directory(
         root: &Path,
     ) -> Result<(Vec<Directory>, Vec<File>), Box<dyn std::error::Error>> {
         let directory_iterator = fs::read_dir(root)
             .expect("Couldn't read root dir")
-            // .max_depth(1)
             .into_iter()
             .filter_map(|entry| entry.ok().map(|path| path.path()));
 

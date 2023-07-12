@@ -4,7 +4,7 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Pane {
     pub name: String,
     pub contents: HashMap<String, String>,
