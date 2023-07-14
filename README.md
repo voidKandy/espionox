@@ -1,8 +1,8 @@
-# Consoxide
+# 🦀 Consoxide 🦀
 
 Breathing life into your console sessions with Ai!
 
-Consoxide puts the power of LLMs into your very own console! All you need is to run the `start.sh` file to get the tmux session running.
+Consoxide puts the power of LLMs into your own console! All you need is to run the `start.sh` file to get the tmux session running.
 
 ## Current features
 * Agent 'watches' your commands in the agent tmux window. It can offer help with any errors that get run through that terminal window.
