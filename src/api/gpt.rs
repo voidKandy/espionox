@@ -36,6 +36,7 @@ pub struct GptConfig {
 
 impl GptResponse {
     pub fn parse_response(&self) -> Result<String, Box<dyn Error>> {
+        // println!("{:?}", &self);
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err("Unable to parse completion response".into()),
@@ -98,7 +99,7 @@ impl Gpt {
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
         let model = env::var("GPT_MODEL").unwrap();
         let payload =
-            json!({"model": model, "messages": context, "max_tokens": 2000, "n": 1, "stop": null});
+            json!({"model": model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
         let response = self
             .config
             .client
