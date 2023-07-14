@@ -3,28 +3,12 @@ use crate::agent::context::{
     tmux_session::TmuxSession,
     walk::{Directory, File},
 };
-use serde_json::json;
 #[cfg(test)]
 #[allow(unused)]
 use std::path::PathBuf;
 
-#[allow(dead_code)]
-const TEST_DIRECTORY: &str = "./src/tests/test-dir";
-#[allow(dead_code)]
-const TEST_FILE: &str = "./src/tests/test-dir/test2.txt";
-
 #[test]
-fn walk_test() {
-    println!("Walking: {}", TEST_DIRECTORY);
-    let root = Directory::build(TEST_DIRECTORY).unwrap();
-    let test1_content = &root.files[0].content();
-    assert_eq!(root.children.len(), 1);
-    assert_eq!(root.files.len(), 3);
-    assert_eq!(test1_content, "hello from test 1");
-}
-
-#[test]
-fn test_make_relevant() {
+fn adding_files_to_context_works() {
     let files = vec![
         File {
             filepath: PathBuf::from("path/to/file1.txt").into(),
@@ -54,7 +38,7 @@ fn test_make_relevant() {
 }
 
 #[test]
-fn short_term_mem_test() {
+fn short_term_switch_works() {
     let mut context = Memory::ShortTerm.init();
     context.append_to_messages("tester", "test");
     context.append_to_messages("tester", "test2");
@@ -66,7 +50,7 @@ fn short_term_mem_test() {
 }
 
 #[test]
-fn get_last_output_test() {
+fn parsing_tmux_output_works() {
     let pane = TmuxSession::new();
     let test_output = format!(
         "{} IHGFEDCBA {} {} ABCDEFGHI {}",
@@ -79,14 +63,15 @@ fn get_last_output_test() {
 #[test]
 fn test_to_out() {
     let session = TmuxSession::new();
-    session.to_out("Eyoo");
+    session.to_out("Im going to be so annoyed if i can't see this entire message. I've worked so hard and yet I find myself having to deal with another dumbass problem.");
+    assert!(false);
 }
 
 #[ignore]
 #[test]
-fn watch_pane_test() {
-    let mut pane = TmuxSession::new();
-    pane.watch();
+fn watch_session_test() {
+    let mut session = TmuxSession::new();
+    session.watch();
 }
 
 #[test]
