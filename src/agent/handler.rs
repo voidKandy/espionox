@@ -1,5 +1,5 @@
 use super::context::{
-    config::{Context, Contextual, Conversation},
+    config::{Context, Contextual, Memory},
     walk::File,
 };
 use super::functions::config::Function;
@@ -9,32 +9,31 @@ use std::error::Error;
 
 pub struct AgentHandler {
     pub gpt: Gpt,
-    pub context: Conversation,
+    pub context: Context,
 }
 
 impl AgentHandler {
-    pub fn new(context: Context) -> AgentHandler {
+    pub fn new(context: Memory) -> AgentHandler {
         let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         AgentHandler {
             gpt: Gpt::init(&init_prompt),
-            context: *context.init(),
+            context: context.init(),
         }
     }
 
     pub async fn summarize(&mut self, content: &str) -> String {
-        let c = self.context.context.clone();
-        self.context.switch(Context::Temporary);
+        self.context.switch(Memory::Temporary);
         let summarize_prompt = format!("Summarize the given code to the best of your ability. Be as succinct as possible while also being as thorough as possible. Content: {}", content);
         self.context.append_to_messages("system", &summarize_prompt);
-        let summary = self.prompt().await.unwrap();
-        self.context.switch(*c);
-        summary
+        let response = self.prompt().await.unwrap();
+        self.context.switch(Memory::ShortTerm);
+        response
     }
 
     pub async fn monitor_user(&mut self) {
         // loop {
-        self.context.pane.watch();
-        if self.context.pane.is_problematic() {
+        self.context.session.watch();
+        if self.context.session.is_problematic() {
             println!("[PROBLEM DETECTED]");
             self.offer_help().await.unwrap();
         };
@@ -42,7 +41,7 @@ impl AgentHandler {
     }
 
     async fn offer_help(&mut self) -> Result<(), Box<dyn Error>> {
-        let content = match self.context.pane.contents.iter().last() {
+        let content = match self.context.session.contents.iter().last() {
             Some((last_in, last_out)) => {
                 format!(
                     "This command was run: {}, Which resulted in this error: {}",
@@ -50,63 +49,35 @@ impl AgentHandler {
                 )
             }
             None => {
-                return Err("No Conversation".into());
+                return Err("No Context".into());
             }
         };
         self.context.append_to_messages("system", &content);
-        let relevant_files = self
+        let relevant_paths = self
             .function_prompt(&FnEnum::RelevantFiles.to_function())
             .await
             .unwrap();
 
-        println!("{relevant_files:?}");
-        let mut relevant_files = relevant_files
+        self.context
+            .session
+            .to_out(&format!("Relavent Files: [{relevant_paths:?}]",));
+
+        let relevant_files = relevant_paths
             .into_iter()
             .map(|f| File::build(&f))
             .collect::<Vec<File>>();
-        for file in relevant_files.iter_mut() {
-            file.summary = self.summarize(&file.content()).await;
-        }
+        // for file in relevant_files.iter_mut() {
+        //     file.summary = self.summarize(&file.content()).await;
+        // }
         relevant_files.make_relevant(&mut self.context);
 
         self.context.append_to_messages("system", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
-        println!("{}", self.prompt().await.unwrap());
+        // println!("{:?}", self.context.messages);
+        let help = self.prompt().await.unwrap();
+        self.context.session.to_out(&help);
+        println!("{}", help);
         Ok(())
     }
-
-    // async fn handle_problem(&mut self) -> Result<Vec<String>, Box<dyn Error>> {
-    //     match self.context.pane.contents.iter().last() {
-    //         Some((last_in, last_out)) => {
-    //             let content = format!(
-    //                 "This command was run: {}, Which resulted in this error: {}",
-    //                 last_in, last_out
-    //             );
-    //             self.context.append_to_messages("system", &content);
-    //             let relevant_files = self
-    //                 .function_prompt(&FnEnum::RelevantFiles.to_function())
-    //                 .await
-    //                 .unwrap();
-    //
-    //             println!("{relevant_files:?}");
-    //             relevant_files
-    //                 .into_iter()
-    //                 .map(|f| File::build(&f))
-    //                 .collect::<Vec<File>>()
-    //                 .make_relevant(&mut self.context);
-    //         }
-    //         None => {
-    //             return Err("No context".into());
-    //         }
-    //     }
-    //     self.context.append_to_messages("system", "Given the files and the given error message, clearly express what the most urgent problem and and what files it pertains to.");
-    //     println!("{}", self.prompt().await.unwrap());
-    //     let tasks = self
-    //         .function_prompt(&FnEnum::ProblemSolveTasklist.to_function())
-    //         .await
-    //         .unwrap();
-    //     self.function_prompt(&FnEnum::ExecuteGenerateRead.to_function())
-    //         .await
-    // }
 
     pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
         match self
