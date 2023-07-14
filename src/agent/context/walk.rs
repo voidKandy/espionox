@@ -5,7 +5,7 @@ use std::path::Path;
 #[derive(Debug, Clone)]
 pub struct File {
     pub filepath: Box<Path>,
-    chunks: Vec<FileChunk>,
+    pub chunks: Vec<FileChunk>,
     // pub content: Option<String>,
     // pub content_embedding: Vec<f64>,
     pub summary: String,
