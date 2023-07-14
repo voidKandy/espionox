@@ -60,7 +60,7 @@ impl AgentHandler {
 
         self.context
             .session
-            .to_out(&format!("Relavent Files: [{relevant_paths:?}]",));
+            .to_out(&format!("Relavent Files: {relevant_paths:?}\n",));
 
         let relevant_files = relevant_paths
             .into_iter()
@@ -74,8 +74,7 @@ impl AgentHandler {
         self.context.append_to_messages("system", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
         // println!("{:?}", self.context.messages);
         let help = self.prompt().await.unwrap();
-        self.context.session.to_out(&help);
-        println!("{}", help);
+        self.context.session.to_out(&format!("{}\n", &help));
         Ok(())
     }
 

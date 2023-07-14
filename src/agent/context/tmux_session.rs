@@ -73,7 +73,37 @@ impl TmuxSession {
     }
 
     pub fn to_out(&self, content: &str) -> () {
-        let command = format!("echo {}", content);
+        use std::process::Stdio;
+        let args = [
+            "display-message",
+            "-p",
+            "-t",
+            &self.output_pane,
+            "#{pane_width}",
+        ];
+
+        let output = Command::new("tmux")
+            .args(args)
+            .stdout(Stdio::piped())
+            .output()
+            .expect("Failed to execute command");
+
+        let pane_width = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<usize>()
+            .expect("Failed to parse pane width as usize");
+
+        let cut_string: Vec<String> = content
+            .chars()
+            .collect::<String>()
+            .as_str()
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(pane_width)
+            .map(|chunk| chunk.iter().collect::<String>())
+            .collect();
+
+        let command = format!("echo '{}'", cut_string.join("\n"));
         let args = vec![
             "run-shell",
             "-b",
@@ -90,7 +120,7 @@ impl TmuxSession {
     }
 
     fn capture_content(&self) -> String {
-        let args = vec!["capture-pane", "-p", "-S", "-20", "-t", &self.watched_pane];
+        let args = vec!["capture-pane", "-p", "-S", "-50", "-t", &self.watched_pane];
         let command = Command::new("tmux")
             .args(args)
             .output()
