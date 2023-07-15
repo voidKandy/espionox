@@ -1,10 +1,13 @@
-use super::context::{
-    config::{Context, Contextual, Memory},
-    walk::File,
-};
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
-use crate::api::gpt::Gpt;
+use crate::lib::models::gpt::Gpt;
+use crate::lib::{
+    agent::config::{
+        context::{Context, Contextual},
+        memory::Memory,
+    },
+    io::walk::File,
+};
 use std::error::Error;
 
 pub struct AgentHandler {
@@ -72,7 +75,7 @@ impl AgentHandler {
         relevant_files.make_relevant(&mut self.context);
 
         self.context.append_to_messages("system", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
-        // println!("{:?}", self.context.messages);
+        println!("{:?}", self.context.messages);
         let help = self.prompt().await.unwrap();
         self.context.session.to_out(&format!("{}\n", &help));
         Ok(())

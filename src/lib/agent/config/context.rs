@@ -1,10 +1,10 @@
-use super::tmux_session::TmuxSession;
-use super::walk::{Directory, File};
+use super::memory::Memory;
+use crate::lib::io::{
+    tmux_session::TmuxSession,
+    walk::{Directory, File},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::error::Error;
-use std::fs;
-use std::io::prelude::*;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Context {
@@ -15,60 +15,6 @@ pub struct Context {
 
 pub trait Contextual {
     fn make_relevant(&self, context: &mut Context);
-}
-
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Memory {
-    LongTerm,
-    ShortTerm,
-    Temporary,
-}
-
-impl Memory {
-    pub const SHORT_TERM_PATH: &str = "./src/agent/context/short_term_memory.json";
-    pub fn init(self) -> Context {
-        match self {
-            Memory::LongTerm => {
-                Context::new(self.load_long_term().unwrap(), self, TmuxSession::new())
-            }
-            _ => Context::new(vec![], self, TmuxSession::new()),
-        }
-    }
-
-    pub fn load_long_term(&self) -> Result<Vec<Value>, Box<dyn Error>> {
-        unimplemented!();
-    }
-
-    pub fn load_short_term(&self) -> Result<Vec<Value>, Box<dyn Error>> {
-        let mut contents = String::new();
-        fs::File::open(Self::SHORT_TERM_PATH)?.read_to_string(&mut contents)?;
-        println!("{contents}");
-        match serde_json::from_str(&contents) {
-            Ok(Value::Array(array)) => {
-                return Ok(array);
-            }
-            Err(err) => {
-                return Err(format!("Problem getting Json from String: {err:?}").into());
-            }
-            Ok(data) => Ok(vec![data]),
-        }
-    }
-
-    pub fn save_to_short_term(&self, content: Vec<Value>) -> bool {
-        fs::write(
-            Self::SHORT_TERM_PATH,
-            format!(
-                "[{}]",
-                content
-                    .iter()
-                    .map(|m| m.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ),
-        )
-        .unwrap();
-        true
-    }
 }
 
 impl Context {
@@ -169,9 +115,11 @@ impl Contextual for TmuxSession {
         context.append_to_messages(
             "system",
             &format!(
-                "TmuxSession:\n watched_pane: {}, present directory: {}, contents: [{}]",
-                self.watched_pane,
-                self.pwd,
+                "TmuxSession:\n watched_pane: {}\noutput_pane: {}
+                    \n contents: [{}]\n",
+                self.watched_pane.name,
+                self.output_pane.name,
+                // self.pwd,
                 self.contents
                     .values()
                     .into_iter()

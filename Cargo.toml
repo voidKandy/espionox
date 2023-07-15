@@ -3,6 +3,13 @@ name = "consoxide"
 version = "0.1.0"
 edition = "2021"
 
+# [lib]
+# path = "src/lib/mod.rs"
+#
+# [bin]
+# path = "src/main.rs"
+# name = "consoxide"
+
 [dependencies]
 dotenv = "0.15.0"
 anyhow = "1.0.71"

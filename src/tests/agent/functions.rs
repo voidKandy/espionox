@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::agent::functions::enums::FnEnum;
+use crate::lib::agent::functions::enums::FnEnum;
 use serde_json::json;
 use serde_json::Value;
 

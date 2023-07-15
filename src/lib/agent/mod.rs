@@ -1,3 +1,3 @@
-pub mod context;
+pub mod config;
 pub mod functions;
 pub mod handler;

@@ -1,4 +1,4 @@
-use crate::api::{bert, database::db};
+use crate::lib::{database::db, models::bert};
 
 #[cfg(test)]
 #[tokio::test]

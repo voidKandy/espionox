@@ -1,4 +1,4 @@
-use crate::agent::functions::config::{Function, Perameters, Property};
+use super::config::{Function, Perameters, Property};
 
 #[derive(Clone)]
 pub enum FnEnum {
