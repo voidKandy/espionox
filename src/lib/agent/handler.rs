@@ -1,5 +1,6 @@
 use super::functions::config::Function;
 use super::functions::enums::FnEnum;
+use crate::lib::io::tmux_session::InSession;
 use crate::lib::models::gpt::Gpt;
 use crate::lib::{
     agent::config::{
@@ -9,6 +10,7 @@ use crate::lib::{
     io::walk::File,
 };
 use std::error::Error;
+use std::fmt::format;
 
 pub struct AgentHandler {
     pub gpt: Gpt,
@@ -26,7 +28,7 @@ impl AgentHandler {
 
     pub async fn summarize(&mut self, content: &str) -> String {
         self.context.switch(Memory::Temporary);
-        let summarize_prompt = format!("Summarize the given code to the best of your ability. Be as succinct as possible while also being as thorough as possible. Content: {}", content);
+        let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
         self.context.append_to_messages("system", &summarize_prompt);
         let response = self.prompt().await.unwrap();
         self.context.switch(Memory::ShortTerm);
@@ -35,48 +37,56 @@ impl AgentHandler {
 
     pub async fn monitor_user(&mut self) {
         // loop {
-        self.context.session.watch();
-        if self.context.session.is_problematic() {
-            println!("[PROBLEM DETECTED]");
-            self.offer_help().await.unwrap();
-        };
+        let (i, o) = self.context.session.watched_pane.cl_io();
+        self.context.session.io.insert(i, o);
+        self.offer_help().await.unwrap();
         // }
     }
 
     async fn offer_help(&mut self) -> Result<(), Box<dyn Error>> {
-        let content = match self.context.session.contents.iter().last() {
-            Some((last_in, last_out)) => {
+        let content = match self.context.session.io.iter().last() {
+            Some((i, o)) => {
                 format!(
-                    "This command was run: {}, Which resulted in this error: {}",
-                    last_in, last_out
+                    "This command was run: [{}]\nWhich resulted in this error: {}",
+                    i, o
                 )
             }
             None => {
-                return Err("No Context".into());
+                return Err("No io".into());
             }
         };
-        self.context.append_to_messages("system", &content);
+        self.context.append_to_messages("user", &content);
+
         let relevant_paths = self
             .function_prompt(&FnEnum::RelevantFiles.to_function())
             .await
             .unwrap();
-
         self.context
             .session
             .to_out(&format!("Relavent Files: {relevant_paths:?}\n",));
 
-        let relevant_files = relevant_paths
+        let mut relevant_files = relevant_paths
             .into_iter()
             .map(|f| File::build(&f))
             .collect::<Vec<File>>();
-        // for file in relevant_files.iter_mut() {
-        //     file.summary = self.summarize(&file.content()).await;
-        // }
-        relevant_files.make_relevant(&mut self.context);
+        for file in relevant_files.iter_mut() {
+            file.summary = self.summarize(&file.content()).await;
+        }
+        // relevant_files.make_relevant(&mut self.context);
+        relevant_files.iter().for_each(|f| {
+            let content = format!(
+                "FilePath: {}\nSummary of the file's contents: {}",
+                f.filepath.display().to_string(),
+                f.summary,
+            );
+            self.context.append_to_messages("user", &content);
+        });
 
-        self.context.append_to_messages("system", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
-        println!("{:?}", self.context.messages);
-        let help = self.prompt().await.unwrap();
+        self.context.append_to_messages("user", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
+        let help = match self.prompt().await {
+            Ok(response) => response,
+            Err(err) => panic!("Error broke completion: {:?}", err),
+        };
         self.context.session.to_out(&format!("{}\n", &help));
         Ok(())
     }
