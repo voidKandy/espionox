@@ -15,7 +15,7 @@ pub enum Memory {
 }
 
 impl Memory {
-    pub const SHORT_TERM_PATH: &str = "./src/agent/context/short_term_memory.json";
+    pub const SHORT_TERM_PATH: &str = "./src/lib/agent/config/short_term_memory.json";
     pub fn init(self) -> Context {
         match self {
             Memory::LongTerm => {
