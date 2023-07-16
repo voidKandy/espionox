@@ -72,13 +72,6 @@ fn test_to_out() {
     assert!(false);
 }
 
-#[ignore]
-#[test]
-fn watch_session_test() {
-    let mut session = TmuxSession::new();
-    session.watch();
-}
-
 #[test]
 fn fail() {
     assert!(false);
