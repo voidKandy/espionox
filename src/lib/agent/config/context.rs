@@ -116,11 +116,11 @@ impl Contextual for TmuxSession {
             "system",
             &format!(
                 "TmuxSession:\n watched_pane: {}\noutput_pane: {}
-                    \n contents: [{}]\n",
+                    \n io: [{}]\n",
                 self.watched_pane.name,
                 self.output_pane.name,
                 // self.pwd,
-                self.contents
+                self.io
                     .values()
                     .into_iter()
                     .map(|c| c.to_string())

@@ -12,7 +12,7 @@ use std::time::Duration;
 pub struct TmuxSession {
     pub watched_pane: Pane,
     pub output_pane: Pane,
-    pub contents: HashMap<String, String>,
+    pub io: HashMap<String, String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -25,7 +25,7 @@ pub struct Pane {
 }
 pub trait InSession {
     fn wrap_text(&self, content: &str) -> String;
-    fn listen(&self) -> (String, String);
+    fn cl_io(&self) -> (String, String);
     fn print(&self, message: &str);
 }
 
@@ -84,10 +84,10 @@ impl Pane {
         assert!(start_idcs.iter().all(|i| i < &content.len()));
         assert!(end_idcs.iter().all(|i| i < &content.len()));
         println!(
-            "start: {:?}End: {:?}\nContent Len: {}",
+            "Grabbed {:?} lines of output\n------------------\nStart indices\n------------------\n{:?}\n------------------\nEnd indices\n------------------\n{:?}\n------------------",
+            content.len(),
             start_idcs,
             end_idcs,
-            &content.len()
         );
         content[start_idcs[start_idcs.len() - 1]..end_idcs[end_idcs.len() - 1]].to_string()
     }
@@ -114,16 +114,16 @@ impl InSession for Pane {
         })
     }
 
-    fn listen(&self) -> (String, String) {
+    fn cl_io(&self) -> (String, String) {
         // loop {
-        let prompt = Text::new("::: ").prompt().unwrap();
-        let pargs: Vec<&str> = prompt.split(" ").collect();
+        let input = Text::new("::: ").prompt().unwrap();
+        let pargs: Vec<&str> = input.split(" ").collect();
 
         let args = match pargs[0] {
-            "cd" => prompt.clone(),
-            _ => self.fmt_args(&prompt),
+            "cd" => input.clone(),
+            _ => self.fmt_args(&input),
         };
-        println!("{:?}", &args);
+        // println!("{:?}", &args);
         let args = ["send-keys", "-t", &self.name, &args, "Enter"];
         Command::new("tmux")
             .args(args)
@@ -132,10 +132,7 @@ impl InSession for Pane {
             .expect("failed to execute tmux command");
         thread::sleep(Duration::from_millis(500));
         let out = self.get_last_output(self.capture_content());
-        (prompt, out)
-        // self.contents
-        //     .insert(prompt, self.get_last_output(command_output_string));
-        // }
+        (input, out)
     }
 
     fn print(&self, message: &str) {
@@ -154,7 +151,7 @@ impl TmuxSession {
         TmuxSession {
             watched_pane: Pane::new(&env::var("WATCHED_PANE").unwrap()),
             output_pane: Pane::new(&env::var("OUTPUT_PANE").unwrap()),
-            contents: HashMap::new(),
+            io: HashMap::new(),
             // pwd: TmuxSession::get_pwd(),
             // match_patterns: (default_start_pattern, default_end_pattern),
         }
@@ -168,13 +165,13 @@ impl TmuxSession {
     }
 
     pub fn watch(&mut self) {
-        let (p, c) = self.watched_pane.listen();
-        self.contents.insert(p, c);
+        let (p, c) = self.watched_pane.cl_io();
+        self.io.insert(p, c);
     }
 
     pub fn is_problematic(&self) -> bool {
         let error_substrings = ["error", "failure", "problem"];
-        match self.contents.iter().last() {
+        match self.io.iter().last() {
             Some((_, last_out)) => error_substrings
                 .iter()
                 .any(|substring| last_out.to_lowercase().contains(substring)),
