@@ -36,7 +36,7 @@ pub struct GptConfig {
 
 impl GptResponse {
     pub fn parse_response(&self) -> Result<String, Box<dyn Error>> {
-        // println!("{:?}", &self);
+        println!("{:?}", &self);
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err("Unable to parse completion response".into()),
@@ -53,7 +53,7 @@ impl GptResponse {
             .function_call
         {
             Some(response) => {
-                println!("{:?}", response);
+                // println!("{:?}", response);
                 let args_json = response
                     .get("arguments")
                     .expect("Couldn't parse arguments")
@@ -100,7 +100,8 @@ impl Gpt {
         let model = env::var("GPT_MODEL").unwrap();
         let payload =
             json!({"model": model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
-        let response = self
+        println!("   PAYLOAD\n_____________________\n\n{:?}\n", &payload);
+        match self
             .config
             .client
             .post(&self.config.url.clone())
@@ -108,10 +109,18 @@ impl Gpt {
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-
-        let gpt_response: GptResponse = response.json().await?;
-        Ok(gpt_response)
+            .await
+        {
+            Ok(response) => {
+                let gpt_response: GptResponse = response.json().await?;
+                println!("{:?}", gpt_response);
+                Ok(gpt_response)
+            }
+            Err(err) => {
+                println!("Completion Error: {err:?}");
+                Err(err.into())
+            }
+        }
     }
 
     pub async fn function_completion(
