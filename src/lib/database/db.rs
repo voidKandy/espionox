@@ -1,4 +1,6 @@
 #![allow(unused)]
+use super::models;
+use super::models::ContextModelSql;
 use dotenv::dotenv;
 use sqlx::postgres::PgQueryResult;
 use sqlx::Connection;
@@ -14,64 +16,65 @@ pub async fn create_pool() -> sqlx::Result<sqlx::PgPool> {
     sqlx::postgres::PgPool::connect(&url).await
 }
 
-//
-// pub async fn read_by_key(key: &str, val: &str, pool: &sqlx::PgPool) -> Result<Vec<Password>> {
-//     let q = format!(
-//         "SELECT id, username, password, service FROM password WHERE {} ILIKE '%'||$1||'%'",
-//         key
-//     );
-//     let query = sqlx::query_as::<_, Password>(&q).bind(val);
-//     Ok(query.fetch_all(pool).await?)
-// }
-//
-// pub async fn password_exist(password: &Password, pool: &sqlx::PgPool) -> bool {
-//     let query = "SELECT EXISTS (SELECT * FROM password WHERE username = $1 AND password = $2 AND service = $3)";
-//
-//     let res: Result<(bool,), sqlx::Error> = sqlx::query_scalar(query)
-//         .bind(&password.username)
-//         .bind(&password.password)
-//         .bind(&password.service)
-//         .fetch_one(pool)
-//         .await;
-//     match res {
-//         Ok((exists,)) => exists,
-//         Err(error) => false,
-//     }
-// }
-//
-// pub async fn drop_by_key(key: &str, val: &str, pool: &sqlx::PgPool) -> Result<()> {
-//     let query = format!("DELETE FROM password WHERE {} = $1", key);
-//     let res = sqlx::query(&query).bind(val).execute(pool).await;
-//     match res {
-//         Ok(qres) => println!("Deleted password(s) where {} = {}", key, val),
-//         Err(error) => println!("{error}"),
-//     }
-//     Ok(())
-// }
-//
-// pub async fn insert(password: &Password, pool: &sqlx::PgPool) -> Result<()> {
-//     let query = "INSERT INTO password (id, username, password, service) VALUES ($1, $2, $3, $4)";
-//
-//     sqlx::query(query)
-//         .bind(&password.id)
-//         .bind(&password.username)
-//         .bind(&password.password)
-//         .bind(&password.service)
-//         .execute(pool)
-//         .await?;
-//     Ok(())
-// }
-//
-// pub async fn update(password: &Password, pool: &sqlx::PgPool) -> Result<()> {
-//     let query = "UPDATE password SET username = $2, password = $3, service = $4 WHERE id = $1";
-//
-//     sqlx::query(query)
-//         .bind(&password.id)
-//         .bind(&password.username)
-//         .bind(&password.password)
-//         .bind(&password.service)
-//         .execute(pool)
-//         .await?;
-//
-//     Ok(())
-// }
+pub async fn get_context(
+    params: models::ContextParams,
+    pool: &sqlx::PgPool,
+) -> anyhow::Result<ContextModelSql> {
+    match sqlx::query_as!(
+        ContextModelSql,
+        "SELECT * FROM contexts WHERE name = $1",
+        params.name
+    )
+    .fetch_one(pool)
+    .await
+    {
+        Ok(result) => Ok(result),
+        Err(err) => Err(err.into()),
+    }
+}
+
+pub async fn post_context(
+    params: models::ContextParams,
+    pool: &sqlx::PgPool,
+) -> anyhow::Result<PgQueryResult> {
+    let query = format!("INSERT INTO contexts (id, name) VALUES ($1, $2)");
+    match sqlx::query(&query)
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(params.name)
+        .execute(pool)
+        .await
+    {
+        Ok(res) => Ok(res),
+        Err(err) => Err(err.into()),
+    }
+}
+
+pub async fn delete_context(
+    params: models::ContextParams,
+    pool: &sqlx::PgPool,
+) -> anyhow::Result<PgQueryResult> {
+    let query = &format!("DELETE FROM contexts WHERE name = $1");
+    match sqlx::query(&query).bind(params.name).execute(pool).await {
+        Ok(rows) => Ok(rows),
+        Err(err) => Err(err.into()),
+    }
+}
+
+pub async fn post_file(
+    file: models::InsertFileBody,
+    pool: &sqlx::PgPool,
+) -> anyhow::Result<PgQueryResult> {
+    let query = "INSERT INTO files (id, filepath, parent_dir_path, summary, summary_embedding) VALUES ($1, $2, $3, $4)";
+    match sqlx::query(query)
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(file.filepath)
+        .bind(file.parent_dir_path)
+        .bind(file.summary)
+        .bind(file.summary_embedding)
+        .execute(pool)
+        .await
+    {
+        Ok(res) => Ok(res),
+        Err(err) => Err(err.into()),
+    }
+}
