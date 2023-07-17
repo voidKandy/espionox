@@ -224,6 +224,7 @@ dependencies = [
  "tch",
  "tmux_interface",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -23,4 +23,5 @@ serde_derive = "1.0.164"
 serde_json = "1.0.97"
 tmux_interface = "0.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
+uuid = "1.4.0"
 
