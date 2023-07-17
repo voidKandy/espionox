@@ -5,6 +5,7 @@ pub enum FnEnum {
     // GeneralDescription,
     GetCommands,
     RelevantFiles,
+    SplitErrorMessage,
     ProblemSolveTasklist,
     ExecuteGenerateRead,
 }
@@ -43,7 +44,22 @@ impl FnEnum {
                 let perameters = Perameters::new("object", &properties, &["files"]);
                 Function::new(
                     "relevent_files",
-                    "Given an error message, get a list of relavent files. Be extremely thorough. If a file is included in the error message, it should be included in the resulting array.",
+                    "Given a message, get a list of relavent files. Be extremely thorough. If a file is included in the message, it should be included in the resulting array.",
+                    perameters,
+                )
+            }
+
+            FnEnum::SplitErrorMessage => {
+                let properties = [Property::new(
+                    "errors",
+                    "array",
+                    "a list of errors to process",
+                    &[("type", "string"), ("description", "an error message")],
+                )];
+                let perameters = Perameters::new("object", &properties, &["erros"]);
+                Function::new(
+                    "split_error_messaage",
+                    "Given stdout from an error message, split the error message by file.",
                     perameters,
                 )
             }
