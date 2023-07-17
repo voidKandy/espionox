@@ -24,4 +24,5 @@ serde_json = "1.0.97"
 tmux_interface = "0.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
 uuid = "1.4.0"
+pgvector = { version = "0.2.2", features = ["sqlx"] }
 
