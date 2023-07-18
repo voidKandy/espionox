@@ -13,4 +13,4 @@ Consoxide puts the power of LLMs into your own console! All you need is to run t
 * Long term memory using `pgvector` in a postgres SQL server
 * User tailored configuration
 * The ability to add arbitrary directories anywhere on your harddrive to long term memory
-  * Dynamicly update when changes are made
+  * Dynamically update when changes are made
