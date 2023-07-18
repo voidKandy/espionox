@@ -1,2 +1,2 @@
-pub mod tmux_session;
-pub mod walk;
+pub mod file_interface;
+pub mod tmux;

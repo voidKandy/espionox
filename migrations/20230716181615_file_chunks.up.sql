@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS file_chunks (
     id TEXT PRIMARY KEY,
     parent_file_id TEXT NOT NULL,
-    idx INTEGER NOT NULL,
+    idx smallint NOT NULL,
     content TEXT NOT NULL,
     content_embedding vector(384)
 );

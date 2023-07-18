@@ -1,3 +1,4 @@
+// ------ CONTEXTS ------ //
 #[derive(sqlx::FromRow, Clone)]
 pub struct ContextModelSql {
     pub id: String,
@@ -9,6 +10,7 @@ pub struct ContextParams {
     pub name: String,
 }
 
+// ------ FILES ------ //
 #[derive(sqlx::FromRow, Clone)]
 pub struct FileModelSql {
     pub id: String,
@@ -35,9 +37,51 @@ pub struct DeleteFileParams {
     pub filepath: String,
 }
 
-pub struct CreateFileChunksBody {
+// ------ FILECHUNKS ------ //
+#[derive(sqlx::FromRow, Clone)]
+pub struct FileChunkModelSql {
+    pub id: String,
     pub parent_file_id: String,
-    pub index: u8,
+    pub idx: i16,
     pub content: String,
     pub content_embedding: pgvector::Vector,
+}
+
+pub struct CreateFileChunkBody {
+    pub parent_file_id: String,
+    pub idx: i16,
+    pub content: String,
+    pub content_embedding: pgvector::Vector,
+}
+
+pub struct GetFileChunkParams {
+    pub parent_file_id: String,
+}
+
+pub struct DeleteFileChunkParams {
+    pub parent_file_id: String,
+    pub idx: i16,
+}
+
+// ------ ERRORS ------ //
+#[derive(sqlx::FromRow, Clone)]
+pub struct ErrorModelSql {
+    pub id: String,
+    pub context_id: String,
+    pub content: String,
+    pub content_embedding: pgvector::Vector,
+}
+
+pub struct CreateErrorBody {
+    pub context_id: String,
+    pub content: String,
+    pub content_embedding: pgvector::Vector,
+}
+
+pub struct GetErrorParams {
+    pub context_id: String,
+}
+
+pub struct DeleteErrorParams {
+    pub id: String,
 }

@@ -1,16 +1,15 @@
-use super::functions::config::Function;
-use super::functions::enums::FnEnum;
-use crate::lib::io::tmux_session::InSession;
-use crate::lib::models::gpt::Gpt;
+use super::super::functions::config::Function;
+use super::super::functions::enums::FnEnum;
+use crate::lib::io::tmux::pane::InSession;
+use crate::lib::language_models::gpt::Gpt;
 use crate::lib::{
-    agent::config::{
-        context::{Context, Contextual},
-        memory::Memory,
+    agent::{
+        config::memory::Memory,
+        handler::context::{Context, Contextual},
     },
-    io::walk::File,
+    io::file_interface::File,
 };
 use std::error::Error;
-use std::fmt::format;
 
 pub struct AgentHandler {
     pub gpt: Gpt,
@@ -47,7 +46,7 @@ impl AgentHandler {
         let content = match self.context.session.io.iter().last() {
             Some((i, o)) => {
                 format!(
-                    "This command was run: [{}]\nWhich resulted in this error: {}",
+                    "This command was run: [{}]\nWhich resulted in this error: [{}]",
                     i, o
                 )
             }
@@ -82,14 +81,43 @@ impl AgentHandler {
             self.context.append_to_messages("user", &content);
         });
 
-        self.context.append_to_messages("user", "Given the files and the error message, clearly express what the most urgent problem is. If you know how to solve the problem, show a code snippet of how to solve it.");
+        self.context.append_to_messages("user", "Given the files and the error message, clearly express what the most urgent problem is and which single file it is in. If you know how to solve the problem, explain how it can be fixed.");
         let help = match self.prompt().await {
             Ok(response) => response,
             Err(err) => panic!("Error broke completion: {:?}", err),
         };
         self.context.session.to_out(&format!("{}\n", &help));
+
+        // NOw fix
+
+        let mut mem = Memory::Temporary.init();
+        mem.append_to_messages("system", &help);
+        let relevant_paths = self
+            .function_prompt(&FnEnum::RelevantFiles.to_function())
+            .await
+            .unwrap();
+
+        mem = Memory::Temporary.init();
+        let content = "You are a fixer agent. You will be given the summation of a programming error and it's solution. You will also be given the contents of the file that caused the error as it is. Your job is to recreate the file exactly as it is, except for the change that must be made to fix the error. Output should be only the recreated file content with the fix implemented.";
+        mem.append_to_messages("system", content);
+
+        let file = File::build(&relevant_paths[0]);
+        let content = &format!(
+            "Here is the file: {}\nHere is the error and it's proposed solution: {}",
+            file.content(),
+            &help
+        );
+        mem.append_to_messages("user", content);
+
+        let fix = match self.prompt().await {
+            Ok(response) => response,
+            Err(err) => panic!("Error broke completion: {:?}", err),
+        };
+        self.context.session.to_out(&format!("{}\n", &fix));
         Ok(())
     }
+
+    pub fn fix(&mut self) {}
 
     pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
         match self

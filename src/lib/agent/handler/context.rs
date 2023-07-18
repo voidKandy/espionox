@@ -1,7 +1,7 @@
-use super::memory::Memory;
+use super::super::config::memory::Memory;
 use crate::lib::io::{
-    tmux_session::TmuxSession,
-    walk::{Directory, File},
+    file_interface::{Directory, File},
+    tmux::session::TmuxSession,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
