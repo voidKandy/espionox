@@ -1,4 +1,4 @@
-use crate::lib::database::{db, models};
+use consoxide::database::{db, models};
 use tokio;
 
 // ------ CONTEXT ------ //

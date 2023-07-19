@@ -1,4 +1,4 @@
-use crate::lib::io::tmux::{
+use consoxide::io::tmux::{
     pane::{InSession, Pane},
     session::TmuxSession,
 };
@@ -7,10 +7,11 @@ use crate::lib::io::tmux::{
 fn tmux_io_monitor_works() {
     dotenv::dotenv().ok();
     let pane = Pane::new(&std::env::var("WATCHED_PANE").expect("Problem with env"));
-    pane.run_input("echo 'Test'".to_string());
 
-    let last_out = pane.last_io();
-    assert_eq!(last_out, "\nTest\n");
+    let out = pane.run_input("echo Test".to_string());
+
+    // let last_out = pane.last_io();
+    assert_eq!(out, "Test\n");
 }
 
 #[test]

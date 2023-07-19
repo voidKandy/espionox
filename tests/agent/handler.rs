@@ -1,7 +1,9 @@
-use crate::lib::agent::config::memory::Memory;
-use crate::lib::agent::functions::enums::FnEnum;
 #[allow(unused_imports)]
-use crate::lib::agent::handler::{context::Context, controller::AgentHandler};
+use consoxide::agent::{
+    config::memory::Memory,
+    functions::enums::FnEnum,
+    handler::{context::Context, controller::AgentHandler},
+};
 
 #[ignore]
 #[tokio::test]

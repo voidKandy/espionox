@@ -1,5 +1,3 @@
-pub mod lib;
-pub mod tests;
 use std::env;
 use tokio;
 

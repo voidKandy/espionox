@@ -1,4 +1,4 @@
-use crate::lib::{
+use consoxide::{
     agent::{
         config::memory::Memory,
         handler::context::{Context, Contextual},

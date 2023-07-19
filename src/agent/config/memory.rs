@@ -1,5 +1,5 @@
 use super::super::handler::context::Context;
-use crate::lib::io::tmux::session::TmuxSession;
+use crate::io::tmux::session::TmuxSession;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +15,7 @@ pub enum Memory {
 }
 
 impl Memory {
-    pub const SHORT_TERM_PATH: &str = "./src/lib/agent/config/short_term_memory.json";
+    pub const SHORT_TERM_PATH: &str = "./src/agent/config/short_term_memory.json";
     pub fn init(self) -> Context {
         match self {
             Memory::LongTerm => {

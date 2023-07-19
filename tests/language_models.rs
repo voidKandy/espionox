@@ -1,4 +1,4 @@
-use crate::lib::{database::db, language_models::bert};
+use consoxide::{database::db, language_models::bert};
 
 #[cfg(test)]
 #[ignore]

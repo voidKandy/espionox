@@ -1,4 +1,4 @@
-use crate::lib::agent::functions::config::Function;
+use crate::agent::functions::config::Function;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};

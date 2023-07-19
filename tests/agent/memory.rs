@@ -1,4 +1,4 @@
-use crate::lib::agent::config::memory::Memory;
+use consoxide::agent::config::memory::Memory;
 
 #[test]
 fn short_term_switch_works() {

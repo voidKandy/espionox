@@ -1,8 +1,8 @@
 use super::super::functions::config::Function;
 use super::super::functions::enums::FnEnum;
-use crate::lib::io::tmux::pane::InSession;
-use crate::lib::language_models::gpt::Gpt;
-use crate::lib::{
+use crate::io::tmux::pane::InSession;
+use crate::language_models::gpt::Gpt;
+use crate::{
     agent::{
         config::memory::Memory,
         handler::context::{Context, Contextual},
@@ -25,6 +25,19 @@ impl AgentHandler {
         }
     }
 
+    pub async fn true_relavent_files(&mut self) -> Vec<String> {
+        let relavent_file_names = &mut self
+            .function_prompt(&FnEnum::RelevantFiles.to_function())
+            .await
+            .expect("RelevantFiles failure");
+        relavent_file_names.iter_mut().for_each(|n| {
+            // let name = &n.rsplit("/").collect::<Vec<&str>>()[..2];
+            // let true_prefix = File::get_prefix(&n);
+            // format!("{}{}", &true_prefix, &n)
+        });
+        relavent_file_names.to_vec()
+    }
+
     pub async fn summarize(&mut self, content: &str) -> String {
         self.context.switch(Memory::Temporary);
         let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
@@ -43,6 +56,7 @@ impl AgentHandler {
     }
 
     async fn offer_help(&mut self) -> Result<(), Box<dyn Error>> {
+        println!("_-Getting-Help-_");
         let content = match self.context.session.io.iter().last() {
             Some((i, o)) => {
                 format!(

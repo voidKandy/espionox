@@ -1,5 +1,5 @@
 use super::super::config::memory::Memory;
-use crate::lib::io::{
+use crate::io::{
     file_interface::{Directory, File},
     tmux::session::TmuxSession,
 };
