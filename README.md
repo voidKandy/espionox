@@ -10,7 +10,6 @@ Consoxide puts the power of LLMs into your own console! All you need is to run t
 * Summarize & embed files or entire directories
 
 ## In development
-* Long term memory using `pgvector` in a postgres SQL server
 * User tailored configuration
 * The ability to add arbitrary directories anywhere on your harddrive to long term memory
   * Dynamically update when changes are made

@@ -3,12 +3,12 @@ name = "consoxide"
 version = "0.1.0"
 edition = "2021"
 
-# [lib]
-# path = "src/lib/mod.rs"
-#
-# [bin]
-# path = "src/main.rs"
-# name = "consoxide"
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "consoxide"
 
 [dependencies]
 dotenv = "0.15.0"
@@ -23,4 +23,6 @@ serde_derive = "1.0.164"
 serde_json = "1.0.97"
 tmux_interface = "0.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
+uuid = "1.4.0"
+pgvector = { version = "0.2.2", features = ["sqlx"] }
 
