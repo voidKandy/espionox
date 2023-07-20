@@ -1,13 +1,8 @@
-#![allow(unused)]
 use super::models;
 use super::models::{ContextModelSql, ErrorModelSql, FileChunkModelSql, FileModelSql};
 use dotenv::dotenv;
 use sqlx::postgres::PgQueryResult;
-use sqlx::FromRow;
-use sqlx::Row;
-use sqlx::{Connection, Execute};
 use std::env;
-use std::error::Error;
 
 pub struct DbPool(sqlx::PgPool);
 
