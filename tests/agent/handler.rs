@@ -17,15 +17,15 @@ async fn function_agent_test() {
     println!("{:?}", &response);
     assert!(response.is_ok());
 }
-
-#[ignore]
-#[tokio::test]
-async fn watcher_agent_test() {
-    let mut handler = AgentHandler::new(Memory::ShortTerm);
-    handler.monitor_user().await;
-    assert!(false);
-}
-
+//
+// #[ignore]
+// #[tokio::test]
+// async fn watcher_agent_test() {
+//     let mut handler = AgentHandler::new(Memory::ShortTerm);
+//     handler.monitor_user().await;
+//     assert!(false);
+// }
+//
 #[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
