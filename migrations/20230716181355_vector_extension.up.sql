@@ -1,2 +1,2 @@
 -- Add up migration script here
-CREATE EXTENSION vector;
+CREATE EXTENSION IF NOT EXISTS vector;
