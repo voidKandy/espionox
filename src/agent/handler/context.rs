@@ -1,7 +1,7 @@
 use super::super::config::memory::Memory;
 use crate::io::{
+    commander::Commander,
     file_interface::{Directory, File},
-    tmux::session::TmuxSession,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 pub struct Context {
     pub messages: Vec<Value>,
     pub memory: Memory,
-    pub session: TmuxSession,
+    pub commander: Commander,
 }
 
 pub trait Contextual {
@@ -18,20 +18,19 @@ pub trait Contextual {
 }
 
 impl Context {
-    pub fn new(messages: Vec<Value>, memory: Memory, session: TmuxSession) -> Context {
+    pub fn new(messages: Vec<Value>, memory: Memory, commander: Commander) -> Context {
         Context {
             messages,
             memory,
-            session,
+            commander,
         }
     }
+
     pub fn switch(&mut self, memory: Memory) {
         let new_self = match memory {
-            Memory::ShortTerm => Context::new(
-                memory.load_short_term().unwrap(),
-                memory,
-                TmuxSession::new(),
-            ),
+            Memory::ShortTerm => {
+                Context::new(memory.load_short_term().unwrap(), memory, Commander::new())
+            }
             _ => {
                 if self.memory == Memory::ShortTerm {
                     self.memory.save_to_short_term(self.messages.to_owned());
@@ -41,6 +40,7 @@ impl Context {
         };
         *self = new_self;
     }
+
     pub fn append_to_messages(&mut self, role: &str, content: &str) {
         self.messages
             .push(json!({"role": role, "content": content}));
@@ -110,23 +110,12 @@ impl Contextual for Vec<File> {
     }
 }
 
-impl Contextual for TmuxSession {
+impl Contextual for Commander {
     fn make_relevant(&self, context: &mut Context) {
-        context.append_to_messages(
-            "system",
-            &format!(
-                "TmuxSession:\n watched_pane: {}\noutput_pane: {}
-                    \n io: [{}]\n",
-                self.watched_pane.name,
-                self.output_pane.name,
-                // self.pwd,
-                self.io
-                    .values()
-                    .into_iter()
-                    .map(|c| c.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ),
-        )
+        let mut message = String::new();
+        self.history
+            .iter()
+            .for_each(|io| message.push_str(&format!("in: {}\nout: {}", io.0, io.1)));
+        context.append_to_messages("system", &message)
     }
 }
