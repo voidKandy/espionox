@@ -1,12 +1,9 @@
 use super::super::functions::config::Function;
 use super::super::functions::enums::FnEnum;
-use crate::io::tmux::pane::InSession;
+use crate::io::commander::Io;
 use crate::language_models::gpt::Gpt;
 use crate::{
-    agent::{
-        config::memory::Memory,
-        handler::context::{Context, Contextual},
-    },
+    agent::{config::memory::Memory, handler::context::Context},
     io::file_interface::File,
 };
 use std::error::Error;
@@ -30,11 +27,11 @@ impl AgentHandler {
             .function_prompt(&FnEnum::RelevantFiles.to_function())
             .await
             .expect("RelevantFiles failure");
-        relavent_file_names.iter_mut().for_each(|n| {
-            // let name = &n.rsplit("/").collect::<Vec<&str>>()[..2];
-            // let true_prefix = File::get_prefix(&n);
-            // format!("{}{}", &true_prefix, &n)
-        });
+        // relavent_file_names.iter_mut().for_each(|n| {
+        // let name = &n.rsplit("/").collect::<Vec<&str>>()[..2];
+        // let true_prefix = File::get_prefix(&n);
+        // format!("{}{}", &true_prefix, &n)
+        // });
         relavent_file_names.to_vec()
     }
 
@@ -47,18 +44,18 @@ impl AgentHandler {
         response
     }
 
-    pub async fn monitor_user(&mut self) {
-        // loop {
-        let (i, o) = self.context.session.watched_pane.cl_io();
-        self.context.session.io.insert(i, o);
-        self.offer_help().await.unwrap();
-        // }
-    }
+    // pub async fn monitor_user(&mut self) {
+    //     // loop {
+    //     let (i, o) = self.context.session.watched_pane.cl_io();
+    //     self.context.session.io.insert(i, o);
+    //     self.offer_help().await.unwrap();
+    //     // }
+    // }
 
-    async fn offer_help(&mut self) -> Result<(), Box<dyn Error>> {
+    async fn get_fix(&mut self) -> Result<String, Box<dyn Error>> {
         println!("_-Getting-Help-_");
-        let content = match self.context.session.io.iter().last() {
-            Some((i, o)) => {
+        let content = match self.context.commander.history.last() {
+            Some(Io(i, o)) => {
                 format!(
                     "This command was run: [{}]\nWhich resulted in this error: [{}]",
                     i, o
@@ -74,9 +71,6 @@ impl AgentHandler {
             .function_prompt(&FnEnum::RelevantFiles.to_function())
             .await
             .unwrap();
-        self.context
-            .session
-            .to_out(&format!("Relavent Files: {relevant_paths:?}\n",));
 
         let mut relevant_files = relevant_paths
             .into_iter()
@@ -100,7 +94,6 @@ impl AgentHandler {
             Ok(response) => response,
             Err(err) => panic!("Error broke completion: {:?}", err),
         };
-        self.context.session.to_out(&format!("{}\n", &help));
 
         // NOw fix
 
@@ -127,8 +120,7 @@ impl AgentHandler {
             Ok(response) => response,
             Err(err) => panic!("Error broke completion: {:?}", err),
         };
-        self.context.session.to_out(&format!("{}\n", &fix));
-        Ok(())
+        Ok(fix)
     }
 
     pub fn fix(&mut self) {}

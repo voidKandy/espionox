@@ -1,5 +1,5 @@
+use super::super::super::io::commander::Commander;
 use super::super::handler::context::Context;
-use crate::io::tmux::session::TmuxSession;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,9 +19,9 @@ impl Memory {
     pub fn init(self) -> Context {
         match self {
             Memory::LongTerm => {
-                Context::new(self.load_long_term().unwrap(), self, TmuxSession::new())
+                Context::new(self.load_long_term().unwrap(), self, Commander::new())
             }
-            _ => Context::new(vec![], self, TmuxSession::new()),
+            _ => Context::new(vec![], self, Commander::new()),
         }
     }
 
