@@ -12,8 +12,10 @@ pub struct Commander {
 pub struct Io(pub String, pub String);
 
 impl Io {
-    fn new() -> Self {
-        Io(String::new(), String::new())
+    pub fn new(input: &str) -> Io {
+        let out = Commander::run_input(&input);
+        // thread::sleep(Duration::from_millis(100));
+        Io(input.to_string(), out)
     }
 }
 
@@ -34,13 +36,7 @@ impl Commander {
         String::from_utf8_lossy(&out.stdout).to_string()
     }
 
-    fn get_io(input: &str) -> Io {
-        let out = Self::run_input(&input);
-        thread::sleep(Duration::from_millis(500));
-        Io(input.to_string(), out)
-    }
-
-    fn update(&mut self, io: Io) {
+    pub fn update(&mut self, io: Io) {
         self.history.push(io);
     }
 }
