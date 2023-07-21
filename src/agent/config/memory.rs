@@ -30,6 +30,7 @@ impl Memory {
     }
 
     pub fn load_short_term(&self) -> Result<Vec<Value>, Box<dyn Error>> {
+        dotenv::dotenv().ok();
         let mut contents = String::new();
         fs::File::open(env::var("SHORT_TERM_PATH").unwrap())?.read_to_string(&mut contents)?;
         println!("{contents}");
@@ -45,6 +46,7 @@ impl Memory {
     }
 
     pub fn save_to_short_term(&self, content: Vec<Value>) -> bool {
+        dotenv::dotenv().ok();
         fs::write(
             env::var("SHORT_TERM_PATH").unwrap(),
             format!(

@@ -14,7 +14,7 @@ pub struct AgentHandler {
 
 impl AgentHandler {
     pub fn new(context: Memory) -> AgentHandler {
-        let init_prompt ="You are Consoxide, a smart terminal. YouAhelp users with their programming experience by providing all kinds of services.".to_string();
+        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         AgentHandler {
             gpt: Gpt::init(&init_prompt),
             context: context.init(),
@@ -46,8 +46,9 @@ impl AgentHandler {
     pub async fn command(&mut self, command: &str) -> String {
         // loop {
         let io: Io = Io::new(command);
-        self.context.commander.update(io);
-        self.get_fix().await.unwrap()
+        self.context.commander.update(io.clone());
+        io.1
+        // self.get_fix().await.unwrap()
         // }
     }
     async fn get_fix(&mut self) -> Result<String, Box<dyn Error>> {
