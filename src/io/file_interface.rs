@@ -77,11 +77,14 @@ impl File {
             .stdout(Stdio::piped())
             .output()
             .expect("failed to execute tmux command");
+        print!(
+            "{}",
+            String::from_utf8_lossy(&out.stdout.clone()).to_string()
+        );
         String::from_utf8_lossy(&out.stdout).to_string()
     }
 
     pub fn chunkify(&mut self) -> Self {
-        println!("{}", &self.filepath.display().to_string());
         let content = fs::read_to_string(&self.filepath).unwrap_or_else(|e| e.to_string());
         let lines: Vec<&str> = content.lines().collect();
         lines.chunks(50).enumerate().for_each(|(i, c)| {
