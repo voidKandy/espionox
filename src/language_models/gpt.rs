@@ -36,7 +36,7 @@ pub struct GptConfig {
 
 impl GptResponse {
     pub fn parse_response(&self) -> Result<String, Box<dyn Error>> {
-        println!("{:?}", &self);
+        // println!("{:?}", &self);
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err("Unable to parse completion response".into()),
