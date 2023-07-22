@@ -1,6 +1,8 @@
 use std::fmt;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
+use std::process::Stdio;
 
 #[derive(Debug, Clone)]
 pub struct File {
@@ -60,12 +62,22 @@ impl fmt::Display for Directory {
 impl File {
     pub fn build(filepath: &str) -> File {
         File {
-            filepath: Path::new(filepath).into(),
+            filepath: Path::new(&Self::full_filepath(filepath)).into(),
             chunks: vec![],
             summary: String::new(),
             summary_embedding: Vec::new(),
         }
         .chunkify()
+    }
+
+    fn full_filepath(filename: &str) -> String {
+        let args: &[&str] = &["readlink", "-f", filename];
+        let out = Command::new(args[0])
+            .args(&args[1..])
+            .stdout(Stdio::piped())
+            .output()
+            .expect("failed to execute tmux command");
+        String::from_utf8_lossy(&out.stdout).to_string()
     }
 
     pub fn chunkify(&mut self) -> Self {

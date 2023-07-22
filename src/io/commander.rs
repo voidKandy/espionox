@@ -36,14 +36,4 @@ impl Commander {
     pub fn update(&mut self, io: Io) {
         self.history.push(io);
     }
-
-    pub fn full_filepath(filename: &str) -> String {
-        let args: &[&str] = &["readlink", "-f", filename];
-        let out = Command::new(args[0])
-            .args(&args[1..])
-            .stdout(Stdio::piped())
-            .output()
-            .expect("failed to execute tmux command");
-        String::from_utf8_lossy(&out.stdout).to_string()
-    }
 }
