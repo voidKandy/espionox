@@ -58,14 +58,10 @@ impl fmt::Display for Directory {
 }
 
 impl File {
-    // pub fn get_true_path(short_path: &str) -> String {}
-
     pub fn build(filepath: &str) -> File {
         File {
-            // content: fs::read_to_string(&filepath).unwrap_or_else(|e| e.to_string()),
             filepath: Path::new(filepath).into(),
             chunks: vec![],
-            // content_embedding: Vec::new(),
             summary: String::new(),
             summary_embedding: Vec::new(),
         }

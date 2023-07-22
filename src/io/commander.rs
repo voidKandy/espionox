@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio};
-use std::thread;
-use std::time::Duration;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Commander {
@@ -14,7 +12,6 @@ pub struct Io(pub String, pub String);
 impl Io {
     pub fn new(input: &str) -> Io {
         let out = Commander::run_input(&input);
-        // thread::sleep(Duration::from_millis(100));
         Io(input.to_string(), out)
     }
 }
@@ -38,5 +35,15 @@ impl Commander {
 
     pub fn update(&mut self, io: Io) {
         self.history.push(io);
+    }
+
+    pub fn full_filepath(filename: &str) -> String {
+        let args: &[&str] = &["readlink", "-f", filename];
+        let out = Command::new(args[0])
+            .args(&args[1..])
+            .stdout(Stdio::piped())
+            .output()
+            .expect("failed to execute tmux command");
+        String::from_utf8_lossy(&out.stdout).to_string()
     }
 }
