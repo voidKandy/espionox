@@ -1,4 +1,4 @@
-use consoxide::{database::db, language_models::bert};
+use consoxide::language_models::bert;
 
 #[cfg(test)]
 #[ignore]

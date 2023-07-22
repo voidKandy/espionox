@@ -28,9 +28,7 @@ impl Context {
 
     pub fn switch(&mut self, memory: Memory) {
         let new_self = match memory {
-            Memory::ShortTerm => {
-                Context::new(memory.load_short_term().unwrap(), memory, Commander::new())
-            }
+            Memory::ShortTerm => Context::new(memory.load_short_term(), memory, Commander::new()),
             _ => {
                 if self.memory == Memory::ShortTerm {
                     self.memory.save_to_short_term(self.messages.to_owned());
