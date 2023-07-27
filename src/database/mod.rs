@@ -1,3 +1,4 @@
+pub mod handlers;
 #[allow(dead_code, unused)]
-pub mod db;
+pub mod init;
 pub mod models;
