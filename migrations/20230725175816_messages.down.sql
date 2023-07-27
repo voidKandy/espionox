@@ -1,2 +1,2 @@
 -- Add down migration script here
-DROP TABLE IF EXISTS contexts;
+DROP TABLE IF EXISTS messages;
