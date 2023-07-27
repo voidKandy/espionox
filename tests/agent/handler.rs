@@ -1,19 +1,20 @@
 #[allow(unused_imports)]
 use consoxide::agent::{
-    config::memory::Memory,
-    functions::enums::FnEnum,
-    handler::{context::Context, controller::AgentHandler},
+    config::{context::Context, memory::Memory},
+    handler::Agent,
 };
+
+use consoxide::language_models::openai::functions::enums::FnEnum;
 
 #[ignore]
 #[tokio::test]
 async fn function_agent_test() {
-    let mut handler = AgentHandler::new(Memory::Temporary);
+    let mut agent = Agent::new(Memory::Forget);
     let prompt = String::from("[Investigate the failing test in src/tests/context.rs, Check the assertion at line 42 in src/tests/context.rs, Analyze the error message to understand the cause of the failure, Fix the failing test to pass the assertion]");
-    handler.context.append_to_messages("user", &prompt);
+    agent.context.push_to_buffer("user", &prompt);
 
     let function = &FnEnum::ExecuteGenerateRead.to_function();
-    let response = handler.function_prompt(function).await;
+    let response = agent.function_prompt(function).await;
     println!("{:?}", &response);
     assert!(response.is_ok());
 }
@@ -21,39 +22,36 @@ async fn function_agent_test() {
 // #[ignore]
 // #[tokio::test]
 // async fn watcher_agent_test() {
-//     let mut handler = AgentHandler::new(Memory::ShortTerm);
-//     handler.monitor_user().await;
+//     let mut agent = Agentagent::new(Memory::ShortTerm);
+//     agent.monitor_user().await;
 //     assert!(false);
 // }
 //
 #[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
-    let mut handler = AgentHandler::new(Memory::ShortTerm);
+    let mut agent = Agent::new(Memory::Forget);
     let prompt = String::from("Hello chat agent");
-    handler.context.append_to_messages("user", &prompt);
+    agent.context.push_to_buffer("user", &prompt);
 
-    let response = handler.prompt().await;
+    let response = agent.prompt().await;
     assert!(response.is_ok());
-    handler.context.append_to_messages("user", "cool response");
-    let response = handler.prompt().await;
-    handler
-        .context
-        .memory
-        .save_to_short_term(handler.context.messages);
+    agent.context.push_to_buffer("user", "cool response");
+    let response = agent.prompt().await;
+    agent.context.memory.save(&agent.context.buffer);
     assert!(response.is_ok());
 }
 
 // #[test]
 // fn to_and_from_short_term_test() {
-//     let mut handler = AgentHandler::new(Memory::ShortTerm(None));
+//     let mut agent = Agentagent::new(Memory::ShortTerm(None));
 //     let prompt = String::from("Hello chat agent");
-//     handler.context.append_to_messages("user", &prompt);
-//     let short_term_mem = Box::new(&handler.context.clone());
+//     agent.context.push_to_buffer("user", &prompt);
+//     let short_term_mem = Box::new(&agent.context.clone());
 //
-//     handler.context.switch(Memory::Temporary);
-//     assert_ne!(*short_term_mem.messages, &handler.context.messages);
-//     handler
+//     agent.context.switch(Memory::Temporary);
+//     assert_ne!(*short_term_mem.messages, &agent.context.messages);
+//     agent
 //         .context
 //         .switch(Memory::ShortTerm(Some(short_term_mem)))
 // }

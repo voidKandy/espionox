@@ -1,45 +1,106 @@
-use super::super::super::io::commander::Commander;
-use super::super::handler::context::Context;
-
+use crate::database::models;
+use crate::database::{handlers::message, init::DbPool};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
-use std::error::Error;
+use tokio::runtime::Runtime;
+use tracing::{self, info};
 
-thread_local! {
-    static SHORT_TERM_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
-}
-
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Memory {
-    LongTerm,
-    ShortTerm,
-    Temporary,
+    Remember(LoadedMemory),
+    Forget,
 }
 
-impl Memory {
-    pub fn init(self) -> Context {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum LoadedMemory {
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    LongTerm(DbPool),
+    Cache,
+}
+
+impl LoadedMemory {
+    thread_local! {
+        static CACHED_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
+    }
+
+    #[tracing::instrument]
+    pub fn get(&self) -> Vec<Value> {
         match self {
-            Memory::LongTerm => {
-                Context::new(self.load_long_term().unwrap(), self, Commander::new())
+            LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
+                let st_mem = mem.borrow().clone();
+                info!("Messages loaded from Cache: {:?}", st_mem);
+                st_mem
+            }),
+            LoadedMemory::LongTerm(pool) => {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(async {
+                    match message::get_messages(
+                        &pool,
+                        models::message::GetMessageParams {
+                            thread_id: "main".to_string(),
+                        },
+                    )
+                    .await
+                    {
+                        Ok(messages) => messages
+                            .into_iter()
+                            .map(|m| {
+                                let value = m.coerce_to_value();
+                                info!("Message loaded from LongTerm: {:?}", value);
+                                value
+                            })
+                            .collect(),
+                        Err(err) => panic!("Failed to get messages for context: {err:?}"),
+                    }
+                })
             }
-            _ => Context::new(vec![], self, Commander::new()),
         }
     }
 
-    pub fn load_long_term(&self) -> Result<Vec<Value>, Box<dyn Error>> {
-        unimplemented!();
+    fn store(&self, messages: &Vec<Value>) {
+        match self {
+            LoadedMemory::LongTerm(pool) => {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(async {
+                    for m in messages.iter() {
+                        message::post_message(
+                            &pool,
+                            models::message::CreateMessageBody {
+                                thread_id: "main".to_string(),
+                                role: m.get("role").expect("No role").to_string(),
+                                content: m.get("content").expect("No content").to_string(),
+                            },
+                        )
+                        .await
+                        .expect("Failed to create message body from Value");
+                    }
+                });
+            }
+            LoadedMemory::Cache => {
+                Self::CACHED_MEMORY.with(|st_mem| {
+                    *st_mem.borrow_mut() = messages.to_owned();
+                });
+            }
+        };
     }
+}
 
-    pub fn load_short_term(&self) -> Vec<Value> {
-        SHORT_TERM_MEMORY.with(|st_mem| st_mem.borrow().clone())
+impl Memory {
+    pub fn load(&self) -> Vec<Value> {
+        match self {
+            Memory::Remember(memory) => memory.get(),
+            Memory::Forget => vec![],
+        }
     }
-
-    pub fn save_to_short_term(&self, content: Vec<Value>) {
-        SHORT_TERM_MEMORY.with(|st_mem| {
-            content.into_iter().for_each(|c| {
-                st_mem.borrow_mut().push(c);
-            })
-        });
+    pub fn save(&self, messages: &Vec<Value>) {
+        match self {
+            Memory::Remember(loaded) => match loaded {
+                LoadedMemory::Cache => LoadedMemory::Cache.store(messages),
+                LoadedMemory::LongTerm(_) => loaded.store(messages),
+            },
+            _ => {}
+        }
     }
 }

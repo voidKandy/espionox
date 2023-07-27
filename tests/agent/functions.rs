@@ -1,5 +1,5 @@
 #[cfg(test)]
-use consoxide::agent::functions::enums::FnEnum;
+use consoxide::language_models::openai::functions::enums::FnEnum;
 use serde_json::json;
 use serde_json::Value;
 
