@@ -1,2 +1,2 @@
-pub mod bert;
-pub mod gpt;
+pub mod huggingface;
+pub mod openai;

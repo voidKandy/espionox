@@ -1,4 +1,5 @@
 pub mod agent;
-// pub mod database;
-pub mod io;
+pub mod core;
+pub mod database;
 pub mod language_models;
+pub mod telemetry;
