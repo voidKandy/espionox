@@ -1,8 +1,14 @@
-use crate::database::models;
-use crate::database::{handlers::message, init::DbPool};
+use crate::database::models::file::CreateFileBody;
+use crate::database::models::file_chunks::{CreateFileChunkBody, FileChunkModelSql};
+use crate::database::models::messages::{CreateMessageBody, GetMessageParams};
+use crate::database::{
+    handlers::{self, messages},
+    init::DbPool,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tracing::{self, info};
 
@@ -14,15 +20,14 @@ pub enum Memory {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum LoadedMemory {
-    #[serde(skip_serializing)]
-    #[serde(skip_deserializing)]
-    LongTerm(DbPool),
+    LongTerm(String),
     Cache,
 }
 
 impl LoadedMemory {
     thread_local! {
         static CACHED_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
+        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::init_long_term());
     }
 
     #[tracing::instrument]
@@ -33,42 +38,55 @@ impl LoadedMemory {
                 info!("Messages loaded from Cache: {:?}", st_mem);
                 st_mem
             }),
-            LoadedMemory::LongTerm(pool) => {
+            LoadedMemory::LongTerm(threadname) => {
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async {
-                    match message::get_messages(
+                    let pool = &Self::DATA_POOL.with(|poo| Arc::clone(poo));
+                    match handlers::threads::get_thread(pool, threadname).await {
+                        Ok(_) => {}
+                        Err(err) => {
+                            if matches!(
+                                err.downcast_ref::<sqlx::Error>(),
+                                Some(sqlx::Error::RowNotFound)
+                            ) {
+                                info!("Thread doesn't exist, creating thread named: {threadname}");
+                                assert!(handlers::threads::post_thread(pool, threadname)
+                                    .await
+                                    .is_ok());
+                            } else {
+                                panic!("Error getting thread {err:?}");
+                            }
+                        }
+                    }
+                    let messages = messages::get_messages(
                         &pool,
-                        models::message::GetMessageParams {
-                            thread_id: "main".to_string(),
+                        GetMessageParams {
+                            thread_name: threadname.to_string(),
                         },
                     )
                     .await
-                    {
-                        Ok(messages) => messages
-                            .into_iter()
-                            .map(|m| {
-                                let value = m.coerce_to_value();
-                                info!("Message loaded from LongTerm: {:?}", value);
-                                value
-                            })
-                            .collect(),
-                        Err(err) => panic!("Failed to get messages for context: {err:?}"),
-                    }
+                    .expect("Failed to get messages from context");
+                    messages.into_iter().map(|m| m.coerce_to_value()).collect()
                 })
             }
         }
     }
 
-    fn store(&self, messages: &Vec<Value>) {
+    pub fn store_messages(&self, messages: &Vec<Value>) {
         match self {
-            LoadedMemory::LongTerm(pool) => {
+            LoadedMemory::Cache => {
+                Self::CACHED_MEMORY.with(|st_mem| {
+                    *st_mem.borrow_mut() = messages.to_owned();
+                });
+            }
+            LoadedMemory::LongTerm(threadname) => {
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async {
                     for m in messages.iter() {
-                        message::post_message(
-                            &pool,
-                            models::message::CreateMessageBody {
-                                thread_id: "main".to_string(),
+                        messages::post_message(
+                            &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
+                            CreateMessageBody {
+                                thread_name: threadname.to_string(),
                                 role: m.get("role").expect("No role").to_string(),
                                 content: m.get("content").expect("No content").to_string(),
                             },
@@ -78,9 +96,24 @@ impl LoadedMemory {
                     }
                 });
             }
-            LoadedMemory::Cache => {
-                Self::CACHED_MEMORY.with(|st_mem| {
-                    *st_mem.borrow_mut() = messages.to_owned();
+        };
+    }
+
+    pub fn store_file_tup(&self, file_tup: (CreateFileBody, Vec<CreateFileChunkBody>)) {
+        match self {
+            LoadedMemory::Cache => {}
+            LoadedMemory::LongTerm(threadname) => {
+                let rt = Runtime::new().unwrap();
+                let pool = &Self::DATA_POOL.with(|poo| Arc::clone(poo));
+                rt.block_on(async {
+                    handlers::file::post_file(pool, file_tup.0)
+                        .await
+                        .expect("Failed to create file body from Value");
+                    for chunk in file_tup.1 {
+                        handlers::file_chunks::post_file_chunk(pool, chunk)
+                            .await
+                            .expect("Failed to post chunks");
+                    }
                 });
             }
         };
@@ -97,8 +130,8 @@ impl Memory {
     pub fn save(&self, messages: &Vec<Value>) {
         match self {
             Memory::Remember(loaded) => match loaded {
-                LoadedMemory::Cache => LoadedMemory::Cache.store(messages),
-                LoadedMemory::LongTerm(_) => loaded.store(messages),
+                LoadedMemory::Cache => LoadedMemory::Cache.store_messages(messages),
+                LoadedMemory::LongTerm(_) => loaded.store_messages(messages),
             },
             _ => {}
         }
