@@ -1,3 +1,5 @@
+use crate::core::file_interface::FileChunk;
+
 // ------ FILECHUNKS ------ //
 #[derive(sqlx::FromRow, Clone)]
 pub struct FileChunkModelSql {

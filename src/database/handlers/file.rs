@@ -12,10 +12,10 @@ pub async fn get_file(pool: &DbPool, params: GetFileParams) -> anyhow::Result<Fi
 }
 
 pub async fn post_file(pool: &DbPool, file: CreateFileBody) -> anyhow::Result<PgQueryResult> {
-    let query = "INSERT INTO files (id, thread_id, filepath, parent_dir_path, summary, summary_embedding) VALUES ($1, $2, $3, $4, $5, $6)";
+    let query = "INSERT INTO files (id, thread_name, filepath, parent_dir_path, summary, summary_embedding) VALUES ($1, $2, $3, $4, $5, $6)";
     match sqlx::query(query)
-        .bind(uuid::Uuid::new_v4().to_string())
-        .bind(file.thread_id)
+        .bind(file.id)
+        .bind(file.thread_name)
         .bind(file.filepath)
         .bind(file.parent_dir_path)
         .bind(file.summary)

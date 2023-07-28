@@ -1,8 +1,7 @@
-// ------ FILES ------ //
 #[derive(sqlx::FromRow, Clone)]
 pub struct FileModelSql {
     pub id: String,
-    pub thread_id: String,
+    pub thread_name: String,
     pub filepath: String,
     pub parent_dir_path: String,
     pub summary: String,
@@ -14,7 +13,8 @@ pub struct GetFileParams {
 }
 
 pub struct CreateFileBody {
-    pub thread_id: String,
+    pub id: String,
+    pub thread_name: String,
     pub filepath: String,
     pub parent_dir_path: String,
     pub summary: String,

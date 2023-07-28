@@ -1,14 +1,16 @@
 use super::super::init::DbPool;
-use super::super::models::message::*;
+use super::super::models::messages::*;
 use sqlx::postgres::PgQueryResult;
 
 pub async fn get_messages(
     pool: &DbPool,
     params: GetMessageParams,
 ) -> anyhow::Result<Vec<MessageModelSql>> {
-    let query = sqlx::query_as::<_, MessageModelSql>("SELECT * FROM messages WHERE thread_id = $1");
-
-    match query.bind(params.thread_id).fetch_all(&pool.0).await {
+    match sqlx::query_as::<_, MessageModelSql>("SELECT * FROM messages WHERE thread_name = $1")
+        .bind(params.thread_name)
+        .fetch_all(&pool.0)
+        .await
+    {
         Ok(result) => Ok(result),
         Err(err) => Err(err.into()),
     }
@@ -18,10 +20,10 @@ pub async fn post_message(
     pool: &DbPool,
     message: CreateMessageBody,
 ) -> anyhow::Result<PgQueryResult> {
-    let query = "INSERT INTO messages (id, thread_id, role, content) VALUES ($1, $2, $3, $4)";
+    let query = "INSERT INTO messages (id, thread_name, role, content) VALUES ($1, $2, $3, $4)";
     match sqlx::query(query)
         .bind(uuid::Uuid::new_v4().to_string())
-        .bind(message.thread_id)
+        .bind(message.thread_name)
         .bind(message.role)
         .bind(message.content)
         .execute(&pool.0)

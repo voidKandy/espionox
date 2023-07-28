@@ -1,10 +1,6 @@
-#[derive(sqlx::FromRow, Clone)]
+#[derive(sqlx::FromRow, Clone, Debug)]
 pub struct ThreadModelSql {
-    pub id: String,
     pub name: String,
 }
 
-#[derive(Clone)]
-pub struct ThreadParams {
-    pub name: String,
-}
+impl ThreadModelSql {}

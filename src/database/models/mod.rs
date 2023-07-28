@@ -1,5 +1,5 @@
 pub mod error;
 pub mod file;
 pub mod file_chunks;
-pub mod message;
+pub mod messages;
 pub mod threads;

@@ -6,9 +6,9 @@ pub async fn get_errors(
     pool: &DbPool,
     params: GetErrorParams,
 ) -> anyhow::Result<Vec<ErrorModelSql>> {
-    let query = sqlx::query_as::<_, ErrorModelSql>("SELECT * FROM errors WHERE thread_id = $1");
+    let query = sqlx::query_as::<_, ErrorModelSql>("SELECT * FROM errors WHERE thread_name = $1");
 
-    match query.bind(params.thread_id).fetch_all(&pool.0).await {
+    match query.bind(params.thread_name).fetch_all(&pool.0).await {
         Ok(result) => Ok(result),
         Err(err) => Err(err.into()),
     }
@@ -16,10 +16,10 @@ pub async fn get_errors(
 
 pub async fn post_error(pool: &DbPool, chunk: CreateErrorBody) -> anyhow::Result<PgQueryResult> {
     let query =
-        "INSERT INTO errors (id, thread_id, content, content_embedding) VALUES ($1, $2, $3, $4)";
+        "INSERT INTO errors (id, thread_name, content, content_embedding) VALUES ($1, $2, $3, $4)";
     match sqlx::query(query)
         .bind(uuid::Uuid::new_v4().to_string())
-        .bind(chunk.thread_id)
+        .bind(chunk.thread_name)
         .bind(chunk.content)
         .bind(chunk.content_embedding)
         .execute(&pool.0)
