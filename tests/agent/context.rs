@@ -4,7 +4,7 @@ use consoxide::{
         context::{Context, Contextual},
         memory::{LoadedMemory, Memory},
     },
-    core::file_interface::{Directory, File},
+    core::file_interface::File,
 };
 use once_cell::sync::Lazy;
 #[cfg(test)]
@@ -41,15 +41,23 @@ fn adding_files_to_memory_works() {
     ];
 
     let mut context = Context::build(&Memory::Forget);
-
-    files.make_relevant(&mut context);
+    context.push_to_buffer(
+        "user",
+        &format!(
+            "Relavent files: {:?}",
+            &files
+                .into_iter()
+                .map(|f| f.messagize())
+                .collect::<Vec<String>>()
+        ),
+    );
 
     assert_eq!(context.buffer.len(), 1);
     let message = context.buffer.first().unwrap();
-    assert_eq!(message["role"], "system");
+    assert_eq!(message["role"], "user");
     assert_eq!(
         message["content"].as_str().unwrap(),
-        "Relavent Files: [FilePath: path/to/file1.txt, Content: , FilePath: path/to/file2.txt, Content: , Summary: Summary of file 2]"
+        "Relavent files: [\"FilePath: path/to/file1.txt, Content: \", \"FilePath: path/to/file2.txt, Content: , Summary: Summary of file 2\"]"
     );
 }
 
