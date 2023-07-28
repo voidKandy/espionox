@@ -9,15 +9,15 @@ pub struct File {
     pub filepath: Box<Path>,
     pub chunks: Vec<FileChunk>,
     pub summary: String,
-    pub summary_embedding: Vec<f64>,
+    pub summary_embedding: Vec<f32>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FileChunk {
     pub parent_filepath: Box<Path>,
     pub content: String,
-    pub content_embedding: Vec<f64>,
-    pub index: u32,
+    pub content_embedding: Vec<f32>,
+    pub index: i16,
 }
 
 #[derive(Debug, Clone)]
@@ -92,7 +92,7 @@ impl File {
                 parent_filepath: self.filepath.clone(),
                 content: c.join("\n"),
                 content_embedding: Vec::new(),
-                index: i as u32,
+                index: i as i16,
             });
         });
         self.to_owned()
