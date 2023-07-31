@@ -1,7 +1,9 @@
-// use super::agent::Agent;
-//
-// pub trait Operational {
-//     fn impl
-// }
-//
-// impl Operational for Agent {}
+use super::agent::Agent;
+
+pub trait Operational {
+    fn open_error_file() {
+        todo!()
+    }
+}
+
+impl Operational for Agent {}
