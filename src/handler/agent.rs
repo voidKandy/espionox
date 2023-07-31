@@ -1,12 +1,18 @@
-use crate::language_models::openai::{
-    functions::{config::Function, enums::FnEnum},
-    gpt::Gpt,
-};
 use crate::{
     agent::config::{context::Context, memory::Memory},
     core::{file_interface::File, io::Io},
 };
+use crate::{
+    database::init::DbPool,
+    language_models::openai::{
+        functions::{config::Function, enums::FnEnum},
+        gpt::Gpt,
+    },
+};
 use std::error::Error;
+use std::sync::mpsc;
+use std::thread;
+use tokio::runtime::Runtime;
 
 pub struct Agent {
     pub gpt: Gpt,
@@ -29,7 +35,7 @@ impl Agent {
         self.context.switch_mem(Memory::Forget);
         let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
         self.context.push_to_buffer("system", &summarize_prompt);
-        let response = self.prompt().await.unwrap();
+        let response = self.prompt();
         self.context.switch_mem(save_mem);
         response
     }
@@ -95,7 +101,7 @@ impl Agent {
     //     let content = "You are a fixer agent. You will be given the summation of a programming error and it's solution. You will also be given the contents of the file that caused the error as it is. Your job is to recreate the file exactly as it is, except for the change that must be made to fix the error. Output should be only the recreated file content with the fix implemented.";
     //     mem.append_to_messages("system", content);
     //
-    //     let file = File::build(&relevant_paths[0]);
+    //     let file = File::build(&relevant_paths[0]);(
     //     let content = &format!(
     //         "Here is the file: {}\nHere is the error and it's proposed solution: {}",
     //         file.content(),
@@ -111,38 +117,62 @@ impl Agent {
     // }
     //
 
-    pub async fn prompt(&mut self) -> Result<String, Box<dyn Error>> {
-        match self
-            .gpt
-            .completion(&self.context.buffer)
-            .await?
-            .parse_response()
-        {
-            Ok(content) => {
-                self.context.push_to_buffer("assistant", &content);
-                Ok(content)
-            }
-            Err(err) => Err(err),
-        }
-    }
+    pub fn prompt(&mut self) -> String {
+        let (tx, rx) = mpsc::channel();
+        let gpt = self.gpt.clone();
+        let buffer = self.context.buffer.clone();
+        thread::spawn(move || {
+            let rt = Runtime::new().unwrap();
+            let result = rt.block_on(async move {
+                gpt.completion(&buffer)
+                    .await
+                    .expect("Failed to get completion.")
+                // The rest of your async code
+            });
+            tx.send(result).unwrap();
+        })
+        .join()
+        .expect("Failed to join thread");
 
-    pub async fn function_prompt(
-        &mut self,
-        function: &Function,
-    ) -> Result<Vec<String>, Box<dyn Error>> {
-        match self
-            .gpt
-            .function_completion(&self.context.buffer, &function)
-            .await?
-            .parse_fn_response(&function.perameters.properties[0].name)
-        {
-            Ok(content) => {
-                content.clone().into_iter().for_each(|c| {
-                    self.context.push_to_buffer("assistant", &c);
-                });
-                Ok(content)
-            }
-            Err(err) => Err(err),
-        }
+        let result = rx
+            .recv()
+            .unwrap()
+            .parse_response()
+            .expect("Failed to parse completion response");
+        self.context.push_to_buffer("assistant", &result);
+        result
+    }
+    pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
+        let (tx, rx) = mpsc::channel();
+        let gpt = self.gpt.clone();
+        let buffer = self.context.buffer.clone();
+        let function_name = &function.perameters.properties[0].name.clone();
+
+        thread::spawn(move || {
+            let rt = Runtime::new().unwrap();
+            let result = rt.block_on(async move {
+                gpt.function_completion(&buffer, &function)
+                    .await
+                    .expect("Failed to get completion.")
+            });
+            tx.send(result).unwrap();
+        })
+        .join()
+        .expect("Failed to join thread");
+
+        let result = rx
+            .recv()
+            .unwrap()
+            .parse_fn_response(&function_name)
+            .expect("Failed to parse completion response")
+            .clone()
+            .into_iter()
+            .map(|c| {
+                self.context.push_to_buffer("assistant", &c);
+                c
+            })
+            .collect();
+
+        result
     }
 }
