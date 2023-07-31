@@ -37,7 +37,7 @@ fn prompt_agent_test() {
     let response = agent.prompt();
     agent.context.push_to_buffer("user", "cool response");
     let response = agent.prompt();
-    agent.context.memory.save(&agent.context.buffer);
+    agent.context.memory.save(agent.context.buffer.clone());
     assert!(true);
 }
 

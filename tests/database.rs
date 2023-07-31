@@ -15,13 +15,15 @@ use tokio;
 async fn post_get_delete_threads() {
     let pool = DbPool::init_long_term();
 
-    let res = handlers::threads::post_thread(&pool, "test").await;
-    assert!(res.is_ok());
+    match handlers::threads::post_thread(&pool, "test").await {
+        Ok(_) => {}
+        Err(err) => panic!("Problem posting thread: {err:?}"),
+    }
 
     let threads = handlers::threads::get_thread(&pool, "test")
         .await
         .expect("Couldn't get threads");
-    assert_eq!("Test".to_string(), threads.name);
+    assert_eq!("test".to_string(), threads.name);
     assert!(handlers::threads::delete_thread(&pool, "test")
         .await
         .is_ok());
