@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use sqlx::postgres::PgQueryResult;
 use std::env;
 use std::error::Error;
+use std::thread;
 use tokio::runtime::Runtime;
 
 #[derive(Clone, Debug)]
@@ -13,16 +14,20 @@ impl DbPool {
         let url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         match sqlx::postgres::PgPool::connect(&url).await {
             Ok(pool) => Ok(DbPool(pool)),
-            Err(err) => Err("Error initializing DB pool: {err:?}".into()),
+            Err(err) => Err(format!("Error initializing DB pool: {:?}", err).into()),
         }
     }
 
     pub fn init_long_term() -> DbPool {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            DbPool::init_pool()
-                .await
-                .expect("Failed to init long term DB")
+        thread::spawn(move || {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                DbPool::init_pool()
+                    .await
+                    .expect("Failed to init long term DB")
+            })
         })
+        .join()
+        .expect("Failed to init long term DbPool")
     }
 }
