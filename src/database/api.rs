@@ -1,14 +1,14 @@
 use super::models::{file::*, file_chunks::*};
 use crate::core::file_interface::File;
 
-pub fn sql_from_file(file: File) -> (CreateFileBody, Vec<CreateFileChunkBody>) {
+pub fn sql_from_file(file: File, thread_name: &str) -> (CreateFileBody, Vec<CreateFileChunkBody>) {
     let parent_dir_path: String = file.filepath.parent().unwrap().display().to_string();
-
+    let thread_name = thread_name.to_string();
     let file_id = uuid::Uuid::new_v4().to_string();
 
     let file_sql = CreateFileBody {
         id: file_id.clone(),
-        thread_name: String::new(),
+        thread_name,
         filepath: file.filepath.display().to_string(),
         parent_dir_path,
         summary: file.summary.to_owned(),

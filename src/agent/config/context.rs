@@ -32,14 +32,13 @@ impl Context {
         self.buffer.push(json!({"role": role, "content": content}));
     }
     pub fn switch_mem(&mut self, memory: Memory) {
-        self.memory.save(&self.buffer);
+        self.memory.save(self.buffer.clone());
         *self = Context::build(&memory);
     }
     pub fn remember_file(&self, file: File) {
         match &self.memory {
             Memory::Remember(LoadedMemory::LongTerm(threadname)) => {
-                let mut sql_tup = api::sql_from_file(file);
-                sql_tup.0.thread_name = threadname.to_string();
+                let sql_tup = api::sql_from_file(file, threadname);
                 LoadedMemory::LongTerm(threadname.to_string()).store_file_tup(sql_tup);
             }
             _ => panic!("Memory not long term"),
