@@ -30,22 +30,13 @@ pub async fn get_thread(pool: &DbPool, name: &str) -> anyhow::Result<ThreadModel
 }
 
 pub async fn post_thread(pool: &DbPool, name: &str) -> anyhow::Result<PgQueryResult> {
-    let query = format!("INSERT INTO threads (id, name) VALUES ($1, $2)");
-    match sqlx::query(&query)
-        .bind(uuid::Uuid::new_v4().to_string())
-        .bind(name)
-        .execute(&pool.0)
-        .await
-    {
-        Ok(res) => Ok(res),
-        Err(err) => Err(err.into()),
-    }
+    let query = format!("INSERT INTO threads (name) VALUES ($1)");
+    let res = sqlx::query(&query).bind(name).execute(&pool.0).await?;
+    Ok(res)
 }
 
 pub async fn delete_thread(pool: &DbPool, name: &str) -> anyhow::Result<PgQueryResult> {
     let query = &format!("DELETE FROM threads WHERE name = $1");
-    match sqlx::query(&query).bind(name).execute(&pool.0).await {
-        Ok(rows) => Ok(rows),
-        Err(err) => Err(err.into()),
-    }
+    let res = sqlx::query(&query).bind(name).execute(&pool.0).await?;
+    Ok(res)
 }
