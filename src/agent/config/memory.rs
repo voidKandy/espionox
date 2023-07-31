@@ -8,7 +8,8 @@ use crate::database::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+use std::thread;
 use tokio::runtime::Runtime;
 use tracing::{self, info};
 
@@ -31,7 +32,7 @@ impl LoadedMemory {
     }
 
     #[tracing::instrument]
-    pub fn get(&self) -> Vec<Value> {
+    pub async fn get(&self) -> Vec<Value> {
         match self {
             LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
                 let st_mem = mem.borrow().clone();
@@ -39,40 +40,37 @@ impl LoadedMemory {
                 st_mem
             }),
             LoadedMemory::LongTerm(threadname) => {
-                let rt = Runtime::new().unwrap();
-                rt.block_on(async {
-                    let pool = &Self::DATA_POOL.with(|poo| Arc::clone(poo));
-                    match handlers::threads::get_thread(pool, threadname).await {
-                        Ok(_) => {}
-                        Err(err) => {
-                            if matches!(
-                                err.downcast_ref::<sqlx::Error>(),
-                                Some(sqlx::Error::RowNotFound)
-                            ) {
-                                info!("Thread doesn't exist, creating thread named: {threadname}");
-                                assert!(handlers::threads::post_thread(pool, threadname)
-                                    .await
-                                    .is_ok());
-                            } else {
-                                panic!("Error getting thread {err:?}");
-                            }
+                let pool = Self::DATA_POOL.with(|poo| Arc::clone(poo));
+                match handlers::threads::get_thread(&pool, threadname).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        if matches!(
+                            err.downcast_ref::<sqlx::Error>(),
+                            Some(sqlx::Error::RowNotFound)
+                        ) {
+                            info!("Thread doesn't exist, creating thread named: {threadname}");
+                            assert!(handlers::threads::post_thread(&pool, threadname)
+                                .await
+                                .is_ok());
+                        } else {
+                            panic!("Error getting thread {err:?}");
                         }
                     }
-                    let messages = messages::get_messages(
-                        &pool,
-                        GetMessageParams {
-                            thread_name: threadname.to_string(),
-                        },
-                    )
-                    .await
-                    .expect("Failed to get messages from context");
-                    messages.into_iter().map(|m| m.coerce_to_value()).collect()
-                })
+                }
+                let messages = messages::get_messages(
+                    &pool,
+                    GetMessageParams {
+                        thread_name: threadname.to_string(),
+                    },
+                )
+                .await
+                .expect("Failed to get messages from context");
+                messages.into_iter().map(|m| m.coerce_to_value()).collect()
             }
         }
     }
 
-    pub fn store_messages(&self, messages: &Vec<Value>) {
+    pub async fn store_messages(&self, messages: &Vec<Value>) {
         match self {
             LoadedMemory::Cache => {
                 Self::CACHED_MEMORY.with(|st_mem| {
@@ -80,21 +78,18 @@ impl LoadedMemory {
                 });
             }
             LoadedMemory::LongTerm(threadname) => {
-                let rt = Runtime::new().unwrap();
-                rt.block_on(async {
-                    for m in messages.iter() {
-                        messages::post_message(
-                            &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
-                            CreateMessageBody {
-                                thread_name: threadname.to_string(),
-                                role: m.get("role").expect("No role").to_string(),
-                                content: m.get("content").expect("No content").to_string(),
-                            },
-                        )
-                        .await
-                        .expect("Failed to create message body from Value");
-                    }
-                });
+                for m in messages.iter() {
+                    messages::post_message(
+                        &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
+                        CreateMessageBody {
+                            thread_name: threadname.to_string(),
+                            role: m.get("role").expect("No role").to_string(),
+                            content: m.get("content").expect("No content").to_string(),
+                        },
+                    )
+                    .await
+                    .expect("Failed to create message body from Value");
+                }
             }
         };
     }
@@ -102,7 +97,7 @@ impl LoadedMemory {
     pub fn store_file_tup(&self, file_tup: (CreateFileBody, Vec<CreateFileChunkBody>)) {
         match self {
             LoadedMemory::Cache => {}
-            LoadedMemory::LongTerm(threadname) => {
+            LoadedMemory::LongTerm(_) => {
                 let rt = Runtime::new().unwrap();
                 let pool = &Self::DATA_POOL.with(|poo| Arc::clone(poo));
                 rt.block_on(async {
@@ -123,17 +118,30 @@ impl LoadedMemory {
 impl Memory {
     pub fn load(&self) -> Vec<Value> {
         match self {
-            Memory::Remember(memory) => memory.get(),
+            Memory::Remember(memory) => {
+                let mem = memory.clone();
+                thread::spawn(move || {
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(async { mem.get().await })
+                })
+                .join()
+                .expect("Failed to get Long Term Memory")
+            }
             Memory::Forget => vec![],
         }
     }
-    pub fn save(&self, messages: &Vec<Value>) {
+    pub fn save(&self, messages: Vec<Value>) {
         match self {
-            Memory::Remember(loaded) => match loaded {
-                LoadedMemory::Cache => LoadedMemory::Cache.store_messages(messages),
-                LoadedMemory::LongTerm(_) => loaded.store_messages(messages),
-            },
-            _ => {}
+            Memory::Remember(memory) => {
+                let mem = memory.clone();
+                thread::spawn(move || {
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(async { mem.store_messages(&messages).await })
+                })
+                .join()
+                .expect("Failed to get Long Term Memory")
+            }
+            Memory::Forget => {}
         }
     }
 }
