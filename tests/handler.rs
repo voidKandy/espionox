@@ -9,7 +9,7 @@ use consoxide::language_models::openai::functions::enums::FnEnum;
 #[ignore]
 #[test]
 fn function_agent_test() {
-    let mut agent = Agent::new(Memory::Forget);
+    let mut agent = Agent::forget();
     let prompt = String::from("[Investigate the failing test in src/tests/context.rs, Check the assertion at line 42 in src/tests/context.rs, Analyze the error message to understand the cause of the failure, Fix the failing test to pass the assertion]");
     agent.context.push_to_buffer("user", &prompt);
 
@@ -30,13 +30,11 @@ fn function_agent_test() {
 #[ignore]
 #[test]
 fn prompt_agent_test() {
-    let mut agent = Agent::new(Memory::Forget);
+    let mut agent = Agent::forget();
     let prompt = String::from("Hello chat agent");
-    agent.context.push_to_buffer("user", &prompt);
 
-    let response = agent.prompt();
-    agent.context.push_to_buffer("user", "cool response");
-    let response = agent.prompt();
+    let response = agent.prompt(&prompt);
+    let response = agent.prompt("cool response");
     agent.context.memory.save(agent.context.buffer.clone());
     assert!(true);
 }
