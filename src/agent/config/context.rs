@@ -21,10 +21,10 @@ pub trait Contextual {
 }
 
 impl Context {
-    pub fn build(memory: &Memory) -> Context {
+    pub fn build(memory: Memory) -> Context {
         Context {
             buffer: memory.load(),
-            memory: memory.to_owned(),
+            memory,
         }
     }
 
@@ -33,7 +33,7 @@ impl Context {
     }
     pub fn switch_mem(&mut self, memory: Memory) {
         self.memory.save(self.buffer.clone());
-        *self = Context::build(&memory);
+        *self = Context::build(memory);
     }
     pub fn remember_file(&self, file: File) {
         match &self.memory {

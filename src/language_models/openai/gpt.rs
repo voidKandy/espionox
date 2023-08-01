@@ -4,6 +4,7 @@ use serde_derive::Deserialize;
 use serde_json::{json, Value};
 use std::env;
 use std::error::Error;
+use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
@@ -100,7 +101,7 @@ impl Gpt {
         let model = env::var("GPT_MODEL").unwrap();
         let payload =
             json!({"model": model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
-        println!("   PAYLOAD\n_____________________\n\n{:?}\n", &payload);
+        info!("PAYLOAD: {:?}", &payload);
         match self
             .config
             .client
@@ -113,7 +114,7 @@ impl Gpt {
         {
             Ok(response) => {
                 let gpt_response: GptResponse = response.json().await?;
-                println!("{:?}", gpt_response);
+                info!("GPT RESPONSE: {:?}", gpt_response);
                 Ok(gpt_response)
             }
             Err(err) => {

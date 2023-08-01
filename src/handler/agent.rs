@@ -1,5 +1,11 @@
 use crate::{
-    agent::config::{context::Context, memory::Memory},
+    agent::config::{
+        context::Context,
+        memory::{
+            LoadedMemory::{Cache, LongTerm},
+            Memory,
+        },
+    },
     core::{file_interface::File, io::Io},
 };
 use crate::{
@@ -21,11 +27,29 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(memory: Memory) -> Agent {
+    pub fn cache() -> Agent {
         let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         Agent {
             gpt: Gpt::init(&init_prompt),
-            context: Context::build(&memory),
+            context: Context::build(Memory::Remember(Cache)),
+            io: Vec::new(),
+        }
+    }
+
+    pub fn long_term(name: &str) -> Agent {
+        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
+        Agent {
+            gpt: Gpt::init(&init_prompt),
+            context: Context::build(Memory::Remember(LongTerm(name.to_string()))),
+            io: Vec::new(),
+        }
+    }
+
+    pub fn forget() -> Agent {
+        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
+        Agent {
+            gpt: Gpt::init(&init_prompt),
+            context: Context::build(Memory::Forget),
             io: Vec::new(),
         }
     }
@@ -34,8 +58,7 @@ impl Agent {
         let save_mem = self.context.memory.clone();
         self.context.switch_mem(Memory::Forget);
         let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
-        self.context.push_to_buffer("system", &summarize_prompt);
-        let response = self.prompt();
+        let response = self.prompt(&summarize_prompt);
         self.context.switch_mem(save_mem);
         response
     }
@@ -117,9 +140,10 @@ impl Agent {
     // }
     //
 
-    pub fn prompt(&mut self) -> String {
+    pub fn prompt(&mut self, input: &str) -> String {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
+        self.context.push_to_buffer("assistant", &input);
         let buffer = self.context.buffer.clone();
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
@@ -127,7 +151,6 @@ impl Agent {
                 gpt.completion(&buffer)
                     .await
                     .expect("Failed to get completion.")
-                // The rest of your async code
             });
             tx.send(result).unwrap();
         })
