@@ -33,3 +33,4 @@ tracing-bunyan-formatter = "0.3.8"
 tracing-log = "0.1.3"
 tracing-subscriber = { version = "0.3.17", features = ["registry", "env-filter"] }
 once_cell = "1.18.0"
+colored = "2.0.4"
