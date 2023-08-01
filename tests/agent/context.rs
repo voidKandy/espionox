@@ -1,7 +1,7 @@
 use consoxide::telemetry::{get_subscriber, init_subscriber};
 use consoxide::{
     agent::config::{
-        context::{Context, Contextual},
+        context::Context,
         memory::{LoadedMemory, Memory},
     },
     core::file_interface::File,

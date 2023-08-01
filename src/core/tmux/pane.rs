@@ -69,16 +69,6 @@ impl Pane {
 }
 
 impl InSession for Pane {
-    fn run_input(&self, input: String) -> String {
-        let args: Vec<&str> = input.split(" ").collect();
-        let out = Command::new(args[0])
-            .args(&args[1..])
-            .stdout(Stdio::piped())
-            .output()
-            .expect("failed to execute tmux command");
-        String::from_utf8_lossy(&out.stdout).to_string()
-    }
-
     fn cl_io(&self) -> (String, String) {
         // loop {
         let input = Text::new("::: ").prompt().unwrap();

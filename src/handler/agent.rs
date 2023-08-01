@@ -54,6 +54,12 @@ impl Agent {
         }
     }
 
+    pub fn remember(&mut self, o: impl super::memorable::Memorable) {
+        let mem = o.memorize();
+        self.context.push_to_buffer("user", &mem);
+        // todo!("Match to handle cache and long term");
+    }
+
     pub async fn summarize(&mut self, content: &str) -> String {
         let save_mem = self.context.memory.clone();
         self.context.switch_mem(Memory::Forget);

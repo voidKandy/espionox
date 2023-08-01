@@ -1,8 +1,10 @@
+use std::env;
 use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
+use tracing::{self, info};
 
 #[derive(Debug, Clone)]
 pub struct File {
@@ -27,38 +29,6 @@ pub struct Directory {
     pub files: Vec<File>,
 }
 
-impl fmt::Display for File {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.filepath.display().to_string())
-    }
-}
-
-impl fmt::Display for Directory {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let children_display: String = self
-            .children
-            .iter()
-            .map(|child| child.dirpath.display().to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        let files_display: String = self
-            .files
-            .iter()
-            .map(|file| file.filepath.display().to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        write!(
-            f,
-            "Name: {}\nChild Directories:\n{}\nFiles:\n{}\n",
-            self.dirpath.display().to_string(),
-            children_display,
-            files_display
-        )
-    }
-}
-
 impl File {
     pub fn build(filepath: &str) -> File {
         File {
@@ -71,21 +41,22 @@ impl File {
     }
 
     fn full_filepath(filename: &str) -> String {
-        let args: &[&str] = &["readlink", "-f", filename];
-        let out = Command::new(args[0])
-            .args(&args[1..])
-            .stdout(Stdio::piped())
-            .output()
-            .expect("failed to execute tmux command");
-        print!(
-            "{}",
-            String::from_utf8_lossy(&out.stdout.clone()).to_string()
-        );
-        String::from_utf8_lossy(&out.stdout).to_string()
+        fs::canonicalize(Path::new(filename))
+            .unwrap()
+            .display()
+            .to_string()
     }
 
+    #[tracing::instrument]
     pub fn chunkify(&mut self) -> Self {
-        let content = fs::read_to_string(&self.filepath).unwrap_or_else(|e| e.to_string());
+        info!("chunkifying: {}", &self.filepath.to_str().unwrap());
+        let content = fs::read_to_string(&self.filepath).unwrap_or_else(|e| {
+            println!(
+                "Failed to get content of {}\nError: {e:?}",
+                &self.filepath.to_str().unwrap()
+            );
+            e.to_string()
+        });
         let lines: Vec<&str> = content.lines().collect();
         lines.chunks(50).enumerate().for_each(|(i, c)| {
             self.chunks.push(FileChunk {
@@ -96,7 +67,6 @@ impl File {
             });
         });
         self.to_owned()
-        // chunks.iter().for_each(|c| println!("{}", c.content));
     }
 
     pub fn content(&self) -> String {
