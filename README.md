@@ -1,15 +1,16 @@
 # 🦀 Consoxide 🦀
 
-Breathing life into your console sessions with Ai!
 
-Consoxide puts the power of LLMs into your own console! All you need is to run the `start.sh` file to get the tmux session running.
+<img width="1508" alt="Screenshot 2023-08-05 at 3 35 27 PM" src="https://github.com/voidKandy/Consoxide/assets/121535853/cd59f138-4c3a-4276-93ba-ee8d381ab539">
 
 ## Current features
-* Agent 'watches' your commands in the agent tmux window. It can offer help with any errors that get run through that terminal window.
-* Dynamically updates context based on your actions
-* Summarize & embed files or entire directories
+* Openai completions api easily accesible through an io device
+* Agent which can switch Memory modes:
+   * Temporary: for simple queries like file summaries or anything doesn't require a large context window
+   * Short Term: the cached conversation for the current runtime
+   * Long Term: Database connected Conversation
+ * Memorable trait to make objects 'memorizable' by putting them in the context of a message
 
 ## In development
-* User tailored configuration
-* The ability to add arbitrary directories anywhere on your harddrive to long term memory
-  * Dynamically update when changes are made
+* Streaming completions
+* SOPs
