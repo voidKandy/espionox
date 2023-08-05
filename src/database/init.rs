@@ -1,5 +1,4 @@
 use dotenv::dotenv;
-use sqlx::postgres::PgQueryResult;
 use std::env;
 use std::error::Error;
 use std::thread;

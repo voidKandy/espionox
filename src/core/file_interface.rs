@@ -1,9 +1,5 @@
-use std::env;
-use std::fmt;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
-use std::process::Stdio;
 use tracing::{self, info};
 
 #[derive(Debug, Clone)]
@@ -30,21 +26,15 @@ pub struct Directory {
 }
 
 impl File {
-    pub fn build(filepath: &str) -> File {
+    pub fn build(filename: &str) -> File {
+        let filepath = fs::canonicalize(Path::new(filename)).unwrap().into();
         File {
-            filepath: Path::new(&Self::full_filepath(filepath)).into(),
+            filepath,
             chunks: vec![],
             summary: String::new(),
             summary_embedding: Vec::new(),
         }
         .chunkify()
-    }
-
-    fn full_filepath(filename: &str) -> String {
-        fs::canonicalize(Path::new(filename))
-            .unwrap()
-            .display()
-            .to_string()
     }
 
     #[tracing::instrument]

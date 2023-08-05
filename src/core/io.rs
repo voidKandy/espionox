@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio};
 
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize, Debug)]
 pub struct Io {
     pub i: String,
     pub o: String,

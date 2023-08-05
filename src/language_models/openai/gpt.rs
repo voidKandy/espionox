@@ -1,14 +1,26 @@
 use super::functions::config::Function;
+use bytes::Bytes;
+use futures::Stream;
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
-use std::env;
-use std::error::Error;
+use std::{env, error::Error, rc::Rc};
 use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StreamResponse {
+    pub choices: Vec<StreamChoice>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StreamChoice {
+    pub delta: Message,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -22,12 +34,12 @@ pub struct Message {
     pub function_call: Option<Value>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GptConfig {
     api_key: String,
     client: Client,
@@ -36,14 +48,14 @@ pub struct GptConfig {
 }
 
 impl GptResponse {
-    pub fn parse_response(&self) -> Result<String, Box<dyn Error>> {
+    pub fn parse(&self) -> Result<String, Box<dyn Error>> {
         // println!("{:?}", &self);
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err("Unable to parse completion response".into()),
         }
     }
-    pub fn parse_fn_response(&self, fn_name: &str) -> Result<Vec<String>, Box<dyn Error>> {
+    pub fn parse_fn(&self, fn_name: &str) -> Result<Vec<String>, Box<dyn Error>> {
         match self
             .choices
             .to_owned()
@@ -76,6 +88,64 @@ impl GptResponse {
     }
 }
 
+impl StreamResponse {
+    pub async fn from_byte_chunk(
+        chunk: Bytes,
+        //     stream: &mut Rc<impl Stream<Item = Result<Bytes, reqwest::Error>> + Unpin>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let start_chunk_pattern = "data: {";
+        let end_data_pattern = "data: [DONE]";
+        // if let Some(chunk) = Rc::get_mut(stream)
+        //     .expect("Failed to get mutable reference to stream")
+        //     .next()
+        //     .await
+        // {
+        let chunk_str = String::from_utf8_lossy(&chunk).trim().to_string();
+        let chunk_idcs: Vec<usize> = chunk_str
+            .match_indices(start_chunk_pattern)
+            .map(|(idx, _)| idx)
+            .collect();
+
+        println!(
+            "Chunk String: {}\n, Number of true chunks: {}\nIndices: {:?}",
+            &chunk_str,
+            chunk_idcs.len(),
+            chunk_idcs
+        );
+
+        for (i, idx) in chunk_idcs.iter().enumerate() {
+            let mut slice = match i < chunk_idcs.len() - 1 {
+                true => &chunk_str[idx + start_chunk_pattern.len() - 1..chunk_idcs[i + 1]],
+                false => &chunk_str[idx + start_chunk_pattern.len() - 1..],
+            };
+            if let Some(done_idx) = slice.find(end_data_pattern) {
+                slice = &slice[..done_idx];
+            }
+            let res = serde_json::from_str::<StreamResponse>(&slice)?;
+            if let Some(string) = &res.choices[0].delta.content {
+                if string.is_empty() {
+                    continue;
+                }
+                return Ok(res);
+            };
+        }
+        // }
+
+        // You can return an Err here as a fallback if the loop doesn't run
+        Err("No chunks processed, unexpected error. Likely no chunks we found.".into())
+    }
+
+    pub fn parse(&self) -> Result<String, Box<dyn Error>> {
+        match self.choices[0].delta.content.to_owned() {
+            Some(response) => Ok(response
+                .trim_start_matches('"')
+                .trim_end_matches('"')
+                .to_string()),
+            None => Err("Unable to parse stream completion response".into()),
+        }
+    }
+}
+
 impl GptConfig {
     pub fn init(system_message: String) -> GptConfig {
         dotenv::dotenv().ok();
@@ -95,6 +165,35 @@ impl Gpt {
     pub fn init(sys_message: &str) -> Gpt {
         let config = GptConfig::init(sys_message.to_string());
         Gpt { config }
+    }
+
+    pub async fn stream_completion(
+        &self,
+        context: &[Value],
+    ) -> Result<impl Stream<Item = Result<Bytes, reqwest::Error>>, Box<dyn Error>> {
+        let model = env::var("GPT_MODEL").unwrap();
+        let payload = json!({
+            "model": model,
+            "messages": context,
+            "stream": true,
+            "max_tokens": 1000,
+            "n": 1,
+            "stop": null,
+        });
+        info!("PAYLOAD: {:?}", &payload);
+
+        let response_stream = self
+            .config
+            .client
+            .post(&self.config.url.clone())
+            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?
+            .bytes_stream();
+
+        Ok(response_stream)
     }
 
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {

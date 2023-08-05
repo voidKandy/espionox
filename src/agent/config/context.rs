@@ -1,16 +1,10 @@
 use super::{super::config::memory::Memory, memory::LoadedMemory};
-use crate::{
-    core::{
-        file_interface::{Directory, File},
-        io::Io,
-    },
-    database::{api, handlers},
-};
+use crate::{core::file_interface::File, database::api};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Context {
     pub memory: Memory,
     pub buffer: Vec<Value>,
@@ -26,10 +20,6 @@ impl Context {
 
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
         self.buffer.push(json!({"role": role, "content": content}));
-    }
-    pub fn switch_mem(&mut self, memory: Memory) {
-        self.memory.save(self.buffer.clone());
-        *self = Context::build(memory);
     }
     pub fn remember_file(&self, filepath: &str) {
         let file = File::build(filepath);

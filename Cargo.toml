@@ -17,7 +17,7 @@ anyhow = "1.0.71"
 rust-bert = "0.21.0"
 tch = "0.13.0"
 inquire = "0.6.2"
-reqwest = { version = "0.11.18", features = ['json']}
+reqwest = { version = "0.11.18", features = ['json', 'stream']}
 sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"] }
 serde = "1.0.164"
 serde_derive = "1.0.164"
@@ -34,3 +34,7 @@ tracing-log = "0.1.3"
 tracing-subscriber = { version = "0.3.17", features = ["registry", "env-filter"] }
 once_cell = "1.18.0"
 colored = "2.0.4"
+async-std = "1.12.0"
+futures = "0.3.28"
+futures-util = "0.3.28"
+bytes = "1.4.0"

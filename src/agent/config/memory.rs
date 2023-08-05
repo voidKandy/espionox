@@ -1,5 +1,5 @@
 use crate::database::models::file::CreateFileBody;
-use crate::database::models::file_chunks::{CreateFileChunkBody, FileChunkModelSql};
+use crate::database::models::file_chunks::CreateFileChunkBody;
 use crate::database::models::messages::{CreateMessageBody, GetMessageParams};
 use crate::database::{
     handlers::{self, messages},
@@ -8,7 +8,7 @@ use crate::database::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
-use std::sync::{mpsc, Arc};
+use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
 use tracing::{self, info};
