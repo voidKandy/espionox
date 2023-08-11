@@ -90,6 +90,6 @@ pub fn main_loop() {
             // }
             _ => println!("Didn't quite get that"),
         };
-        agent.save_buffer();
+        // agent.context.save_buffer();
     }
 }
