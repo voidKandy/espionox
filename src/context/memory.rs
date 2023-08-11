@@ -1,14 +1,15 @@
-use crate::database::models::file::CreateFileBody;
-use crate::database::models::file_chunks::CreateFileChunkBody;
-use crate::database::models::messages::{CreateMessageBody, GetMessageParams};
 use crate::database::{
     handlers::{self, messages},
     init::DbPool,
+    models::{
+        file::CreateFileBody,
+        file_chunks::CreateFileChunkBody,
+        messages::{CreateMessageBody, GetMessageParams},
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use tokio::runtime::Runtime;
 use tracing::{self, info};
@@ -27,69 +28,89 @@ pub enum LoadedMemory {
 
 impl LoadedMemory {
     thread_local! {
-        static CACHED_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
+        static CACHED_MEMORY: Mutex<Vec<Value>> = Mutex::new(Vec::new());
         static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::init_long_term());
     }
 
     #[tracing::instrument]
-    pub async fn get_messages(&self) -> Vec<Value> {
+    pub fn get_messages(&self) -> Vec<Value> {
         match self {
             LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
-                let st_mem = mem.borrow().clone();
+                let st_mem = mem.lock().unwrap();
                 info!("Messages loaded from Cache: {:?}", st_mem);
-                st_mem
+                st_mem.to_owned()
             }),
+
             LoadedMemory::LongTerm(threadname) => {
-                let pool = Self::DATA_POOL.with(|poo| Arc::clone(poo));
-                match handlers::threads::get_thread(&pool, threadname).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        if matches!(
-                            err.downcast_ref::<sqlx::Error>(),
-                            Some(sqlx::Error::RowNotFound)
-                        ) {
-                            info!("Thread doesn't exist, creating thread named: {threadname}");
-                            assert!(handlers::threads::post_thread(&pool, threadname)
-                                .await
-                                .is_ok());
-                        } else {
-                            panic!("Error getting thread {err:?}");
+                let threadname = threadname.to_owned();
+                thread::spawn(move || {
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(async {
+                        let pool = Self::DATA_POOL.with(|poo| Arc::clone(poo));
+                        match handlers::threads::get_thread(&pool, &threadname).await {
+                            Ok(_) => {}
+                            Err(err) => {
+                                if matches!(
+                                    err.downcast_ref::<sqlx::Error>(),
+                                    Some(sqlx::Error::RowNotFound)
+                                ) {
+                                    info!(
+                                        "Thread doesn't exist, creating thread named: {threadname}"
+                                    );
+                                    assert!(handlers::threads::post_thread(&pool, &threadname)
+                                        .await
+                                        .is_ok());
+                                } else {
+                                    panic!("Error getting thread {err:?}");
+                                }
+                            }
                         }
-                    }
-                }
-                let messages = messages::get_messages(
-                    &pool,
-                    GetMessageParams {
-                        thread_name: threadname.to_string(),
-                    },
-                )
-                .await
-                .expect("Failed to get messages from context");
-                messages.into_iter().map(|m| m.coerce_to_value()).collect()
+                        let messages = messages::get_messages(
+                            &pool,
+                            GetMessageParams {
+                                thread_name: threadname.to_string(),
+                            },
+                        )
+                        .await
+                        .expect("Failed to get messages from context");
+                        messages.into_iter().map(|m| m.coerce_to_value()).collect()
+                    })
+                })
+                .join()
+                .expect("Failed to get long term memory messages")
             }
         }
     }
 
-    pub async fn store_messages(&self, messages: &Vec<Value>) {
+    pub fn store_messages(&self, messages: &Vec<Value>) {
         match self {
             LoadedMemory::Cache => {
                 Self::CACHED_MEMORY.with(|st_mem| {
-                    *st_mem.borrow_mut() = messages.to_owned();
+                    info!("Cache before: {:?}", st_mem.lock().unwrap());
+                    st_mem.lock().unwrap().append(messages.to_owned().as_mut());
+                    info!("Cache pushed: {:?}", st_mem.lock().unwrap());
                 });
             }
             LoadedMemory::LongTerm(threadname) => {
-                for m in messages.iter() {
-                    messages::post_message(
-                        &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
-                        CreateMessageBody {
-                            thread_name: threadname.to_string(),
-                            role: m.get("role").expect("No role").to_string(),
-                            content: m.get("content").expect("No content").to_string(),
-                        },
-                    )
-                    .await
-                    .expect("Failed to create message body from Value");
-                }
+                let messages = messages.to_owned();
+                let threadname = threadname.to_owned();
+                thread::spawn(move || {
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(async {
+                        for m in messages.iter() {
+                            messages::post_message(
+                                &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
+                                CreateMessageBody {
+                                    thread_name: threadname.to_string(),
+                                    role: m.get("role").expect("No role").to_string(),
+                                    content: m.get("content").expect("No content").to_string(),
+                                },
+                            )
+                            .await
+                            .expect("Failed to store messages to long term memory");
+                        }
+                    });
+                });
             }
         };
     }
@@ -136,28 +157,14 @@ impl Memory {
 
     pub fn load(&self) -> Vec<Value> {
         match self {
-            Memory::Remember(memory) => {
-                let mem = memory.clone();
-                thread::spawn(move || {
-                    let rt = Runtime::new().unwrap();
-                    rt.block_on(async { mem.get_messages().await })
-                })
-                .join()
-                .expect("Failed to get Long Term Memory")
-            }
+            Memory::Remember(memory) => memory.get_messages(),
             Memory::Forget => vec![],
         }
     }
     pub fn save(&self, messages: Vec<Value>) {
         match self {
             Memory::Remember(memory) => {
-                let mem = memory.clone();
-                thread::spawn(move || {
-                    let rt = Runtime::new().unwrap();
-                    rt.block_on(async { mem.store_messages(&messages).await })
-                })
-                .join()
-                .expect("Failed to get Long Term Memory")
+                memory.store_messages(&messages);
             }
             Memory::Forget => {}
         }
