@@ -18,9 +18,9 @@ use tokio::runtime::Runtime;
 
 #[derive(Debug)]
 pub struct Agent {
-    pub gpt: Gpt,
     pub context: Context,
-    pub io: Vec<Io>,
+    gpt: Gpt,
+    io: Vec<Io>,
 }
 
 impl Agent {
@@ -33,19 +33,15 @@ impl Agent {
         }
     }
 
-    pub fn save_buffer(&self) {
-        self.context.memory.save(self.context.buffer.clone());
-    }
-
     pub fn remember(&mut self, o: impl super::super::core::file_interface::Memorable) {
         let mem = o.memorize();
         self.context.push_to_buffer("user", &mem);
-        self.save_buffer();
+        self.context.save_buffer();
         // todo!("Match to handle cache and long term");
     }
 
     pub fn switch_mem(&mut self, memory: Memory) {
-        self.save_buffer();
+        self.context.save_buffer();
         self.context = Context::build(memory);
     }
 
@@ -67,7 +63,7 @@ impl Agent {
 
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buffer.clone();
+        let buffer = self.context.buf_ref();
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
@@ -115,7 +111,7 @@ impl Agent {
     ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
         self.context.push_to_buffer("assistant", &input);
         let gpt = self.gpt.clone();
-        let buffer = self.context.buffer.clone();
+        let buffer = self.context.buf_ref();
         let mut response = thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(async move {
@@ -143,7 +139,7 @@ impl Agent {
     pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buffer.clone();
+        let buffer = self.context.buf_ref();
         let function_name = &function.perameters.properties[0].name.clone();
 
         thread::spawn(move || {

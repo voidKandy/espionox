@@ -9,10 +9,6 @@ use std::{
 };
 
 pub trait Operational {
-    fn open_error_file() {
-        todo!()
-    }
-
     fn run_input(input: &str) -> String {
         let args: Vec<&str> = input.split(" ").collect();
         let out = Command::new(args[0])
@@ -36,7 +32,7 @@ impl Operational for Agent {
                 Some(path) => self.remember_from_path(path),
                 None => format!("Please pass a path to the file or directory you would like remembered.\nUsage: 'rem path'")
             }
-            "info" => format!("{:?}", &self.context.buffer),
+            "info" => self.context.info_display(),
             _ => String::new(),
         }
     }
