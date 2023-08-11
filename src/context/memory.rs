@@ -9,8 +9,7 @@ use crate::database::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{cell::RefCell, sync::Arc, thread};
 use tokio::runtime::Runtime;
 use tracing::{self, info};
 
@@ -28,7 +27,7 @@ pub enum LoadedMemory {
 
 impl LoadedMemory {
     thread_local! {
-        static CACHED_MEMORY: Mutex<Vec<Value>> = Mutex::new(Vec::new());
+        static CACHED_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
         static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::init_long_term());
     }
 
@@ -36,7 +35,7 @@ impl LoadedMemory {
     pub fn get_messages(&self) -> Vec<Value> {
         match self {
             LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
-                let st_mem = mem.lock().unwrap();
+                let st_mem = mem.borrow();
                 info!("Messages loaded from Cache: {:?}", st_mem);
                 st_mem.to_owned()
             }),
@@ -86,9 +85,9 @@ impl LoadedMemory {
         match self {
             LoadedMemory::Cache => {
                 Self::CACHED_MEMORY.with(|st_mem| {
-                    info!("Cache before: {:?}", st_mem.lock().unwrap());
-                    st_mem.lock().unwrap().append(messages.to_owned().as_mut());
-                    info!("Cache pushed: {:?}", st_mem.lock().unwrap());
+                    info!("Cache before: {:?}", st_mem.borrow());
+                    st_mem.borrow_mut().append(messages.to_owned().as_mut());
+                    info!("Cache pushed: {:?}", st_mem.borrow());
                 });
             }
             LoadedMemory::LongTerm(threadname) => {
