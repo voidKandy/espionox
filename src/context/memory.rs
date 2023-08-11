@@ -32,7 +32,7 @@ impl LoadedMemory {
     }
 
     #[tracing::instrument]
-    pub async fn get(&self) -> Vec<Value> {
+    pub async fn get_messages(&self) -> Vec<Value> {
         match self {
             LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
                 let st_mem = mem.borrow().clone();
@@ -116,13 +116,31 @@ impl LoadedMemory {
 }
 
 impl Memory {
+    pub fn get_active_long_term_threads(&self) -> Result<Vec<String>, String> {
+        thread::spawn(move || {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                match handlers::threads::get_all_threads(
+                    &LoadedMemory::DATA_POOL.with(|poo| Arc::clone(poo)),
+                )
+                .await
+                {
+                    Ok(threads) => Ok(threads),
+                    Err(err) => Err(format!("Couldn't get long term threads: {err:?}")),
+                }
+            })
+        })
+        .join()
+        .expect("Failed to get long term threads")
+    }
+
     pub fn load(&self) -> Vec<Value> {
         match self {
             Memory::Remember(memory) => {
                 let mem = memory.clone();
                 thread::spawn(move || {
                     let rt = Runtime::new().unwrap();
-                    rt.block_on(async { mem.get().await })
+                    rt.block_on(async { mem.get_messages().await })
                 })
                 .join()
                 .expect("Failed to get Long Term Memory")

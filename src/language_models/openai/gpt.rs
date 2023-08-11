@@ -5,7 +5,7 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
-use std::{env, error::Error, rc::Rc};
+use std::{env, error::Error};
 use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -44,7 +44,7 @@ pub struct GptConfig {
     api_key: String,
     client: Client,
     url: String,
-    pub system_message: String,
+    // pub system_message: String,
 }
 
 impl GptResponse {
@@ -91,22 +91,17 @@ impl GptResponse {
 impl StreamResponse {
     pub async fn from_byte_chunk(
         chunk: Bytes,
-        //     stream: &mut Rc<impl Stream<Item = Result<Bytes, reqwest::Error>> + Unpin>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let start_chunk_pattern = "data: {";
         let end_data_pattern = "data: [DONE]";
-        // if let Some(chunk) = Rc::get_mut(stream)
-        //     .expect("Failed to get mutable reference to stream")
-        //     .next()
-        //     .await
-        // {
+
         let chunk_str = String::from_utf8_lossy(&chunk).trim().to_string();
         let chunk_idcs: Vec<usize> = chunk_str
             .match_indices(start_chunk_pattern)
             .map(|(idx, _)| idx)
             .collect();
 
-        println!(
+        info!(
             "Chunk String: {}\n, Number of true chunks: {}\nIndices: {:?}",
             &chunk_str,
             chunk_idcs.len(),
@@ -129,9 +124,7 @@ impl StreamResponse {
                 return Ok(res);
             };
         }
-        // }
 
-        // You can return an Err here as a fallback if the loop doesn't run
         Err("No chunks processed, unexpected error. Likely no chunks we found.".into())
     }
 
@@ -147,7 +140,7 @@ impl StreamResponse {
 }
 
 impl GptConfig {
-    pub fn init(system_message: String) -> GptConfig {
+    pub fn init() -> GptConfig {
         dotenv::dotenv().ok();
         let api_key = env::var("OPEN_AI_API_KEY").unwrap();
         let client = Client::new();
@@ -156,14 +149,14 @@ impl GptConfig {
             api_key,
             client,
             url,
-            system_message,
+            // system_message,
         }
     }
 }
 
 impl Gpt {
-    pub fn init(sys_message: &str) -> Gpt {
-        let config = GptConfig::init(sys_message.to_string());
+    pub fn init() -> Gpt {
+        let config = GptConfig::init();
         Gpt { config }
     }
 

@@ -80,24 +80,6 @@ impl FnEnum {
             }
 
             FnEnum::ExecuteGenerateRead => {
-                // let properties = [Property::new(
-                //     "tuples",
-                //     "array of tuples: (task, enum(Execute, Generate, Read))",
-                //     "A list of tasks and their classification",
-                //     &[
-                //         ("type", "tuple"),
-                //         (
-                //             "description",
-                //             "a tuple of a task, and either Execute, Generate or Read",
-                //         ),
-                //     ],
-                // )];
-                // let perameters = Perameters::new("object", &properties, &["tuples"]);
-                // Function::new(
-                //     "execute_generate_read",
-                //     "Given the list of tasks classify whether each is a request to generate code, execute a file or shell command, or simply read currently unavailable information.",
-                //     perameters,
-                // )
                 let properties = [Property::new(
                     "classifications",
                     "array",

@@ -1,25 +1,22 @@
+use crate::language_models::openai::gpt::StreamResponse;
+use crate::language_models::openai::{functions::config::Function, gpt::Gpt};
 use crate::{
-    agent::config::{
-        context::Context,
+    context::{
         memory::{
             LoadedMemory::{Cache, LongTerm},
             Memory,
         },
+        Context,
     },
-    core::{file_interface::File, io::Io},
+    core::io::Io,
 };
-use crate::{
-    database::init::DbPool,
-    language_models::openai::{
-        functions::{config::Function, enums::FnEnum},
-        gpt::Gpt,
-    },
-};
-use std::error::Error;
-use std::sync::mpsc;
-use std::thread;
+use bytes::Bytes;
+use futures::Stream;
+use futures_util::StreamExt;
+use std::{error::Error, sync::mpsc, thread, time::Duration};
 use tokio::runtime::Runtime;
 
+#[derive(Debug)]
 pub struct Agent {
     pub gpt: Gpt,
     pub context: Context,
@@ -27,129 +24,49 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn cache() -> Agent {
+    pub fn init() -> Agent {
         let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         Agent {
-            gpt: Gpt::init(&init_prompt),
+            gpt: Gpt::init(),
             context: Context::build(Memory::Remember(Cache)),
             io: Vec::new(),
         }
     }
 
-    pub fn long_term(name: &str) -> Agent {
-        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
-        Agent {
-            gpt: Gpt::init(&init_prompt),
-            context: Context::build(Memory::Remember(LongTerm(name.to_string()))),
-            io: Vec::new(),
-        }
+    pub fn save_buffer(&self) {
+        self.context.memory.save(self.context.buffer.clone());
     }
 
-    pub fn forget() -> Agent {
-        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
-        Agent {
-            gpt: Gpt::init(&init_prompt),
-            context: Context::build(Memory::Forget),
-            io: Vec::new(),
-        }
-    }
-
-    pub fn remember(&mut self, o: impl super::memorable::Memorable) {
+    pub fn remember(&mut self, o: impl super::super::core::file_interface::Memorable) {
         let mem = o.memorize();
         self.context.push_to_buffer("user", &mem);
+        self.save_buffer();
         // todo!("Match to handle cache and long term");
+    }
+
+    pub fn switch_mem(&mut self, memory: Memory) {
+        self.save_buffer();
+        self.context = Context::build(memory);
     }
 
     pub async fn summarize(&mut self, content: &str) -> String {
         let save_mem = self.context.memory.clone();
-        self.context.switch_mem(Memory::Forget);
+        self.switch_mem(Memory::Forget);
         let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
         let response = self.prompt(&summarize_prompt);
-        self.context.switch_mem(save_mem);
+        self.switch_mem(save_mem);
         response
     }
 
     pub async fn command(&mut self, command: &str) {
         self.io.push(Io::new(command))
     }
-    //
-    // async fn get_fix(&mut self) -> Result<String, Box<dyn Error>> {
-    //     println!("_-Getting-Help-_");
-    //     let content = match self.io.last() {
-    //         Some(Io(i, o)) => {
-    //             format!(
-    //                 "This command was run: [{}]\nWhich resulted in this error: [{}]",
-    //                 i, o
-    //             )
-    //         }
-    //         None => {
-    //             return Err("No io".into());
-    //         }
-    //     };
-    //     self.context.push_to_buffer("user", &content);
-    //
-    //     let relevant_paths = self
-    //         .function_prompt(&FnEnum::RelevantFiles.to_function())
-    //         .await
-    //         .unwrap();
-    //
-    //     let mut relevant_files = relevant_paths
-    //         .into_iter()
-    //         .map(|f| File::build(&f))
-    //         .collect::<Vec<File>>();
-    //     for file in relevant_files.iter_mut() {
-    //         file.summary = self.summarize(&file.content()).await;
-    //     }
-    //     // relevant_files.make_relevant(&mut self.context);
-    //     relevant_files.iter().for_each(|f| {
-    //         let content = format!(
-    //             "FilePath: {}\nSummary of the file's contents: {}",
-    //             f.filepath.display().to_string(),
-    //             f.summary,
-    //         );
-    //         self.context.push_to_buffer("user", &content);
-    //     });
-    //
-    //     self.context.push_to_buffer("user", "Given the files and the error message, clearly express what the most urgent problem is and which single file it is in. If you know how to solve the problem, explain how it can be fixed.");
-    //     let help = match self.prompt().await {
-    //         Ok(response) => response,
-    //         Err(err) => panic!("Error broke completion: {:?}", err),
-    //     };
-    //
-    //     //// May need to spawn a thread here, Meaning we'll need multiple short term threads
-    //     ///available. I dont think a new context should be initialized for this... We need a 'side
-    //     ///job' implemtation
-    //     let mut mem = Memory::Forget.load();
-    //     mem.push_to_buffer("system", &help);
-    //     let relevant_paths = self
-    //         .function_prompt(&FnEnum::RelevantFiles.to_function())
-    //         .await
-    //         .unwrap();
-    //
-    //     mem = Memory::Temporary.init();
-    //     let content = "You are a fixer agent. You will be given the summation of a programming error and it's solution. You will also be given the contents of the file that caused the error as it is. Your job is to recreate the file exactly as it is, except for the change that must be made to fix the error. Output should be only the recreated file content with the fix implemented.";
-    //     mem.append_to_messages("system", content);
-    //
-    //     let file = File::build(&relevant_paths[0]);(
-    //     let content = &format!(
-    //         "Here is the file: {}\nHere is the error and it's proposed solution: {}",
-    //         file.content(),
-    //         &help
-    //     );
-    //     mem.append_to_messages("user", content);
-    //
-    //     let fix = match self.prompt().await {
-    //         Ok(response) => response,
-    //         Err(err) => panic!("Error broke completion: {:?}", err),
-    //     };
-    //     Ok(fix)
-    // }
-    //
 
     pub fn prompt(&mut self, input: &str) -> String {
+        self.context.push_to_buffer("user", &input);
+
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        self.context.push_to_buffer("assistant", &input);
         let buffer = self.context.buffer.clone();
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
@@ -162,15 +79,67 @@ impl Agent {
         })
         .join()
         .expect("Failed to join thread");
-
+        // let result = rx.recv().unwrap();
         let result = rx
             .recv()
             .unwrap()
-            .parse_response()
+            .parse()
             .expect("Failed to parse completion response");
+
         self.context.push_to_buffer("assistant", &result);
         result
     }
+
+    async fn poll_stream_for_token(
+        mut response: impl Stream<Item = Result<Bytes, reqwest::Error>> + std::marker::Unpin,
+    ) -> anyhow::Result<Option<String>> {
+        if let Some(Ok(chunk)) = response.next().await {
+            match StreamResponse::from_byte_chunk(chunk).await {
+                Ok(stream_res) => {
+                    let parsed_res = stream_res.parse().unwrap();
+                    Ok(Some(parsed_res))
+                }
+                Err(err) => {
+                    Err(anyhow::anyhow!("Problem getting stream response: {:?}", err).into())
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[tracing::instrument]
+    pub fn stream_prompt(
+        &mut self,
+        input: &str,
+    ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
+        self.context.push_to_buffer("assistant", &input);
+        let gpt = self.gpt.clone();
+        let buffer = self.context.buffer.clone();
+        let mut response = thread::spawn(move || {
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async move {
+                gpt.stream_completion(&buffer)
+                    .await
+                    .expect("Failed to get completion.")
+            })
+        })
+        .join()
+        .unwrap();
+
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        tokio::spawn(async move {
+            while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
+                tx.send(Ok(token)).await.unwrap();
+            }
+
+            // tokio::time::sleep(Duration::from_millis(200)).await;
+        });
+        rx
+        // self.context.push_to_buffer("assistant", &result);
+        // Ok(handle)
+    }
+
     pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
@@ -188,11 +157,10 @@ impl Agent {
         })
         .join()
         .expect("Failed to join thread");
-
         let result = rx
             .recv()
             .unwrap()
-            .parse_fn_response(&function_name)
+            .parse_fn(&function_name)
             .expect("Failed to parse completion response")
             .clone()
             .into_iter()

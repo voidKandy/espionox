@@ -25,6 +25,10 @@ pub struct Directory {
     pub files: Vec<File>,
 }
 
+pub trait Memorable {
+    fn memorize(&self) -> String;
+}
+
 impl File {
     pub fn build(filename: &str) -> File {
         let filepath = fs::canonicalize(Path::new(filename)).unwrap().into();
@@ -67,15 +71,15 @@ impl File {
 }
 
 impl Directory {
-    pub fn build(path: &str) -> Result<Directory, Box<dyn std::error::Error>> {
-        let dirpath = Path::new(path);
+    pub fn build(path: &str) -> Directory {
+        let dirpath = fs::canonicalize(Path::new(path)).unwrap();
         let (children, files) =
-            Directory::walk_directory(dirpath).expect("Failure walking directory");
-        Ok(Directory {
+            Directory::walk_directory(&dirpath).expect("Failure walking directory");
+        Directory {
             dirpath: dirpath.into(),
             children,
             files,
-        })
+        }
     }
 
     fn walk_directory(
@@ -90,7 +94,7 @@ impl Directory {
         for entry in directory_iterator {
             match &entry.is_dir() {
                 true => {
-                    children.push(Directory::build(entry.to_str().unwrap()).unwrap());
+                    children.push(Directory::build(entry.to_str().unwrap()));
                 }
                 false => {
                     files.push(File::build(&entry.display().to_string()));
@@ -98,5 +102,66 @@ impl Directory {
             }
         }
         Ok((children, files))
+    }
+}
+
+impl Memorable for Directory {
+    fn memorize(&self) -> String {
+        let mut files_payload = vec![];
+        self.files.iter().for_each(|f| {
+            files_payload.push(match f.summary.as_str() {
+                "" => format!(
+                    "FilePath: {}, Content: {}",
+                    &f.filepath.display(),
+                    &f.content()
+                ),
+                _ => format!(
+                    "FilePath: {}, Content: {}, Summary: {}",
+                    &f.filepath.display(),
+                    &f.content(),
+                    &f.summary
+                ),
+            })
+        });
+        format!(
+            "Relevant Directory path: {}, Child Directories: [{:?}], Files: [{}]",
+            self.dirpath.display().to_string(),
+            self.children
+                .clone()
+                .into_iter()
+                .map(|c| c.dirpath.display().to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            files_payload.join(", ")
+        )
+    }
+}
+
+impl Memorable for File {
+    fn memorize(&self) -> String {
+        match self.summary.as_str() {
+            "" => format!(
+                "FilePath: {}, Content: {}",
+                &self.filepath.display(),
+                &self.content()
+            ),
+            _ => format!(
+                "FilePath: {}, Content: {}, Summary: {}",
+                &self.filepath.display(),
+                &self.content(),
+                &self.summary
+            ),
+        }
+    }
+}
+
+impl Memorable for FileChunk {
+    fn memorize(&self) -> String {
+        format!(
+            "FilePath: {}, ChunkIndex: {}, Content: {}",
+            &self.parent_filepath.display(),
+            &self.index,
+            &self.content,
+        )
     }
 }
