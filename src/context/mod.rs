@@ -50,6 +50,12 @@ impl Context {
     }
 
     pub fn save_buffer(&self) {
-        self.memory.save(self.buffer.clone());
+        let buf_difference = self
+            .buf_ref()
+            .iter()
+            .filter(|&value| !self.memory.load().contains(value))
+            .cloned()
+            .collect();
+        self.memory.save(buf_difference);
     }
 }
