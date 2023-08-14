@@ -1,31 +1,56 @@
-use crate::{
-    core::file_interface::File,
-    handler::{agent::Agent, memorable::Memorable},
-};
+use crate::handler::agent::Agent;
+use crate::handler::operations::Operational;
 use colored::*;
 use inquire::Text;
-use std::process::{Command, Stdio};
 
 fn say_hi() {
     println!(
         "{}",
         format!(
             r#"
-                                                          /\
-                                                         /  \
-                                                        /    \
-                                                       /      \
-                                                      /        \
-                                                     /          \
-                                                    /   []  []   \
-                                                   /              \
-                                            +-----/                \-----+
-                                            |    /                  \    |   
-                                            |   /                    \   |
-                                            |  /                      \  |
-                                            | /                        \ |
-                                            +----------------------------+
-                                            ?                            ?
+
+
+
+
+
+
+
+
+
+                                                                                --- [ Hello Human ] ---
+
+
+                                            
+                                                                            
+                                                                                          /\
+                                                                                         /  \
+                                                                                        /    \
+                                                                                       /      \
+                                                                                      /        \
+                                                                                     /          \
+                                                                                    /            \
+                                                                                   /              \
+                                                                            +     /                \     +
+                                                                            |    /                  \    |   
+                                                                            |   /                    \   |
+                                                                            |  /                      \  |
+                                                                            | /  ...._          _....  \ |
+                                                                            |/  / __  | ______ |  __ \  \|
+                                                                            ++--|____/          \____|--++
+                                                                             |                          |
+                                                                             |                          \   
+                                                                             /                           \      
+                                                                             / /  |                      /        
+                                                                             \/\  /            /   \    /
+                                                                                \/\ |   /|    /\   |\  /
+                                                                                   \|  /  \  /  \  // /             
+                                                                                     \/   | /    \/ \/
+                                                                                          \/
+
+
+
+
+
 
     "#
         )
@@ -33,32 +58,8 @@ fn say_hi() {
     )
 }
 
-fn run_input(input: &str) -> String {
-    let args: Vec<&str> = input.split(" ").collect();
-    let out = Command::new(args[0])
-        .args(&args[1..])
-        .stdout(Stdio::piped())
-        .output()
-        .expect("failed to execute tmux command");
-    String::from_utf8_lossy(&out.stdout).to_string()
-}
-
-fn sop(agent: &mut Agent, input: &str) -> String {
-    let args: Vec<&str> = input.split_whitespace().collect();
-    match args[0] {
-        "rem" => {
-            agent.remember(File::build(
-                args.get(1).expect("Make sure to pass filepath"),
-            ));
-            format!("Added {} to buffer.", args.get(1).unwrap())
-        }
-        "shobuf" => format!("{:?}", agent.context.buffer),
-        _ => String::new(),
-    }
-}
-
 pub fn main_loop() {
-    let mut agent = Agent::cache();
+    let mut agent = Agent::init();
     match std::env::var("TMUX") {
         Ok(tmux_var) => println!("📺 Tmux session: {}", tmux_var),
         Err(_) => println!(
@@ -68,12 +69,27 @@ pub fn main_loop() {
     say_hi();
     loop {
         let input = Text::new("").prompt().unwrap();
-        let response = match input.chars().nth(0) {
-            Some('!') => run_input(&input[1..]).red(),
-            Some('?') => sop(&mut agent, &input[1..]).purple(),
-            Some(_) => agent.prompt(&input.to_string()).blue(),
-            _ => panic!("Something wrong with user input"),
+        match input.chars().nth(0) {
+            Some('!') => println!("{}", Agent::run_input(&input[1..]).red()),
+            Some('?') => println!(
+                "{}",
+                agent
+                    .read_args(input[1..].split_whitespace().collect())
+                    .purple()
+            ),
+            Some(_) => println!("{}", agent.prompt(&input).magenta()),
+
+            // Some(_) => {
+            //     let mut rx = agent.stream_prompt(&input);
+            //     tokio::spawn(async move {
+            //         while let Some(Ok(output)) = rx.recv().await {
+            //             print!("{}", output.magenta());
+            //             std::thread::sleep(std::time::Duration::from_millis(200));
+            //         }
+            // });
+            // }
+            _ => println!("Didn't quite get that"),
         };
-        println!("{response}");
+        // agent.context.save_buffer();
     }
 }
