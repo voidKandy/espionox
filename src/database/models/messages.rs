@@ -21,12 +21,3 @@ pub struct CreateMessageBody {
 pub struct DeleteMessageParams {
     pub id: String,
 }
-
-impl MessageModelSql {
-    pub fn coerce_to_value(&self) -> Value {
-        json!({
-            "role": self.role,
-            "content": self.content,
-        })
-    }
-}

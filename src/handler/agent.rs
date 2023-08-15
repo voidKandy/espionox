@@ -13,7 +13,7 @@ use crate::{
 use bytes::Bytes;
 use futures::Stream;
 use futures_util::StreamExt;
-use std::{error::Error, sync::mpsc, thread, time::Duration};
+use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
@@ -63,11 +63,11 @@ impl Agent {
 
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
-                gpt.completion(&buffer)
+                gpt.completion(&buffer.into())
                     .await
                     .expect("Failed to get completion.")
             });
@@ -111,11 +111,11 @@ impl Agent {
     ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
         self.context.push_to_buffer("assistant", &input);
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         let mut response = thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(async move {
-                gpt.stream_completion(&buffer)
+                gpt.stream_completion(&buffer.into())
                     .await
                     .expect("Failed to get completion.")
             })
@@ -139,13 +139,13 @@ impl Agent {
     pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         let function_name = &function.perameters.properties[0].name.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
-                gpt.function_completion(&buffer, &function)
+                gpt.function_completion(&buffer.into(), &function)
                     .await
                     .expect("Failed to get completion.")
             });

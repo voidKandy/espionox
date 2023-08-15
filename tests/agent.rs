@@ -34,13 +34,13 @@ fn to_and_from_short_term_test() {
     let mut agent = Agent::init();
     let prompt = String::from("Hello chat agent");
     agent.context.push_to_buffer("user", &prompt);
-    let cached_buf = agent.context.buf_ref();
+    let cached_buf = agent.context.buffer.clone();
 
     agent.switch_mem(Memory::Forget);
-    assert_ne!(cached_buf, agent.context.buf_ref());
+    assert_ne!(cached_buf, agent.context.buffer);
 
     agent.switch_mem(Memory::Remember(
         consoxide::context::memory::LoadedMemory::Cache,
     ));
-    assert_eq!(cached_buf, agent.context.buf_ref());
+    assert_eq!(cached_buf, agent.context.buffer);
 }

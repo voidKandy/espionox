@@ -48,9 +48,9 @@ fn adding_files_to_memory_works() {
                 .collect::<Vec<String>>()
         ),
     );
+
+    let expected_content = r#"Relavent files: ["FilePath: path/to/file1.txt, Content: ", "FilePath: path/to/file2.txt, Content: , Summary: Summary of file 2"]"#;
+
     println!("{}", context.buffer_as_string());
-    assert!(
-        context.buffer_as_string().contains(
-        "Relavent files: [\\\"FilePath: path/to/file1.txt, Content: \\\", \\\"FilePath: path/to/file2.txt, Content: , Summary: Summary of file 2\\\"]")
-    );
+    assert!(context.buffer_as_string().contains(expected_content));
 }

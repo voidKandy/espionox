@@ -1,12 +1,16 @@
 pub mod memory;
+pub mod messages;
+
 use memory::*;
+use messages::*;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Context {
     pub memory: Memory,
-    buffer: Vec<Value>,
+    pub buffer: MessageVector,
 }
 
 impl Context {
@@ -28,34 +32,34 @@ impl Context {
         };
         format!("In {current_mem}\n\nBuffer:\n{buffer}")
     }
-
-    pub fn buf_ref(&self) -> Vec<Value> {
-        self.buffer.clone()
-    }
+    //
+    // pub fn buf_ref(&self) -> MessageVector {
+    //     self.buffer.clone()
+    // }
 
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
-        self.buffer.push(json!({"role": role, "content": content}));
+        self.buffer
+            .as_mut_ref()
+            .push(Message::new(role.to_string(), content.to_string()));
     }
 
     pub fn buffer_as_string(&self) -> String {
         let mut output = String::new();
-        self.buf_ref().into_iter().for_each(|obj| {
-            if let Some(role) = obj.get("role") {
-                if let Some(content) = obj.get("content") {
-                    output.push_str(&format!("\nRole: {}\nContent: {}\n\n", role, content));
-                }
-            }
+        self.buffer.as_ref().into_iter().for_each(|mess| {
+            output.push_str(&format!("{}\n", mess));
         });
-        output
+        format!("Buffer: {}", output)
     }
 
     pub fn save_buffer(&self) {
-        let buf_difference = self
-            .buf_ref()
-            .iter()
-            .filter(|&value| !self.memory.load().contains(value))
-            .cloned()
-            .collect();
+        let buf_difference = MessageVector::new(
+            self.buffer
+                .as_ref()
+                .iter()
+                .filter(|&value| !self.memory.load().as_ref().contains(value))
+                .cloned()
+                .collect(),
+        );
         self.memory.save(buf_difference);
     }
 }

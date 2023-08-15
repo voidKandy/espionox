@@ -1,3 +1,4 @@
+use super::messages::*;
 use crate::database::{
     handlers::{self, messages},
     init::DbPool,
@@ -8,7 +9,6 @@ use crate::database::{
     },
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{cell::RefCell, sync::Arc, thread};
 use tokio::runtime::Runtime;
 use tracing::{self, info};
@@ -27,12 +27,12 @@ pub enum LoadedMemory {
 
 impl LoadedMemory {
     thread_local! {
-        static CACHED_MEMORY: RefCell<Vec<Value>> = RefCell::new(Vec::new());
+        static CACHED_MEMORY: RefCell<MessageVector> = RefCell::new(MessageVector::new(Vec::new()));
         static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::init_long_term());
     }
 
     #[tracing::instrument]
-    pub fn get_messages(&self) -> Vec<Value> {
+    pub fn get_messages(&self) -> MessageVector {
         match self {
             LoadedMemory::Cache => Self::CACHED_MEMORY.with(|mem| {
                 let st_mem = mem.borrow();
@@ -72,7 +72,7 @@ impl LoadedMemory {
                         )
                         .await
                         .expect("Failed to get messages from context");
-                        messages.into_iter().map(|m| m.coerce_to_value()).collect()
+                        MessageVector::new(messages.into_iter().map(|m| m.into()).collect())
                     })
                 })
                 .join()
@@ -81,12 +81,15 @@ impl LoadedMemory {
         }
     }
 
-    pub fn store_messages(&self, messages: &Vec<Value>) {
+    pub fn store_messages(&self, messages: &MessageVector) {
         match self {
             LoadedMemory::Cache => {
                 Self::CACHED_MEMORY.with(|st_mem| {
                     info!("Cache before: {:?}", st_mem.borrow());
-                    st_mem.borrow_mut().append(messages.to_owned().as_mut());
+                    st_mem
+                        .borrow_mut()
+                        .as_mut_ref()
+                        .append(messages.to_owned().as_mut_ref());
                     info!("Cache pushed: {:?}", st_mem.borrow());
                 });
             }
@@ -96,13 +99,13 @@ impl LoadedMemory {
                 thread::spawn(move || {
                     let rt = Runtime::new().unwrap();
                     rt.block_on(async {
-                        for m in messages.iter() {
+                        for m in messages.as_ref().iter() {
                             messages::post_message(
                                 &Self::DATA_POOL.with(|poo| Arc::clone(poo)),
                                 CreateMessageBody {
                                     thread_name: threadname.to_string(),
-                                    role: m.get("role").expect("No role").to_string(),
-                                    content: m.get("content").expect("No content").to_string(),
+                                    role: m.role().to_owned(),
+                                    content: m.content().to_owned(),
                                 },
                             )
                             .await
@@ -154,13 +157,13 @@ impl Memory {
         .expect("Failed to get long term threads")
     }
 
-    pub fn load(&self) -> Vec<Value> {
+    pub fn load(&self) -> MessageVector {
         match self {
             Memory::Remember(memory) => memory.get_messages(),
-            Memory::Forget => vec![],
+            Memory::Forget => MessageVector::new(vec![]),
         }
     }
-    pub fn save(&self, messages: Vec<Value>) {
+    pub fn save(&self, messages: MessageVector) {
         match self {
             Memory::Remember(memory) => {
                 memory.store_messages(&messages);

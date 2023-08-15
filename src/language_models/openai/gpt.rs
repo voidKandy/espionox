@@ -162,7 +162,7 @@ impl Gpt {
 
     pub async fn stream_completion(
         &self,
-        context: &[Value],
+        context: &Vec<Value>,
     ) -> Result<impl Stream<Item = Result<Bytes, reqwest::Error>>, Box<dyn Error>> {
         let model = env::var("GPT_MODEL").unwrap();
         let payload = json!({
