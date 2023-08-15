@@ -48,7 +48,7 @@ impl Context {
         self.buffer.as_ref().into_iter().for_each(|mess| {
             output.push_str(&format!("{}\n", mess));
         });
-        format!("Buffer: {}", output)
+        format!("{}", output)
     }
 
     pub fn save_buffer(&self) {
