@@ -1,7 +1,7 @@
 use consoxide::telemetry::{get_subscriber, init_subscriber};
 use consoxide::{
     context::{memory::Memory, Context},
-    core::file_interface::{File, Memorable},
+    core::{File, Memorable},
 };
 use once_cell::sync::Lazy;
 #[cfg(test)]

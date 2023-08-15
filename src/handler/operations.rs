@@ -1,6 +1,6 @@
 use crate::context::memory::{LoadedMemory, Memory};
 
-use super::super::core::file_interface::{Directory, File};
+use super::super::core::{Directory, File};
 use super::agent::Agent;
 use inquire::{error::InquireError, Confirm, Select, Text};
 use std::{

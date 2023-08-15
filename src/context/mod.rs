@@ -5,7 +5,6 @@ use memory::*;
 use messages::*;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Context {
@@ -32,10 +31,6 @@ impl Context {
         };
         format!("In {current_mem}\n\nBuffer:\n{buffer}")
     }
-    //
-    // pub fn buf_ref(&self) -> MessageVector {
-    //     self.buffer.clone()
-    // }
 
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
         self.buffer

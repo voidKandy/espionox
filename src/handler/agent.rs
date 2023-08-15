@@ -1,5 +1,7 @@
-use crate::language_models::openai::gpt::StreamResponse;
-use crate::language_models::openai::{functions::config::Function, gpt::Gpt};
+use crate::language_models::openai::{
+    functions::config::Function,
+    gpt::{Gpt, StreamResponse},
+};
 use crate::{
     context::{
         memory::{
@@ -33,7 +35,7 @@ impl Agent {
         }
     }
 
-    pub fn remember(&mut self, o: impl super::super::core::file_interface::Memorable) {
+    pub fn remember(&mut self, o: impl super::super::core::Memorable) {
         let mem = o.memorize();
         self.context.push_to_buffer("user", &mem);
         self.context.save_buffer();

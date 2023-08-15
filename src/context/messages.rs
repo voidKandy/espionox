@@ -40,14 +40,6 @@ impl AsRef<Vec<Message>> for MessageVector {
     }
 }
 
-// impl AsMut<Vec<Message>> for MessageVector {
-//     fn as_mut(&mut self) -> &mut Vec<Message> {
-//         let owned_value: Vec<Message> = self.as_ref().to_vec(); // Create an owned value
-//         let mutable_ref: &mut Vec<Message> = owned_value.to_owned().as_mut(); // Obtain a mutable reference
-//         mutable_ref
-//     }
-// }
-
 impl Into<Vec<Value>> for MessageVector {
     fn into(self) -> Vec<Value> {
         self.0.into_iter().map(|m| m.into()).collect::<Vec<Value>>()
