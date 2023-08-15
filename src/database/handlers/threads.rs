@@ -6,7 +6,7 @@ use std::error::Error;
 pub async fn get_all_threads(pool: &DbPool) -> Result<Vec<String>, Box<dyn Error>> {
     let threads: Vec<ThreadModelSql> =
         match sqlx::query_as!(ThreadModelSql, "SELECT * FROM threads",)
-            .fetch_all(&pool.0)
+            .fetch_all(pool.as_ref())
             .await
         {
             Ok(result) => result,
@@ -21,7 +21,7 @@ pub async fn get_thread(pool: &DbPool, name: &str) -> anyhow::Result<ThreadModel
         "SELECT * FROM threads WHERE name = $1",
         name
     )
-    .fetch_one(&pool.0)
+    .fetch_one(pool.as_ref())
     .await
     {
         Ok(result) => Ok(result),
@@ -31,12 +31,18 @@ pub async fn get_thread(pool: &DbPool, name: &str) -> anyhow::Result<ThreadModel
 
 pub async fn post_thread(pool: &DbPool, name: &str) -> anyhow::Result<PgQueryResult> {
     let query = format!("INSERT INTO threads (name) VALUES ($1)");
-    let res = sqlx::query(&query).bind(name).execute(&pool.0).await?;
+    let res = sqlx::query(&query)
+        .bind(name)
+        .execute(pool.as_ref())
+        .await?;
     Ok(res)
 }
 
 pub async fn delete_thread(pool: &DbPool, name: &str) -> anyhow::Result<PgQueryResult> {
     let query = &format!("DELETE FROM threads WHERE name = $1");
-    let res = sqlx::query(&query).bind(name).execute(&pool.0).await?;
+    let res = sqlx::query(&query)
+        .bind(name)
+        .execute(pool.as_ref())
+        .await?;
     Ok(res)
 }

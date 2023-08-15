@@ -5,7 +5,7 @@ use sqlx::postgres::PgQueryResult;
 pub async fn get_file(pool: &DbPool, params: GetFileParams) -> anyhow::Result<FileModelSql> {
     let query = sqlx::query_as::<_, FileModelSql>("SELECT * FROM files WHERE filepath = $1");
 
-    match query.bind(params.filepath).fetch_one(&pool.0).await {
+    match query.bind(params.filepath).fetch_one(pool.as_ref()).await {
         Ok(result) => Ok(result),
         Err(err) => Err(err.into()),
     }
@@ -20,7 +20,7 @@ pub async fn post_file(pool: &DbPool, file: CreateFileBody) -> anyhow::Result<Pg
         .bind(file.parent_dir_path)
         .bind(file.summary)
         .bind(file.summary_embedding)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(res) => Ok(res),
@@ -32,7 +32,7 @@ pub async fn delete_file(pool: &DbPool, params: DeleteFileParams) -> anyhow::Res
     let query = &format!("DELETE FROM files WHERE filepath = $1");
     match sqlx::query(&query)
         .bind(params.filepath)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(rows) => Ok(rows),

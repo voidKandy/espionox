@@ -5,7 +5,7 @@ use std::thread;
 use tokio::runtime::Runtime;
 
 #[derive(Clone, Debug)]
-pub struct DbPool(pub sqlx::PgPool);
+pub struct DbPool(sqlx::PgPool);
 
 impl DbPool {
     async fn init_pool() -> Result<DbPool, Box<dyn Error + Send + Sync>> {
@@ -28,5 +28,11 @@ impl DbPool {
         })
         .join()
         .expect("Failed to init long term DbPool")
+    }
+}
+
+impl AsRef<sqlx::PgPool> for DbPool {
+    fn as_ref(&self) -> &sqlx::PgPool {
+        &self.0
     }
 }
