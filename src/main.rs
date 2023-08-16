@@ -3,5 +3,6 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    interface::main_loop()
+    let mut agent = handler::Agent::init();
+    interface::Ui::init(&mut agent).interractive_loop();
 }

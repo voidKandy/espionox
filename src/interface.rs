@@ -1,13 +1,37 @@
 use crate::handler::agent::Agent;
 use crate::handler::operations::Operational;
-use colored::*;
 use inquire::Text;
 
-fn say_hi() {
-    println!(
-        "{}",
-        format!(
-            r#"
+pub struct Ui<'a> {
+    completer: HistoryCompleter,
+    agent: &'a mut Agent,
+}
+
+#[derive(Default, Debug)]
+pub struct HistoryCompleter {
+    input: String,
+    history: Vec<String>,
+}
+
+impl HistoryCompleter {
+    pub fn update(&mut self, str: &str) {
+        self.history.push(str.to_string())
+    }
+}
+
+impl<'a> Ui<'a> {
+    pub fn init(agent: &'a mut Agent) -> Self {
+        Ui {
+            completer: HistoryCompleter::default(),
+            agent,
+        }
+    }
+
+    fn greet() {
+        println!(
+            "{}",
+            format!(
+                r#"
 
 
 
@@ -53,43 +77,45 @@ fn say_hi() {
 
 
     "#
+            )
         )
-        .green()
-    )
-}
-
-pub fn main_loop() {
-    let mut agent = Agent::init();
-    match std::env::var("TMUX") {
-        Ok(tmux_var) => println!("📺 Tmux session: {}", tmux_var),
-        Err(_) => println!(
-            "❗️Make sure your terminal is running inside a Tmux session❗️\n|run src/start.sh|\n"
-        ),
     }
-    say_hi();
-    loop {
+
+    fn prompt_user(&mut self) -> String {
         let input = Text::new("").prompt().unwrap();
+        self.completer.update(&input);
+        input.to_string()
+    }
+
+    fn handle_user_answer(&mut self, input: &str) {
         match input.chars().nth(0) {
-            Some('!') => println!("{}", Agent::run_input(&input[1..]).red()),
+            Some('!') => println!("{}", Agent::run_input(&input[1..])),
             Some('?') => println!(
                 "{}",
-                agent
+                self.agent
                     .read_args(input[1..].split_whitespace().collect())
-                    .purple()
             ),
-            Some(_) => println!("{}", agent.prompt(&input).magenta()),
+            Some(_) => println!("{}", self.agent.prompt(&input)),
 
             // Some(_) => {
             //     let mut rx = agent.stream_prompt(&input);
             //     tokio::spawn(async move {
             //         while let Some(Ok(output)) = rx.recv().await {
-            //             print!("{}", output.magenta());
+            //             print!("{}", output);
             //             std::thread::sleep(std::time::Duration::from_millis(200));
             //         }
             // });
             // }
             _ => println!("Didn't quite get that"),
         };
-        // agent.context.save_buffer();
+    }
+
+    pub fn interractive_loop(&mut self) {
+        Self::greet();
+        loop {
+            let ans = self.prompt_user();
+            self.handle_user_answer(&ans);
+            // agent.context.save_buffer();
+        }
     }
 }
