@@ -1,22 +1,34 @@
 use crate::handler::agent::Agent;
 use crate::handler::operations::Operational;
+use colored::*;
 use inquire::{
     autocompletion::{Autocomplete, Replacement},
     CustomUserError, Text,
 };
 
 pub struct Ui<'a> {
-    completer: HistoryCompleter,
+    completer: CommandCompleter,
     agent: &'a mut Agent,
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct HistoryCompleter {
+pub struct CommandCompleter {
     input: String,
-    history: Vec<String>,
+    commands: Vec<String>,
 }
 
-impl HistoryCompleter {
+impl CommandCompleter {
+    pub fn init() -> Self {
+        let commands = vec![
+            "?switch".to_string(),
+            "?rem".to_string(),
+            "?info".to_string(),
+        ];
+        CommandCompleter {
+            input: "".to_string(),
+            commands,
+        }
+    }
     pub fn update_input(&mut self, input: &str) -> Result<(), CustomUserError> {
         if input == self.input {
             return Ok(());
@@ -24,15 +36,12 @@ impl HistoryCompleter {
 
         Ok(self.input = input.to_owned())
     }
-    pub fn update_history(&mut self, str: &str) {
-        self.history.push(str.to_string())
-    }
 }
 
-impl Autocomplete for HistoryCompleter {
+impl Autocomplete for CommandCompleter {
     fn get_suggestions(&mut self, input: &str) -> Result<Vec<String>, CustomUserError> {
         self.update_input(input)?;
-        Ok(self.history.clone())
+        Ok(self.commands.clone())
     }
 
     fn get_completion(
@@ -50,7 +59,7 @@ impl Autocomplete for HistoryCompleter {
 impl<'a> Ui<'a> {
     pub fn init(agent: &'a mut Agent) -> Self {
         Ui {
-            completer: HistoryCompleter::default(),
+            completer: CommandCompleter::init(),
             agent,
         }
     }
@@ -109,31 +118,21 @@ impl<'a> Ui<'a> {
 
 
     "#
-            )
+            ).magenta()
         )
     }
 
-    fn prompt_user(&mut self) -> String {
-        let input = Text::new("")
-            .with_autocomplete(self.completer())
-            .prompt()
-            .unwrap();
-        self.completer.update_history(&input);
-        input.to_string()
-    }
-
-    fn handle_user_answer(&mut self, input: &str) {
-        match input.chars().nth(0) {
-            Some('!') => println!("{}", Agent::run_input(&input[1..])),
+    fn handle_user_answer(&mut self, ans: &str) {
+        match ans.chars().nth(0) {
+            Some('!') => println!("{}", Agent::run_input(&ans[1..])),
             Some('?') => println!(
                 "{}",
-                self.agent
-                    .read_args(input[1..].split_whitespace().collect())
+                self.agent.read_args(ans[1..].split_whitespace().collect())
             ),
-            Some(_) => println!("{}", self.agent.prompt(&input)),
+            Some(_) => println!("{}", self.agent.prompt(&ans)),
 
             // Some(_) => {
-            //     let mut rx = agent.stream_prompt(&input);
+            //     let mut rx = agent.stream_prompt(&ans);
             //     tokio::spawn(async move {
             //         while let Some(Ok(output)) = rx.recv().await {
             //             print!("{}", output);
@@ -148,7 +147,11 @@ impl<'a> Ui<'a> {
     pub fn interractive_loop(&mut self) {
         Self::greet();
         loop {
-            let ans = self.prompt_user();
+            let ans = Text::new("")
+                .with_autocomplete(self.completer())
+                .with_help_message("? means command")
+                .prompt()
+                .unwrap();
             self.handle_user_answer(&ans);
             // agent.context.save_buffer();
         }
