@@ -1,8 +1,8 @@
 pub mod memory;
 pub mod messages;
 
-use memory::*;
-use messages::*;
+pub use memory::*;
+pub use messages::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -24,8 +24,8 @@ impl Context {
         let buffer = self.buffer_as_string();
         let current_mem = match &self.memory {
             Memory::Forget => "Forget".to_string(),
-            Memory::Remember(LoadedMemory::Cache) => "Cache".to_string(),
-            Memory::Remember(LoadedMemory::LongTerm(thread)) => {
+            Memory::ShortTerm => "ShortTerm".to_string(),
+            Memory::LongTerm(thread) => {
                 format!("LongTermThread: {}", thread.clone())
             }
         };

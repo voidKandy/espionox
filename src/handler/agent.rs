@@ -3,13 +3,7 @@ use crate::language_models::openai::{
     gpt::{Gpt, StreamResponse},
 };
 use crate::{
-    context::{
-        memory::{
-            LoadedMemory::{Cache, LongTerm},
-            Memory,
-        },
-        Context,
-    },
+    context::{memory::Memory, Context},
     core::io::Io,
 };
 use bytes::Bytes;
@@ -26,11 +20,11 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn init() -> Agent {
-        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
+    pub fn init(memory: Memory) -> Agent {
+        // let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
         Agent {
             gpt: Gpt::init(),
-            context: Context::build(Memory::Remember(Cache)),
+            context: Context::build(memory),
             io: Vec::new(),
         }
     }

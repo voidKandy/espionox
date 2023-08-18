@@ -1,4 +1,5 @@
-use crate::context::memory::{LoadedMemory, Memory};
+use crate::context::memory::Memory;
+use crate::context::messages::MessageVector;
 
 use super::super::core::{Directory, File};
 use super::agent::Agent;
@@ -42,7 +43,7 @@ impl Operational for Agent {
         let ans: Result<&str, InquireError> = Select::new("Which memory type?", options).prompt();
         match ans {
             Ok("Long Term") => self.long_term_memory_switch(),
-            Ok("Cache") => self.switch_mem(Memory::Remember(LoadedMemory::Cache)),
+            Ok("Cache") => self.switch_mem(Memory::ShortTerm),
             Ok("Forget") => self.switch_mem(Memory::Forget),
             _ => return String::from("Not a valid argument"),
         };
@@ -69,7 +70,7 @@ impl Operational for Agent {
                 .prompt()
                 .unwrap(),
         };
-        self.switch_mem(Memory::Remember(LoadedMemory::LongTerm(chosen_thread)))
+        self.switch_mem(Memory::LongTerm(chosen_thread))
     }
 
     fn remember_from_path(&mut self, path_str: &str) -> String {

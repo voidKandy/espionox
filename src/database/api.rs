@@ -1,5 +1,6 @@
 use super::models::{file::*, file_chunks::*};
 use crate::core::File;
+
 pub fn sql_from_file(file: File, thread_name: &str) -> (CreateFileBody, Vec<CreateFileChunkBody>) {
     let parent_dir_path: String = file.filepath.parent().unwrap().display().to_string();
     let thread_name = thread_name.to_string();

@@ -9,7 +9,7 @@ use consoxide::language_models::openai::functions::enums::FnEnum;
 #[ignore]
 #[test]
 fn function_agent_test() {
-    let mut agent = Agent::init();
+    let mut agent = Agent::init(Memory::Forget);
     let prompt = String::from("[Investigate the failing test in src/tests/context.rs, Check the assertion at line 42 in src/tests/context.rs, Analyze the error message to understand the cause of the failure, Fix the failing test to pass the assertion]");
     agent.context.push_to_buffer("user", &prompt);
 
@@ -22,7 +22,7 @@ fn function_agent_test() {
 #[ignore]
 #[test]
 fn prompt_agent_test() {
-    let mut agent = Agent::init();
+    let mut agent = Agent::init(Memory::Forget);
     let prompt = String::from("Hello chat agent");
     let response = agent.prompt(&prompt);
     println!("{:?}", &response);
@@ -31,7 +31,7 @@ fn prompt_agent_test() {
 
 #[test]
 fn to_and_from_short_term_test() {
-    let mut agent = Agent::init();
+    let mut agent = Agent::init(Memory::ShortTerm);
     let prompt = String::from("Hello chat agent");
     agent.context.push_to_buffer("user", &prompt);
     let cached_buf = agent.context.buffer.clone();
@@ -39,8 +39,6 @@ fn to_and_from_short_term_test() {
     agent.switch_mem(Memory::Forget);
     assert_ne!(cached_buf, agent.context.buffer);
 
-    agent.switch_mem(Memory::Remember(
-        consoxide::context::memory::LoadedMemory::Cache,
-    ));
+    agent.switch_mem(Memory::ShortTerm);
     assert_eq!(cached_buf, agent.context.buffer);
 }

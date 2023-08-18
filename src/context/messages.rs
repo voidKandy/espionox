@@ -32,6 +32,9 @@ impl MessageVector {
     pub fn as_mut_ref(&mut self) -> &mut Vec<Message> {
         &mut self.0
     }
+    pub fn len(&self) -> usize {
+        self.len()
+    }
 }
 
 impl AsRef<Vec<Message>> for MessageVector {
