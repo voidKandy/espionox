@@ -2,12 +2,12 @@ use super::super::init::DbPool;
 use super::super::models::messages::*;
 use sqlx::postgres::PgQueryResult;
 
-pub async fn get_messages(
+pub async fn get_messages_by_threadname(
     pool: &DbPool,
-    params: GetMessageParams,
+    threadname: &str,
 ) -> anyhow::Result<Vec<MessageModelSql>> {
     match sqlx::query_as::<_, MessageModelSql>("SELECT * FROM messages WHERE thread_name = $1")
-        .bind(params.thread_name)
+        .bind(threadname)
         .fetch_all(pool.as_ref())
         .await
     {

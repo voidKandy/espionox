@@ -13,9 +13,10 @@ use std::{cell::RefCell, sync::Arc, thread};
 use tokio::runtime::Runtime;
 use tracing::{self, info};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub enum Memory {
     LongTerm(String),
+    #[default]
     ShortTerm,
     Forget,
 }
@@ -98,14 +99,9 @@ impl Memory {
                         }
                     }
                 }
-                let messages = messages::get_messages(
-                    &pool,
-                    GetMessageParams {
-                        thread_name: threadname.to_string(),
-                    },
-                )
-                .await
-                .expect("Failed to get messages from context");
+                let messages = messages::get_messages_by_threadname(&pool, &threadname)
+                    .await
+                    .expect("Failed to get messages from context");
                 MessageVector::new(messages.into_iter().map(|m| m.into()).collect())
             })
         })
@@ -121,7 +117,7 @@ impl Memory {
         })
     }
 
-    /// THIS DOESNT REQUIRE SELF
+    /// THIS DOESNT ACTUALLY REQUIRE SELF
     pub fn get_active_long_term_threads(&self) -> Result<Vec<String>, String> {
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
