@@ -1,3 +1,4 @@
+use crate::core::Io;
 use crate::handler::agent::Agent;
 use crate::handler::operations::Operational;
 use colored::*;
@@ -7,7 +8,7 @@ use inquire::{
 };
 
 pub struct Ui<'a> {
-    completer: CommandCompleter,
+    // completer: CommandCompleter,
     agent: &'a mut Agent,
 }
 
@@ -59,13 +60,46 @@ impl Autocomplete for CommandCompleter {
 impl<'a> Ui<'a> {
     pub fn init(agent: &'a mut Agent) -> Self {
         Ui {
-            completer: CommandCompleter::init(),
+            // completer: CommandCompleter::init(),
             agent,
         }
     }
 
-    pub fn completer(&self) -> impl Autocomplete {
-        self.completer.clone()
+    fn handle_user_answer(&mut self, ans: &str) {
+        match ans.chars().nth(0) {
+            Some('!') => {
+                let io = Io::new(&ans[1..]);
+                println!("{}", io.o.red());
+                self.agent.remember(io);
+            }
+            Some('?') => {
+                let args: Vec<&str> = ans[1..].split_whitespace().collect();
+                println!("{}", self.agent.run_operation(args));
+            }
+            Some(_) => println!("{}", self.agent.prompt(&ans)),
+
+            // Some(_) => {
+            //     let mut rx = agent.stream_prompt(&ans);
+            //     tokio::spawn(async move {
+            //         while let Some(Ok(output)) = rx.recv().await {
+            //             print!("{}", output);
+            //             std::thread::sleep(std::time::Duration::from_millis(200));
+            //         }
+            // });
+            // }
+            _ => println!("Didn't quite get that"),
+        };
+    }
+
+    pub fn interractive_loop(&mut self) {
+        Self::greet();
+        loop {
+            let ans = Text::new("")
+                .with_help_message("? for agent commands, ! for shell commands")
+                .prompt()
+                .unwrap();
+            self.handle_user_answer(&ans);
+        }
     }
 
     fn greet() {
@@ -120,40 +154,5 @@ impl<'a> Ui<'a> {
     "#
             ).magenta()
         )
-    }
-
-    fn handle_user_answer(&mut self, ans: &str) {
-        match ans.chars().nth(0) {
-            Some('!') => println!("{}", Agent::run_input(&ans[1..])),
-            Some('?') => println!(
-                "{}",
-                self.agent.read_args(ans[1..].split_whitespace().collect())
-            ),
-            Some(_) => println!("{}", self.agent.prompt(&ans)),
-
-            // Some(_) => {
-            //     let mut rx = agent.stream_prompt(&ans);
-            //     tokio::spawn(async move {
-            //         while let Some(Ok(output)) = rx.recv().await {
-            //             print!("{}", output);
-            //             std::thread::sleep(std::time::Duration::from_millis(200));
-            //         }
-            // });
-            // }
-            _ => println!("Didn't quite get that"),
-        };
-    }
-
-    pub fn interractive_loop(&mut self) {
-        Self::greet();
-        loop {
-            let ans = Text::new("")
-                .with_autocomplete(self.completer())
-                .with_help_message("? means command")
-                .prompt()
-                .unwrap();
-            self.handle_user_answer(&ans);
-            // agent.context.save_buffer();
-        }
     }
 }
