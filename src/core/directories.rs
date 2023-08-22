@@ -70,32 +70,37 @@ impl Directory {
 
 impl Memorable for Directory {
     fn memorize(&self) -> String {
-        let mut files_payload = vec![];
-        self.files.iter().for_each(|f| {
-            files_payload.push(match f.summary.as_str() {
-                "" => format!(
-                    "FilePath: {}, Content: {}",
-                    &f.filepath.display(),
-                    &f.content()
-                ),
-                _ => format!(
-                    "FilePath: {}, Content: {}, Summary: {}",
-                    &f.filepath.display(),
-                    &f.content(),
-                    &f.summary
-                ),
-            })
-        });
-        format!(
-            "Relevant Directory path: {}, Child Directories: [{:?}], Files: [{}]",
-            self.dirpath.display().to_string(),
-            self.children
-                .clone()
-                .into_iter()
-                .map(|c| c.dirpath.display().to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            files_payload.join(", ")
-        )
+        let mut payload = String::new();
+        for dir in self.children.iter() {
+            let mut files_payload = vec![];
+            dir.files.iter().for_each(|f| {
+                files_payload.push(match f.summary.as_str() {
+                    "" => format!(
+                        "FilePath: {}, Content: {}",
+                        &f.filepath.display(),
+                        &f.content()
+                    ),
+                    _ => format!(
+                        "FilePath: {}, Content: {}, Summary: {}",
+                        &f.filepath.display(),
+                        &f.content(),
+                        &f.summary
+                    ),
+                })
+            });
+            let dir_payload = format!(
+                "Directory path: {}, Child Directories: [{:?}], Files: [{}]",
+                dir.dirpath.display().to_string(),
+                dir.children
+                    .clone()
+                    .into_iter()
+                    .map(|c| c.dirpath.display().to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                files_payload.join(", ")
+            );
+            payload = format!("{}, {}", payload, dir_payload);
+        }
+        payload
     }
 }
