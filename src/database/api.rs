@@ -27,3 +27,8 @@ pub fn sql_from_file(file: File, thread_name: &str) -> (CreateFileBody, Vec<Crea
         .collect();
     (file_sql, chunks_sql)
 }
+
+// pub fn build_from_threadname(pool: &DbPool, threadname: &str) -> Context {
+//     let files = get_files_by_threadname(pool, threadname);
+//     let messages = get_messages_by_threadname(pool, threadname);
+// }

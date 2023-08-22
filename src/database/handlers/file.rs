@@ -11,6 +11,22 @@ pub async fn get_file(pool: &DbPool, params: GetFileParams) -> anyhow::Result<Fi
     }
 }
 
+pub async fn get_files_by_threadname(
+    pool: &DbPool,
+    threadname: &str,
+) -> anyhow::Result<Vec<FileModelSql>, sqlx::Error> {
+    let query = format!("SELECT * FROM files WHERE thread_name = {}", threadname);
+
+    let result = sqlx::query_as::<_, FileModelSql>(&query)
+        .fetch_all(pool.as_ref())
+        .await;
+
+    match result {
+        Ok(files) => Ok(files),
+        Err(err) => Err(err.into()),
+    }
+}
+
 pub async fn post_file(pool: &DbPool, file: CreateFileBody) -> anyhow::Result<PgQueryResult> {
     let query = "INSERT INTO files (id, thread_name, filepath, parent_dir_path, summary, summary_embedding) VALUES ($1, $2, $3, $4, $5, $6)";
     match sqlx::query(query)
