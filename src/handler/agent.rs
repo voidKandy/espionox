@@ -1,32 +1,57 @@
+use super::AgentSettings;
+use crate::context::{memory::Memory, Context};
 use crate::language_models::openai::{
     functions::config::Function,
     gpt::{Gpt, StreamResponse},
 };
-use crate::{
-    context::{memory::Memory, Context},
-    core::io::Io,
-};
+use anyhow::Result;
 use bytes::Bytes;
 use futures::Stream;
 use futures_util::StreamExt;
 use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Agent {
     pub context: Context,
     gpt: Gpt,
-    io: Vec<Io>,
+    settings: AgentSettings,
 }
 
 impl Agent {
-    pub fn init(memory: Memory) -> Agent {
-        // let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
-        Agent {
-            gpt: Gpt::init(),
-            context: Context::build(memory),
-            io: Vec::new(),
+    pub fn build(settings: AgentSettings) -> Result<Agent> {
+        Ok(Agent::initialize(
+            &mut Agent {
+                gpt: Gpt::init(),
+                context: Context::build(Memory::default()),
+                settings,
+            },
+            move |agent| agent.build_from_settings(),
+        ))
+    }
+
+    pub fn build_from_settings(&mut self) -> &mut Agent {
+        match &self.settings.threadname {
+            Some(name) => {
+                self.switch_mem(Memory::LongTerm(name.to_string()));
+            }
+            None => {}
         }
+
+        if self.context.buffer.len() == 0 {
+            for p in self.settings.init_prompt.as_ref() {
+                self.context.push_to_buffer(p.role(), p.content());
+            }
+        }
+
+        self
+    }
+
+    pub fn initialize<F>(agent: &mut Agent, mut func: F) -> Agent
+    where
+        F: FnMut(&mut Agent) -> &mut Agent,
+    {
+        std::mem::take(func(agent))
     }
 
     pub fn remember(&mut self, o: impl super::super::core::Memorable) {
@@ -48,10 +73,6 @@ impl Agent {
         let response = self.prompt(&summarize_prompt);
         self.switch_mem(save_mem);
         response
-    }
-
-    pub async fn command(&mut self, command: &str) {
-        self.io.push(Io::new(command))
     }
 
     pub fn prompt(&mut self, input: &str) -> String {

@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Message {
     role: String,
     content: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MessageVector(Vec<Message>);
 
 impl Message {
@@ -33,7 +33,7 @@ impl MessageVector {
         &mut self.0
     }
     pub fn len(&self) -> usize {
-        self.len()
+        self.0.len()
     }
 }
 

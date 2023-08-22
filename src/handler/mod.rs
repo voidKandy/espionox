@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod operations;
-pub mod spec_agent;
+pub mod settings;
 
-pub use spec_agent::SpecialAgent;
+pub use agent::Agent;
+pub use settings::AgentSettings;

@@ -34,12 +34,12 @@ pub struct Message {
     pub function_call: Option<Value>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Gpt {
     pub config: GptConfig,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GptConfig {
     api_key: String,
     client: Client,
