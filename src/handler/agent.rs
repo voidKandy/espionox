@@ -20,7 +20,7 @@ pub struct Agent {
 
 impl Agent {
     pub fn build(settings: AgentSettings) -> Result<Agent> {
-        Ok(Agent::initialize(
+        Ok(Agent::build_with(
             &mut Agent {
                 gpt: Gpt::init(),
                 context: Context::build(Memory::default()),
@@ -47,17 +47,35 @@ impl Agent {
         self
     }
 
-    pub fn initialize<F>(agent: &mut Agent, mut func: F) -> Agent
+    pub fn build_with<F>(agent: &mut Agent, mut func: F) -> Agent
     where
         F: FnMut(&mut Agent) -> &mut Agent,
     {
         std::mem::take(func(agent))
     }
 
-    pub fn remember(&mut self, o: impl super::super::core::Memorable) {
-        let mem = o.memorize();
+    pub fn do_with<F>(&mut self, mut func: F)
+    where
+        F: FnMut(&mut Self),
+    {
+        std::mem::take(&mut func(self))
+    }
+
+    pub fn info_display_string(&self) -> String {
+        let buffer = self.context.buffer_as_string();
+        let current_mem = match &self.context.memory {
+            Memory::Forget => "Forget".to_string(),
+            Memory::ShortTerm => "ShortTerm".to_string(),
+            Memory::LongTerm(thread) => {
+                format!("LongTerm Thread: {}", thread.clone())
+            }
+        };
+        format!("In {current_mem}\n\nBuffer:\n{buffer}")
+    }
+
+    pub fn format_to_buffer(&mut self, o: impl super::super::core::BufferDisplay) {
+        let mem = o.buffer_display();
         self.context.push_to_buffer("user", &mem);
-        self.context.save_buffer();
         // todo!("Match to handle cache and long term");
     }
 
