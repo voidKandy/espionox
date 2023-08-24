@@ -1,5 +1,33 @@
-use super::models::{file::*, file_chunks::*};
+use super::{
+    init::DatabaseSettings,
+    models::{file::*, file_chunks::*},
+    DbPool,
+};
 use crate::core::File;
+
+pub async fn check_db_exists(pool: &DbPool, db_name: &str) -> bool {
+    let query = format!(
+        "SELECT datname FROM pg_catalog.pg_database WHERE datname = {};",
+        db_name
+    );
+    let result = sqlx::query(&query).fetch_optional(pool.as_ref()).await;
+
+    match result {
+        Ok(Some(_)) => true,
+        _ => false,
+    }
+}
+
+pub async fn init_and_migrate_db(pool: &DbPool, settings: DatabaseSettings) -> anyhow::Result<()> {
+    sqlx::query(&format!("CREATE DATABASE {}", settings.database_name))
+        .execute(pool.as_ref())
+        .await?;
+    sqlx::migrate!("./migrations")
+        .run(pool.as_ref())
+        .await
+        .expect("Failed to migrate database.");
+    Ok(())
+}
 
 pub fn sql_from_file(file: File, thread_name: &str) -> (CreateFileBody, Vec<CreateFileChunkBody>) {
     let parent_dir_path: String = file.filepath.parent().unwrap().display().to_string();

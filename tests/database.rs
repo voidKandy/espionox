@@ -1,6 +1,6 @@
 use consoxide::database::{
-    handlers,
-    init::DbPool,
+    self, handlers,
+    init::{DatabaseEnv, DbPool},
     models::{
         error::{CreateErrorBody, DeleteErrorParams, GetErrorParams},
         file::{CreateFileBody, DeleteFileParams, GetFileParams},
@@ -9,11 +9,18 @@ use consoxide::database::{
 };
 use tokio;
 
+#[tokio::test]
+async fn testing_pool_health_check() {
+    assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok())
+}
+
 // ------ THREADS ------ //
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_threads() {
-    let pool = DbPool::init_long_term();
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("failed to init testing pool");
 
     match handlers::threads::post_thread(&pool, "test").await {
         Ok(_) => {}
@@ -33,7 +40,9 @@ async fn post_get_delete_threads() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_file() {
-    let pool = DbPool::init_long_term();
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("failed to init testing pool");
     let newfile = CreateFileBody {
         id: "9999".to_string(),
         thread_name: "test".to_string(),
@@ -72,7 +81,9 @@ async fn post_get_delete_file() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_filechunks() {
-    let pool = DbPool::init_long_term();
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("failed to init testing pool");
     let newchunk = CreateFileChunkBody {
         parent_file_id: "9999".to_string(),
         idx: 1 as i16,
@@ -110,7 +121,9 @@ async fn post_get_delete_filechunks() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_errors() {
-    let pool = DbPool::init_long_term();
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("failed to init testing pool");
     let newerror = CreateErrorBody {
         thread_name: "test".to_string(),
         content: "error content".to_string(),
