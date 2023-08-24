@@ -6,6 +6,6 @@ pub use directories::Directory;
 pub use files::{File, FileChunk};
 pub use io::Io;
 
-pub trait Memorable {
-    fn memorize(&self) -> String;
+pub trait BufferDisplay {
+    fn buffer_display(&self) -> String;
 }

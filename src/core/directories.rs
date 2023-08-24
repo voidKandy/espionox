@@ -1,5 +1,5 @@
+use super::BufferDisplay;
 use super::File;
-use super::Memorable;
 use std::fs;
 use std::path::Path;
 
@@ -68,8 +68,8 @@ impl Directory {
     }
 }
 
-impl Memorable for Directory {
-    fn memorize(&self) -> String {
+impl BufferDisplay for Directory {
+    fn buffer_display(&self) -> String {
         let mut payload = String::new();
         for dir in self.children.iter() {
             let mut files_payload = vec![];

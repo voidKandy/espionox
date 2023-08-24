@@ -1,4 +1,4 @@
-use super::Memorable;
+use super::BufferDisplay;
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio};
 
@@ -27,8 +27,8 @@ impl Io {
     }
 }
 
-impl Memorable for Io {
-    fn memorize(&self) -> String {
+impl BufferDisplay for Io {
+    fn buffer_display(&self) -> String {
         format!("Input: {}, Output: {}", &self.i, &self.o,)
     }
 }

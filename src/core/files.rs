@@ -1,4 +1,4 @@
-use super::Memorable;
+use super::BufferDisplay;
 use std::fs;
 use std::path::Path;
 use tracing::{self, info};
@@ -60,8 +60,8 @@ impl File {
     }
 }
 
-impl Memorable for File {
-    fn memorize(&self) -> String {
+impl BufferDisplay for File {
+    fn buffer_display(&self) -> String {
         match self.summary.as_str() {
             "" => format!(
                 "FilePath: {}, Content: {}",
@@ -78,8 +78,8 @@ impl Memorable for File {
     }
 }
 
-impl Memorable for FileChunk {
-    fn memorize(&self) -> String {
+impl BufferDisplay for FileChunk {
+    fn buffer_display(&self) -> String {
         format!(
             "FilePath: {}, ChunkIndex: {}, Content: {}",
             &self.parent_filepath.display(),
