@@ -42,9 +42,7 @@ impl DatabaseEnv {
         let filepath = Path::new(&file);
         let config = config::Config::builder()
             .add_source(config::File::from(filepath))
-            // .add_source(config::Environment::with_prefix("APP").prefix_separator("_"))
             .build()?;
-        println!("{:?}", config);
         config.try_deserialize::<DatabaseSettings>()
     }
 }
@@ -74,7 +72,7 @@ impl DbPool {
                 .await
                 .expect("Failed to init pool from PoolOptions"),
         );
-        // I really think this should have a bang, but this seems to be correct ?
+        // I really think this condition should have a bang, but this seems to be correct ?
         if check_db_exists(&pool, &settings.database_name).await {
             init_and_migrate_db(&pool, settings).await.unwrap();
         }
