@@ -20,18 +20,6 @@ impl Context {
         }
     }
 
-    pub fn info_display(&self) -> String {
-        let buffer = self.buffer_as_string();
-        let current_mem = match &self.memory {
-            Memory::Forget => "Forget".to_string(),
-            Memory::ShortTerm => "ShortTerm".to_string(),
-            Memory::LongTerm(thread) => {
-                format!("LongTermThread: {}", thread.clone())
-            }
-        };
-        format!("In {current_mem}\n\nBuffer:\n{buffer}")
-    }
-
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
         self.buffer
             .as_mut_ref()

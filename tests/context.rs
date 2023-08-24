@@ -1,7 +1,7 @@
 use consoxide::telemetry::{get_subscriber, init_subscriber};
 use consoxide::{
     context::{memory::Memory, Context},
-    core::{File, Memorable},
+    core::{BufferDisplay, File},
 };
 use once_cell::sync::Lazy;
 #[cfg(test)]
@@ -44,7 +44,7 @@ fn adding_files_to_memory_works() {
             "Relavent files: {:?}",
             &files
                 .into_iter()
-                .map(|f| f.memorize())
+                .map(|f| f.buffer_display())
                 .collect::<Vec<String>>()
         ),
     );
