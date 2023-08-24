@@ -1,5 +1,4 @@
-use super::agent::Agent;
-use crate::context::{Memory, Message, MessageVector};
+use crate::context::{Message, MessageVector};
 
 #[derive(Debug, Default, Clone)]
 pub struct AgentSettings {
@@ -7,13 +6,6 @@ pub struct AgentSettings {
     pub init_prompt: MessageVector,
     // builder: AgentBuilder
 }
-
-#[derive(Debug, Default, Clone)]
-pub enum AgentBuilder {
-    #[default]
-    Default,
-}
-
 
 impl AgentSettings {
     pub fn default() -> AgentSettings {

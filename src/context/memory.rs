@@ -1,7 +1,7 @@
 use super::messages::*;
 use crate::database::{
     handlers::{self, messages},
-    init::DbPool,
+    init::{DatabaseEnv, DbPool},
     models::{
         file::CreateFileBody,
         file_chunks::CreateFileChunkBody,
@@ -40,7 +40,7 @@ pub fn store_file_tup(file_tup: (CreateFileBody, Vec<CreateFileChunkBody>)) {
 impl Memory {
     thread_local! {
         static CACHED_MEMORY: RefCell<MessageVector> = RefCell::new(MessageVector::new(Vec::new()));
-        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::init_long_term());
+        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::sync_init_pool(DatabaseEnv::Default));
     }
 
     fn save_messages_to_database(threadname: &str, messages: MessageVector) {

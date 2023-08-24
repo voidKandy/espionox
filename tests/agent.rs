@@ -4,12 +4,23 @@ use consoxide::{
     handler::agent::Agent,
 };
 
-use consoxide::language_models::openai::functions::enums::FnEnum;
+use consoxide::{
+    context::MessageVector, handler::AgentSettings,
+    language_models::openai::functions::enums::FnEnum,
+};
+
+fn test_agent() -> Agent {
+    Agent::build(AgentSettings {
+        threadname: Some("Testing_Thread".to_string()),
+        init_prompt: MessageVector::new(vec![]),
+    })
+    .expect("Failed to build test agent")
+}
 
 #[ignore]
 #[test]
 fn function_agent_test() {
-    let mut agent = Agent::init(Memory::Forget);
+    let mut agent = test_agent();
     let prompt = String::from("[Investigate the failing test in src/tests/context.rs, Check the assertion at line 42 in src/tests/context.rs, Analyze the error message to understand the cause of the failure, Fix the failing test to pass the assertion]");
     agent.context.push_to_buffer("user", &prompt);
 
@@ -22,7 +33,7 @@ fn function_agent_test() {
 #[ignore]
 #[test]
 fn prompt_agent_test() {
-    let mut agent = Agent::init(Memory::Forget);
+    let mut agent = test_agent();
     let prompt = String::from("Hello chat agent");
     let response = agent.prompt(&prompt);
     println!("{:?}", &response);
@@ -31,7 +42,9 @@ fn prompt_agent_test() {
 
 #[test]
 fn to_and_from_short_term_test() {
-    let mut agent = Agent::init(Memory::ShortTerm);
+    let mut agent = test_agent();
+    agent.switch_mem(Memory::ShortTerm);
+
     let prompt = String::from("Hello chat agent");
     agent.context.push_to_buffer("user", &prompt);
     let cached_buf = agent.context.buffer.clone();
