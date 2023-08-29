@@ -2,20 +2,10 @@
 use consoxide::{
     context::{memory::Memory, Context},
     handler::agent::Agent,
-};
-
-use consoxide::{
-    context::MessageVector, handler::AgentSettings,
     language_models::openai::functions::enums::FnEnum,
 };
 
-fn test_agent() -> Agent {
-    Agent::build(AgentSettings {
-        threadname: Some("Testing_Thread".to_string()),
-        init_prompt: MessageVector::new(vec![]),
-    })
-    .expect("Failed to build test agent")
-}
+use super::test_agent;
 
 #[ignore]
 #[test]

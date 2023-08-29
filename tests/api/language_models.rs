@@ -4,10 +4,13 @@ use consoxide::language_models::huggingface::sentence_embeddings::embed;
 #[ignore]
 #[test]
 fn test_embedding() {
-    let embedding = embed(&[r#"
+    let embedding = embed(
+        &r#"
 [ERROR] [2023-07-22 13:45:21] - An unexpected error occurred. Please try again later or contact support for assistance.
-"#]);
-    let embedding2 = embed(&[r#"running 1 test
+"#,
+    );
+    let embedding2 = embed(
+        &r#"running 1 test
 test fail ... FAILED
 
 failures:
@@ -20,11 +23,12 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 failures:
     fail
 
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s"#]);
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s"#,
+    );
     // println!("{:?}", embedding);
 
-    let embedding3 = embed(&[
-        r#"test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    let embedding3 = embed(
+        &r#"test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/database.rs (target/debug/deps/database-9ba545a492eb624f)
 
@@ -35,7 +39,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/io.rs (target/debug/deps/io-a07b4f64099c6ef2)
 
 running 0 tests"#,
-    ]);
+    );
     fn l2_norm(vector1: &Vec<f32>, vector2: &Vec<f32>) -> f32 {
         if vector1.len() != vector2.len() {
             panic!("Vector dimensions must be the same.");
@@ -79,10 +83,7 @@ running 0 tests"#,
     //     embedding2.unwrap().iter().next().unwrap(),
     // );
     // println!("L2 Norm: {}", l2_norm_result);
-    let cosine_angle = cosine_angle_between_vectors(
-        embedding.unwrap().iter().next().unwrap(),
-        embedding3.unwrap().iter().next().unwrap(),
-    );
+    let cosine_angle = cosine_angle_between_vectors(&embedding.unwrap(), &embedding3.unwrap());
     println!("Cosine of angle between vectors: {}", cosine_angle);
     // assert!(embedding.is_ok());
     assert!(false);

@@ -1,10 +1,15 @@
-use consoxide::database::{
-    self, handlers,
-    init::{DatabaseEnv, DbPool},
-    models::{
-        error::{CreateErrorBody, DeleteErrorParams, GetErrorParams},
-        file::{CreateFileBody, DeleteFileParams, GetFileParams},
-        file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
+use crate::helpers;
+use consoxide::{
+    core::File,
+    database::{
+        api::CreateFileChunksVector,
+        handlers,
+        init::{DatabaseEnv, DbPool},
+        models::{
+            error::{CreateErrorBody, DeleteErrorParams, GetErrorParams},
+            file::{CreateFileBody, DeleteFileParams, GetFileParams},
+            file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
+        },
     },
 };
 use tokio;
@@ -12,6 +17,27 @@ use tokio;
 #[tokio::test]
 async fn testing_pool_health_check() {
     assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok())
+}
+
+#[tokio::test]
+async fn filepath_to_database() {
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("Failed to init testing pool");
+    let settings = helpers::test_settings();
+    let mut f = File::from("./src/main.rs");
+    let file_chunks = f.chunks.clone();
+    let file =
+        CreateFileBody::build_from(&mut f, &settings.memory().unwrap().threadname().unwrap())
+            .expect("Failed to build create file sql body");
+    let chunks = CreateFileChunksVector::build_from(file_chunks, &file.id)
+        .expect("Failed to build create file chunks sql body");
+    assert!(handlers::file::post_file(&pool, file).await.is_ok());
+    for chunk in chunks.as_ref().iter() {
+        assert!(handlers::file_chunks::post_file_chunk(&pool, chunk.clone())
+            .await
+            .is_ok());
+    }
 }
 
 // ------ THREADS ------ //
@@ -44,7 +70,7 @@ async fn post_get_delete_file() {
         .await
         .expect("failed to init testing pool");
     let newfile = CreateFileBody {
-        id: "9999".to_string(),
+        id: uuid::Uuid::new_v4().to_string(),
         thread_name: "test".to_string(),
         filepath: "path/to/test/file".to_string(),
         parent_dir_path: "path/to/test".to_string(),
