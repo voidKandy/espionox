@@ -1,42 +1,72 @@
-use crate::language_models::openai::gpt::StreamResponse;
-use crate::language_models::openai::{functions::config::Function, gpt::Gpt};
-use crate::{
-    context::{
-        memory::{
-            LoadedMemory::{Cache, LongTerm},
-            Memory,
-        },
-        Context,
-    },
-    core::io::Io,
+use super::AgentSettings;
+use crate::context::{memory::Memory, Context};
+use crate::language_models::openai::{
+    functions::config::Function,
+    gpt::{Gpt, StreamResponse},
 };
+use anyhow::Result;
 use bytes::Bytes;
 use futures::Stream;
 use futures_util::StreamExt;
-use std::{error::Error, sync::mpsc, thread, time::Duration};
+use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
 pub struct Agent {
     pub context: Context,
     gpt: Gpt,
-    io: Vec<Io>,
+    settings: AgentSettings,
+}
+
+impl Default for Agent {
+    fn default() -> Self {
+        Agent::build(AgentSettings::default()).expect("Failed to build default agent")
+    }
 }
 
 impl Agent {
-    pub fn init() -> Agent {
-        let init_prompt ="You are Consoxide, a smart terminal. You help users with their programming experience by providing all kinds of services.".to_string();
-        Agent {
-            gpt: Gpt::init(),
-            context: Context::build(Memory::Remember(Cache)),
-            io: Vec::new(),
-        }
+    pub fn build(settings: AgentSettings) -> Result<Agent> {
+        let gpt = Gpt::init();
+        let context = match &settings.memory_override {
+            Some(memory) => Context::build(memory.clone()),
+            None => Context::build(Memory::default()),
+        };
+        Ok(Agent {
+            gpt,
+            context,
+            settings,
+        })
     }
 
-    pub fn remember(&mut self, o: impl super::super::core::file_interface::Memorable) {
-        let mem = o.memorize();
+    pub fn build_with<F>(agent: &mut Agent, mut func: F) -> Agent
+    where
+        F: FnMut(&mut Agent) -> &mut Agent,
+    {
+        std::mem::take(func(agent))
+    }
+
+    pub fn do_with<F>(&mut self, mut func: F)
+    where
+        F: FnMut(&mut Self),
+    {
+        std::mem::take(&mut func(self))
+    }
+
+    pub fn info_display_string(&self) -> String {
+        let buffer = self.context.buffer_as_string();
+        let current_mem = match &self.context.memory {
+            Memory::Forget => "Forget".to_string(),
+            Memory::ShortTerm => "ShortTerm".to_string(),
+            Memory::LongTerm(thread) => {
+                format!("LongTerm Thread: {}", thread.clone())
+            }
+        };
+        format!("In {current_mem}\n\nBuffer:\n{buffer}")
+    }
+
+    pub fn format_to_buffer(&mut self, o: impl super::integrations::BufferDisplay) {
+        let mem = o.buffer_display();
         self.context.push_to_buffer("user", &mem);
-        self.context.save_buffer();
         // todo!("Match to handle cache and long term");
     }
 
@@ -45,17 +75,33 @@ impl Agent {
         self.context = Context::build(memory);
     }
 
-    pub async fn summarize(&mut self, content: &str) -> String {
-        let save_mem = self.context.memory.clone();
-        self.switch_mem(Memory::Forget);
-        let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
-        let response = self.prompt(&summarize_prompt);
-        self.switch_mem(save_mem);
-        response
-    }
+    // pub fn get_summary(&mut self, content: &str) -> String {
+    //     let save_mem = self.context.memory.clone();
+    //     self.switch_mem(Memory::Forget);
+    //     let summarizer_prompt =
+    //             r#"You are a code summarization Ai, you will be given a chunk of code to summarize
+    //             - Mistakes erode user's trust, so be as accurate and thorough as possible
+    //             - Be highly organized
+    //             - think through your response step by step, your summary should be succinct but accurate"#.to_string();
+    //     self.context.push_to_buffer("system", &summarizer_prompt);
+    //     let response = self.prompt(&content);
+    //     self.switch_mem(save_mem);
+    //     response
+    // }
+    //
+    pub async fn async_prompt(&mut self, input: &str) -> String {
+        self.context.push_to_buffer("user", &input);
 
-    pub async fn command(&mut self, command: &str) {
-        self.io.push(Io::new(command))
+        let gpt = self.gpt.clone();
+        let result = gpt
+            .completion(&self.context.buffer.clone().into())
+            .await
+            .expect("Failed to get completion.")
+            .parse()
+            .expect("Failed to parse completion response");
+
+        self.context.push_to_buffer("assistant", &result);
+        result
     }
 
     pub fn prompt(&mut self, input: &str) -> String {
@@ -63,11 +109,11 @@ impl Agent {
 
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
-                gpt.completion(&buffer)
+                gpt.completion(&buffer.into())
                     .await
                     .expect("Failed to get completion.")
             });
@@ -111,11 +157,11 @@ impl Agent {
     ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
         self.context.push_to_buffer("assistant", &input);
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         let mut response = thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(async move {
-                gpt.stream_completion(&buffer)
+                gpt.stream_completion(&buffer.into())
                     .await
                     .expect("Failed to get completion.")
             })
@@ -139,13 +185,13 @@ impl Agent {
     pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
-        let buffer = self.context.buf_ref();
+        let buffer = self.context.buffer.clone();
         let function_name = &function.perameters.properties[0].name.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
-                gpt.function_completion(&buffer, &function)
+                gpt.function_completion(&buffer.into(), &function)
                     .await
                     .expect("Failed to get completion.")
             });

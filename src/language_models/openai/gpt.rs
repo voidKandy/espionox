@@ -34,12 +34,12 @@ pub struct Message {
     pub function_call: Option<Value>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Gpt {
     pub config: GptConfig,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GptConfig {
     api_key: String,
     client: Client,
@@ -160,9 +160,26 @@ impl Gpt {
         Gpt { config }
     }
 
+    pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
+        // Completions will randomly not return any choices, so we handle it
+        if err.to_string().contains("missing field `choices`") {
+            let message = format!("Something trivial went wrong please try again");
+            GptResponse {
+                choices: vec![Choice {
+                    message: Message {
+                        content: Some(message),
+                        function_call: None,
+                    },
+                }],
+            }
+        } else {
+            panic!("An unexpected error occurred: {}", err)
+        }
+    }
+
     pub async fn stream_completion(
         &self,
-        context: &[Value],
+        context: &Vec<Value>,
     ) -> Result<impl Stream<Item = Result<Bytes, reqwest::Error>>, Box<dyn Error>> {
         let model = env::var("GPT_MODEL").unwrap();
         let payload = json!({

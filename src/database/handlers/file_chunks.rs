@@ -10,7 +10,11 @@ pub async fn get_file_chunks(
         "SELECT * FROM file_chunks WHERE parent_file_id = $1",
     );
 
-    match query.bind(params.parent_file_id).fetch_all(&pool.0).await {
+    match query
+        .bind(params.parent_file_id)
+        .fetch_all(pool.as_ref())
+        .await
+    {
         Ok(result) => Ok(result),
         Err(err) => Err(err.into()),
     }
@@ -27,7 +31,7 @@ pub async fn post_file_chunk(
         .bind(chunk.idx)
         .bind(chunk.content)
         .bind(chunk.content_embedding)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(res) => Ok(res),
@@ -43,7 +47,7 @@ pub async fn delete_file_chunk(
     match sqlx::query(&query)
         .bind(params.parent_file_id)
         .bind(params.idx)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(rows) => Ok(rows),

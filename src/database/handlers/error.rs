@@ -8,7 +8,11 @@ pub async fn get_errors(
 ) -> anyhow::Result<Vec<ErrorModelSql>> {
     let query = sqlx::query_as::<_, ErrorModelSql>("SELECT * FROM errors WHERE thread_name = $1");
 
-    match query.bind(params.thread_name).fetch_all(&pool.0).await {
+    match query
+        .bind(params.thread_name)
+        .fetch_all(pool.as_ref())
+        .await
+    {
         Ok(result) => Ok(result),
         Err(err) => Err(err.into()),
     }
@@ -22,7 +26,7 @@ pub async fn post_error(pool: &DbPool, chunk: CreateErrorBody) -> anyhow::Result
         .bind(chunk.thread_name)
         .bind(chunk.content)
         .bind(chunk.content_embedding)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(res) => Ok(res),
@@ -35,7 +39,11 @@ pub async fn delete_error(
     params: DeleteErrorParams,
 ) -> anyhow::Result<PgQueryResult> {
     let query = &format!("DELETE FROM errors WHERE id = $1");
-    match sqlx::query(&query).bind(params.id).execute(&pool.0).await {
+    match sqlx::query(&query)
+        .bind(params.id)
+        .execute(pool.as_ref())
+        .await
+    {
         Ok(rows) => Ok(rows),
         Err(err) => Err(err.into()),
     }

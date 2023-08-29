@@ -2,13 +2,13 @@ use super::super::init::DbPool;
 use super::super::models::messages::*;
 use sqlx::postgres::PgQueryResult;
 
-pub async fn get_messages(
+pub async fn get_messages_by_threadname(
     pool: &DbPool,
-    params: GetMessageParams,
+    threadname: &str,
 ) -> anyhow::Result<Vec<MessageModelSql>> {
     match sqlx::query_as::<_, MessageModelSql>("SELECT * FROM messages WHERE thread_name = $1")
-        .bind(params.thread_name)
-        .fetch_all(&pool.0)
+        .bind(threadname)
+        .fetch_all(pool.as_ref())
         .await
     {
         Ok(result) => Ok(result),
@@ -26,7 +26,7 @@ pub async fn post_message(
         .bind(message.thread_name)
         .bind(message.role)
         .bind(message.content)
-        .execute(&pool.0)
+        .execute(pool.as_ref())
         .await
     {
         Ok(res) => Ok(res),
@@ -39,7 +39,11 @@ pub async fn delete_message(
     params: DeleteMessageParams,
 ) -> anyhow::Result<PgQueryResult> {
     let query = &format!("DELETE FROM messages WHERE id = $1");
-    match sqlx::query(&query).bind(params.id).execute(&pool.0).await {
+    match sqlx::query(&query)
+        .bind(params.id)
+        .execute(pool.as_ref())
+        .await
+    {
         Ok(rows) => Ok(rows),
         Err(err) => Err(err.into()),
     }

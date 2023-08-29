@@ -1,4 +1,3 @@
-// ------ ERRORS ------ //
 #[derive(sqlx::FromRow, Clone)]
 pub struct ErrorModelSql {
     pub id: String,

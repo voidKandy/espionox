@@ -7,6 +7,7 @@ pub struct FileChunkModelSql {
     pub content_embedding: pgvector::Vector,
 }
 
+#[derive(Clone)]
 pub struct CreateFileChunkBody {
     pub parent_file_id: String,
     pub idx: i16,

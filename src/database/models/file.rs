@@ -12,6 +12,7 @@ pub struct GetFileParams {
     pub filepath: String,
 }
 
+#[derive(Clone)]
 pub struct CreateFileBody {
     pub id: String,
     pub thread_name: String,
