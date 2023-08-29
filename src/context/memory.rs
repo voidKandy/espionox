@@ -21,26 +21,17 @@ pub enum Memory {
     Forget,
 }
 
-#[allow(unreachable_code)]
-pub fn store_file_tup(file_tup: (CreateFileBody, Vec<CreateFileChunkBody>)) {
-    // let rt = Runtime::new().unwrap();
-    // let pool = &Self::DATA_POOL.with(|poo| Arc::clone(poo));
-    // rt.block_on(async {
-    //     handlers::file::post_file(pool, file_tup.0)
-    //         .await
-    //         .expect("Failed to create file body from Value");
-    //     for chunk in file_tup.1 {
-    //         handlers::file_chunks::post_file_chunk(pool, chunk)
-    //             .await
-    //             .expect("Failed to post chunks");
-    //     }
-    // });
-}
-
 impl Memory {
     thread_local! {
         static CACHED_MEMORY: RefCell<MessageVector> = RefCell::new(MessageVector::new(Vec::new()));
         static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::sync_init_pool(DatabaseEnv::Default));
+    }
+
+    pub fn threadname(&self) -> Option<String> {
+        match self {
+            Self::LongTerm(threadname) => Some(threadname.to_string()),
+            _ => None,
+        }
     }
 
     fn save_messages_to_database(threadname: &str, messages: MessageVector) {
