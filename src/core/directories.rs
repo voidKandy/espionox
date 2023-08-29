@@ -1,4 +1,3 @@
-use super::BufferDisplay;
 use super::File;
 use std::fs;
 use std::path::Path;
@@ -10,8 +9,8 @@ pub struct Directory {
     pub files: Vec<File>,
 }
 
-impl Directory {
-    pub fn build(path: &str) -> Directory {
+impl From<&str> for Directory {
+    fn from(path: &str) -> Self {
         let dirpath = fs::canonicalize(Path::new(path)).unwrap();
         let (children, files) =
             Directory::get_children_and_files(&dirpath).expect("Failure walking directory");
@@ -21,7 +20,9 @@ impl Directory {
             files,
         }
     }
+}
 
+impl Directory {
     fn get_children_and_files(
         root: &Path,
     ) -> Result<(Vec<Directory>, Vec<File>), Box<dyn std::error::Error>> {
@@ -42,10 +43,10 @@ impl Directory {
             }
             match &entry.is_dir() {
                 true => {
-                    children.push(Directory::build(entry.to_str().unwrap()));
+                    children.push(Directory::from(entry.to_str().unwrap()));
                 }
                 false => {
-                    files.push(File::build(&entry.display().to_string()));
+                    files.push(File::from(entry.display().to_string().as_str()));
                 }
             }
         }
@@ -65,42 +66,5 @@ impl Directory {
         }
 
         excluded_paths
-    }
-}
-
-impl BufferDisplay for Directory {
-    fn buffer_display(&self) -> String {
-        let mut payload = String::new();
-        for dir in self.children.iter() {
-            let mut files_payload = vec![];
-            dir.files.iter().for_each(|f| {
-                files_payload.push(match f.summary.as_str() {
-                    "" => format!(
-                        "FilePath: {}, Content: {}",
-                        &f.filepath.display(),
-                        &f.content()
-                    ),
-                    _ => format!(
-                        "FilePath: {}, Content: {}, Summary: {}",
-                        &f.filepath.display(),
-                        &f.content(),
-                        &f.summary
-                    ),
-                })
-            });
-            let dir_payload = format!(
-                "Directory path: {}, Child Directories: [{:?}], Files: [{}]",
-                dir.dirpath.display().to_string(),
-                dir.children
-                    .clone()
-                    .into_iter()
-                    .map(|c| c.dirpath.display().to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                files_payload.join(", ")
-            );
-            payload = format!("{}, {}", payload, dir_payload);
-        }
-        payload
     }
 }

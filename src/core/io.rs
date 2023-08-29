@@ -1,4 +1,3 @@
-use super::BufferDisplay;
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio};
 
@@ -24,11 +23,5 @@ impl Io {
             i: input.to_string(),
             o: Self::run_input(input),
         }
-    }
-}
-
-impl BufferDisplay for Io {
-    fn buffer_display(&self) -> String {
-        format!("Input: {}, Output: {}", &self.i, &self.o,)
     }
 }

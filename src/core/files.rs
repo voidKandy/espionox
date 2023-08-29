@@ -1,4 +1,3 @@
-use super::BufferDisplay;
 use std::fs;
 use std::path::Path;
 use tracing::{self, info};
@@ -7,30 +6,32 @@ use tracing::{self, info};
 pub struct File {
     pub filepath: Box<Path>,
     pub chunks: Vec<FileChunk>,
-    pub summary: String,
-    pub summary_embedding: Vec<f32>,
+    pub summary: Option<String>,
+    // pub summary_embedding: Vec<f32>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FileChunk {
     pub parent_filepath: Box<Path>,
     pub content: String,
-    pub content_embedding: Vec<f32>,
+    // pub content_embedding: Vec<f32>,
     pub index: i16,
 }
 
-impl File {
-    pub fn build(filename: &str) -> File {
+impl From<&str> for File {
+    fn from(filename: &str) -> Self {
         let filepath = fs::canonicalize(Path::new(filename)).unwrap().into();
         File {
             filepath,
             chunks: vec![],
-            summary: String::new(),
-            summary_embedding: Vec::new(),
+            summary: None,
+            // summary_embedding: Vec::new(),
         }
         .chunkify()
     }
+}
 
+impl File {
     #[tracing::instrument]
     pub fn chunkify(&mut self) -> Self {
         info!("chunkifying: {}", &self.filepath.to_str().unwrap());
@@ -46,7 +47,7 @@ impl File {
             self.chunks.push(FileChunk {
                 parent_filepath: self.filepath.clone(),
                 content: c.join("\n"),
-                content_embedding: Vec::new(),
+                // content_embedding: Vec::new(),
                 index: i as i16,
             });
         });
@@ -57,34 +58,5 @@ impl File {
         let mut content: Vec<&str> = Vec::new();
         self.chunks.iter().for_each(|c| content.push(&c.content));
         content.join("\n")
-    }
-}
-
-impl BufferDisplay for File {
-    fn buffer_display(&self) -> String {
-        match self.summary.as_str() {
-            "" => format!(
-                "FilePath: {}, Content: {}",
-                &self.filepath.display(),
-                &self.content()
-            ),
-            _ => format!(
-                "FilePath: {}, Content: {}, Summary: {}",
-                &self.filepath.display(),
-                &self.content(),
-                &self.summary
-            ),
-        }
-    }
-}
-
-impl BufferDisplay for FileChunk {
-    fn buffer_display(&self) -> String {
-        format!(
-            "FilePath: {}, ChunkIndex: {}, Content: {}",
-            &self.parent_filepath.display(),
-            &self.index,
-            &self.content,
-        )
     }
 }
