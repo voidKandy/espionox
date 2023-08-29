@@ -1,7 +1,7 @@
 use crate::context::Memory;
 #[allow(unused)]
-use crate::core::{BufferDisplay, Directory, File, Io};
-use crate::handler::agent::Agent;
+use crate::core::{Directory, File, Io};
+use crate::handler::{agent::Agent, integrations::*};
 use colored::*;
 use inquire::{Confirm, InquireError, Select, Text};
 use std::path::Path;
@@ -133,7 +133,7 @@ impl<'a> Ui<'a> {
                     UiResponder::AgentOp(commands) => {
                         match Op::try_from(commands.to_owned() as AgentCommands) {
                             Ok(op) => {
-                                match self.execute(op) {
+                                match self.execute_op(op) {
                                     Some(message) => println!("{}", message),
                                     None => println!("No message returned from execution"),
                                 };
@@ -149,7 +149,7 @@ impl<'a> Ui<'a> {
         }
     }
 
-    fn execute(&mut self, op: Op) -> Option<String> {
+    fn execute_op(&mut self, op: Op) -> Option<String> {
         if let Some(agent) = self.agent.as_mut() {
             if let Some(res) = &self.responder.take() {
                 if let UiResponder::AgentOp(command) = res {
@@ -221,9 +221,9 @@ impl<'a> Ui<'a> {
         if let Some(agent) = self.agent.as_mut() {
             let path = Path::new(path_str);
             if path.is_file() {
-                agent.format_to_buffer(File::build(path_str));
+                agent.format_to_buffer(File::from(path_str));
             } else if path.is_dir() {
-                agent.format_to_buffer(Directory::build(path_str));
+                agent.format_to_buffer(Directory::from(path_str));
             }
             return format!("Added {:?} to buffer.", path);
         }

@@ -1,15 +1,25 @@
-use crate::context::{Message, MessageVector};
+use crate::context::{Message, MessageVector, Memory};
 
 #[derive(Debug, Default, Clone)]
 pub struct AgentSettings {
-    pub threadname: Option<String>,
+    pub memory_override: Option<Memory>,
     pub init_prompt: MessageVector,
-    // builder: AgentBuilder
 }
 
 impl AgentSettings {
+    pub fn new(memory_override: Option<Memory>, init_prompt: MessageVector) -> AgentSettings {
+        AgentSettings { memory_override, init_prompt }
+    }
+
+    pub fn memory(&self) -> Option<&Memory> {
+        match &self.memory_override {
+            Some(mem) => Some(&mem),
+            None => None
+        }
+    }
+
     pub fn default() -> AgentSettings {
-        let threadname = Some("Default_Memory_Thread".to_string());
+        let memory_override = Some(Memory::LongTerm("Default_Memory_Thread".to_string()));
         let init_prompt = 
             MessageVector::new(vec![Message::new(
                 "system".to_string(),
@@ -22,8 +32,22 @@ impl AgentSettings {
                 - No need to disclose you're an AI
                 - If the quality of your response has been substantially reduced due to my custom instructions, please explain the issue"#.to_string(),
             )]);
-        AgentSettings { threadname, init_prompt }
+        AgentSettings::new(memory_override, init_prompt)
     }
 
+
+    pub fn summarizer() -> AgentSettings {
+        let memory_override = Some(Memory::Forget);
+        let init_prompt = 
+            MessageVector::new(vec![Message::new(
+                "system".to_string(),
+                r#"You are a code summarization Ai, you will be given a chunk of code to summarize
+                - Mistakes erode user's trust, so be as accurate and thorough as possible
+                - Be highly organized 
+                - Do not use lists or anything resembling a list in your summary
+                - think through your response step by step, your summary should be succinct but accurate"#.to_string()
+            )]);
+        AgentSettings::new(memory_override, init_prompt)
+    }
 }
 

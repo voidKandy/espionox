@@ -11,40 +11,31 @@ use futures_util::StreamExt;
 use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Agent {
     pub context: Context,
     gpt: Gpt,
     settings: AgentSettings,
 }
 
+impl Default for Agent {
+    fn default() -> Self {
+        Agent::build(AgentSettings::default()).expect("Failed to build default agent")
+    }
+}
+
 impl Agent {
     pub fn build(settings: AgentSettings) -> Result<Agent> {
-        Ok(Agent::build_with(
-            &mut Agent {
-                gpt: Gpt::init(),
-                context: Context::build(Memory::default()),
-                settings,
-            },
-            move |agent| agent.build_from_settings(),
-        ))
-    }
-
-    pub fn build_from_settings(&mut self) -> &mut Agent {
-        match &self.settings.threadname {
-            Some(name) => {
-                self.switch_mem(Memory::LongTerm(name.to_string()));
-            }
-            None => {}
-        }
-
-        if self.context.buffer.len() == 0 {
-            for p in self.settings.init_prompt.as_ref() {
-                self.context.push_to_buffer(p.role(), p.content());
-            }
-        }
-
-        self
+        let gpt = Gpt::init();
+        let context = match &settings.memory_override {
+            Some(memory) => Context::build(memory.clone()),
+            None => Context::build(Memory::default()),
+        };
+        Ok(Agent {
+            gpt,
+            context,
+            settings,
+        })
     }
 
     pub fn build_with<F>(agent: &mut Agent, mut func: F) -> Agent
@@ -73,7 +64,7 @@ impl Agent {
         format!("In {current_mem}\n\nBuffer:\n{buffer}")
     }
 
-    pub fn format_to_buffer(&mut self, o: impl super::super::core::BufferDisplay) {
+    pub fn format_to_buffer(&mut self, o: impl super::integrations::BufferDisplay) {
         let mem = o.buffer_display();
         self.context.push_to_buffer("user", &mem);
         // todo!("Match to handle cache and long term");
@@ -84,13 +75,33 @@ impl Agent {
         self.context = Context::build(memory);
     }
 
-    pub async fn summarize(&mut self, content: &str) -> String {
-        let save_mem = self.context.memory.clone();
-        self.switch_mem(Memory::Forget);
-        let summarize_prompt = format!("Summarize the core function code to the best of your ability. Be as succinct as possible. Content: {}", content);
-        let response = self.prompt(&summarize_prompt);
-        self.switch_mem(save_mem);
-        response
+    // pub fn get_summary(&mut self, content: &str) -> String {
+    //     let save_mem = self.context.memory.clone();
+    //     self.switch_mem(Memory::Forget);
+    //     let summarizer_prompt =
+    //             r#"You are a code summarization Ai, you will be given a chunk of code to summarize
+    //             - Mistakes erode user's trust, so be as accurate and thorough as possible
+    //             - Be highly organized
+    //             - think through your response step by step, your summary should be succinct but accurate"#.to_string();
+    //     self.context.push_to_buffer("system", &summarizer_prompt);
+    //     let response = self.prompt(&content);
+    //     self.switch_mem(save_mem);
+    //     response
+    // }
+    //
+    pub async fn async_prompt(&mut self, input: &str) -> String {
+        self.context.push_to_buffer("user", &input);
+
+        let gpt = self.gpt.clone();
+        let result = gpt
+            .completion(&self.context.buffer.clone().into())
+            .await
+            .expect("Failed to get completion.")
+            .parse()
+            .expect("Failed to parse completion response");
+
+        self.context.push_to_buffer("assistant", &result);
+        result
     }
 
     pub fn prompt(&mut self, input: &str) -> String {
