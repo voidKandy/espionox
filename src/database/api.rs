@@ -1,3 +1,5 @@
+use rust_bert::pipelines::sentence_embeddings::Embedding;
+
 use super::{
     init::DatabaseSettings,
     models::{file::*, file_chunks::*},
@@ -5,18 +7,12 @@ use super::{
 };
 use crate::{
     core::{File, FileChunk},
-    handler::integrations::{BufferDisplay, SummarizerAgent},
+    handler::integrations::SummarizerAgent,
     language_models::embed,
 };
 
 #[derive(Clone)]
 pub struct CreateFileChunksVector(Vec<CreateFileChunkBody>);
-
-#[derive(Clone)]
-pub struct CreateFileAndChunksSql {
-    pub file: CreateFileBody,
-    chunks: CreateFileChunksVector,
-}
 
 impl AsRef<Vec<CreateFileChunkBody>> for CreateFileChunksVector {
     fn as_ref(&self) -> &Vec<CreateFileChunkBody> {
@@ -25,12 +21,14 @@ impl AsRef<Vec<CreateFileChunkBody>> for CreateFileChunksVector {
 }
 
 impl CreateFileBody {
+    #[tracing::instrument(name = "Build CreateFileBody Sql struct from File struct")]
     pub fn build_from(
         file: &mut File,
         thread_name: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let summary = match &file.summary {
             None => {
+                tracing::info!("File has no summary, getting summary");
                 let sum = SummarizerAgent::init().summarize(file);
                 println!("{}", &sum);
                 file.summary = Some(sum.clone());
@@ -55,6 +53,9 @@ impl CreateFileBody {
 }
 
 impl CreateFileChunksVector {
+    #[tracing::instrument(
+        name = "Build CreateFileChunksVector struct from Vector of FileChunk structs"
+    )]
     pub fn build_from(
         file_chunks: Vec<FileChunk>,
         parent_file_id: &str,
@@ -76,46 +77,40 @@ impl CreateFileChunksVector {
     }
 }
 
-impl CreateFileAndChunksSql {
-    pub fn from_file_and_threadname(mut f: File, thread_name: &str) -> Self {
-        let file_chunks = f.chunks.clone();
-        let file = CreateFileBody::build_from(&mut f, thread_name)
-            .expect("Failed to build create file sql body");
-        let chunks = CreateFileChunksVector::build_from(file_chunks, &file.id)
-            .expect("Failed to build create file chunks sql body");
-        CreateFileAndChunksSql { file, chunks }
-    }
+pub async fn query_vector_embeddings(pool: &DbPool, vector: Embedding) {
+    let query = format!(
+        "SELECT * FROM file_chunks WHERE content_embedding <-> '{:?}' < 5;",
+        vector
+    );
+    let result = sqlx::query(&query).execute(pool.as_ref()).await;
 
-    fn chunks(&self) -> Vec<CreateFileChunkBody> {
-        self.chunks.as_ref().to_vec()
-    }
-
-    pub async fn insert_into_db(&self, pool: &DbPool) -> Result<(), sqlx::Error> {
-        super::handlers::file::post_file(&pool, self.clone().file)
-            .await
-            .expect("Failed to post file");
-        for chunk in self.chunks() {
-            super::handlers::file_chunks::post_file_chunk(&pool, chunk)
-                .await
-                .expect("Failed to post chunk");
-        }
-        Ok(())
+    match result {
+        Ok(chunks) => println!("Chunks got: {:?}", chunks),
+        Err(err) => panic!("{}", err),
     }
 }
 
+#[tracing::instrument(name = "Check that given database exists" skip(pool, db_name))]
 pub async fn check_db_exists(pool: &DbPool, db_name: &str) -> bool {
     let query = format!(
-        "SELECT datname FROM pg_catalog.pg_database WHERE datname = {};",
+        "SELECT datname FROM pg_catalog.pg_database WHERE datname = '{}';",
         db_name
     );
     let result = sqlx::query(&query).fetch_optional(pool.as_ref()).await;
 
     match result {
-        Ok(Some(_)) => true,
-        _ => false,
+        Ok(Some(_)) => {
+            tracing::info!("Database does exist!");
+            true
+        }
+        _ => {
+            tracing::info!("Database does not exist!");
+            false
+        }
     }
 }
 
+#[tracing::instrument(name = "Initialize and migrate new database" skip(pool, settings))]
 pub async fn init_and_migrate_db(pool: &DbPool, settings: DatabaseSettings) -> anyhow::Result<()> {
     sqlx::query(&format!("CREATE DATABASE {}", settings.database_name))
         .execute(pool.as_ref())

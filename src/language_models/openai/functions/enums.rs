@@ -1,6 +1,6 @@
 use super::config::{Function, Perameters, Property};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FnEnum {
     // GeneralDescription,
     GetCommands,
@@ -10,12 +10,10 @@ pub enum FnEnum {
     ExecuteGenerateRead,
 }
 
-impl FnEnum {
-    pub fn to_function(&self) -> Function {
+impl Into<Function> for FnEnum {
+    #[tracing::instrument(name = "Get function struct from FnEnum")]
+    fn into(self) -> Function {
         match self {
-            // FnEnum::GeneralDescription => {
-            //     let properties = [Property::new(
-            // }
             FnEnum::GetCommands => {
                 let properties = [Property::new(
                     "commands",

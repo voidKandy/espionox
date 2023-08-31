@@ -34,6 +34,7 @@ impl Memory {
         }
     }
 
+    #[tracing::instrument(name = "Save messages to database from threadname")]
     fn save_messages_to_database(threadname: &str, messages: MessageVector) {
         let messages = messages.to_owned();
         let threadname = threadname.to_owned();
@@ -56,6 +57,7 @@ impl Memory {
         });
     }
 
+    #[tracing::instrument(name = "Save messages to cached static MessageVector")]
     fn save_messages_to_cache(messages: MessageVector) {
         Self::CACHED_MEMORY.with(|st_mem| {
             info!("Cache before: {:?}", st_mem.borrow());
@@ -67,7 +69,7 @@ impl Memory {
         });
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(name = "Get messages from database from threadname")]
     fn get_messages_from_database(threadname: &str) -> MessageVector {
         let threadname = threadname.to_owned();
         thread::spawn(move || {

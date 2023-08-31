@@ -17,6 +17,7 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
+#[derive(Debug)]
 pub enum DatabaseEnv {
     Default,
     Testing,
@@ -37,9 +38,14 @@ impl DatabaseEnv {
         ))
     }
 
+    #[tracing::instrument(name = "Get settings from Database Environment")]
     pub fn get_settings(&self) -> Result<DatabaseSettings, config::ConfigError> {
         let file = self.config_file_name();
         let filepath = Path::new(&file);
+        tracing::info!(
+            "Loading database configuration from {}",
+            filepath.display().to_string()
+        );
         let config = config::Config::builder()
             .add_source(config::File::from(filepath))
             .build()?;
@@ -63,6 +69,7 @@ impl DatabaseSettings {
 }
 
 impl DbPool {
+    #[tracing::instrument(name = "Initialize DbPool from Database Environment")]
     pub async fn init_pool(env: DatabaseEnv) -> anyhow::Result<DbPool> {
         let settings = env.get_settings().expect("failed to get settings");
         let pool = DbPool(
@@ -72,13 +79,14 @@ impl DbPool {
                 .await
                 .expect("Failed to init pool from PoolOptions"),
         );
-        // I really think this condition should have a bang, but this seems to be correct ?
-        if check_db_exists(&pool, &settings.database_name).await {
+        if !check_db_exists(&pool, &settings.database_name).await {
+            tracing::info!("Database needs to be initialized and migrated...");
             init_and_migrate_db(&pool, settings).await.unwrap();
         }
         Ok(pool)
     }
 
+    #[tracing::instrument(name = "Synchronously initialize DbPool from Database Environment")]
     pub fn sync_init_pool(env: DatabaseEnv) -> DbPool {
         std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();

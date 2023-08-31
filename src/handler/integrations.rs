@@ -1,9 +1,11 @@
 use super::{Agent, AgentSettings};
 use crate::core::*;
 
+#[derive(Debug)]
 pub struct SummarizerAgent(Agent);
 
 impl SummarizerAgent {
+    #[tracing::instrument(name = "Create Summarizer Agent")]
     pub fn init() -> Self {
         SummarizerAgent(
             Agent::build(AgentSettings::summarizer())
@@ -11,13 +13,14 @@ impl SummarizerAgent {
         )
     }
 
+    #[tracing::instrument(name = "Summarize any struct that implements BufferDisplay")]
     pub fn summarize(&mut self, content: &mut impl BufferDisplay) -> String {
         self.0.switch_mem(crate::context::Memory::Forget);
         self.0.prompt(&content.buffer_display())
     }
 }
 
-pub trait BufferDisplay {
+pub trait BufferDisplay: std::fmt::Debug {
     fn buffer_display(&self) -> String;
 }
 
