@@ -22,22 +22,19 @@ sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"] }
 serde = "1.0.164"
 serde_derive = "1.0.164"
 serde_json = "1.0.97"
-tmux_interface = "0.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
 uuid = "1.4.0"
 pgvector = { version = "0.2.2", features = ["sqlx"] }
 
 tracing = { version = "0.1.37", features = ["log"] }
-tracing-actix-web = "0.7.5"
 tracing-bunyan-formatter = "0.3.8"
 tracing-log = "0.1.3"
 tracing-subscriber = { version = "0.3.17", features = ["registry", "env-filter"] }
 once_cell = "1.18.0"
-async-std = "1.12.0"
 futures = "0.3.28"
 futures-util = "0.3.28"
 bytes = "1.4.0"
 colored = "2.0.4"
 serde-aux = "4.2.0"
-serde_yaml = "0.9.25"
 config = "0.13.3"
+rand = "0.8.5"
