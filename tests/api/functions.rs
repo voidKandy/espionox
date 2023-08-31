@@ -1,11 +1,13 @@
+use super::helpers::init_test;
 #[cfg(test)]
-use consoxide::language_models::openai::functions::enums::FnEnum;
+use consoxide::language_models::openai::functions::{FnEnum, Function};
 use serde_json::json;
 use serde_json::Value;
 
 #[test]
 fn function_deserialization() {
-    let function = FnEnum::GetCommands.to_function();
+    init_test();
+    let function: Function = FnEnum::GetCommands.into();
     // println!("{}", function.render());
 
     let function_json = json!({
@@ -55,7 +57,7 @@ fn function_deserialization() {
 }
 #[test]
 fn test_function_render() {
-    let function = FnEnum::GetCommands.to_function();
+    let function: Function = FnEnum::GetCommands.into();
     let expected_result = json!({
         "name": "get_commands",
         "description": "get a list of terminal commands to run on mac os",

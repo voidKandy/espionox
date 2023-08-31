@@ -1,24 +1,3 @@
-use consoxide::telemetry::{get_subscriber, init_subscriber};
-use consoxide::{
-    context::{memory::Memory, Context},
-    core::File,
-};
-use once_cell::sync::Lazy;
-#[cfg(test)]
-#[allow(unused)]
-use std::path::PathBuf;
-
-static TRACING: Lazy<()> = Lazy::new(|| {
-    let default_filter_level = "info".to_string();
-    let subscriber_name = "test".to_string();
-    if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
-        init_subscriber(subscriber);
-    } else {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
-        init_subscriber(subscriber);
-    }
-});
 // REWRITE AS TEST OF SUM AGENT
 // #[test]
 // fn adding_files_to_memory_works() {

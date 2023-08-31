@@ -14,7 +14,7 @@ fn function_agent_test() {
     let prompt = String::from("[Investigate the failing test in src/tests/context.rs, Check the assertion at line 42 in src/tests/context.rs, Analyze the error message to understand the cause of the failure, Fix the failing test to pass the assertion]");
     agent.context.push_to_buffer("user", &prompt);
 
-    let function = FnEnum::ExecuteGenerateRead.to_function();
+    let function = FnEnum::ExecuteGenerateRead.into();
     let response = agent.function_prompt(function);
     println!("{:?}", &response);
     assert!(true);

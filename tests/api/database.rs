@@ -2,7 +2,7 @@ use crate::helpers;
 use consoxide::{
     core::File,
     database::{
-        api::CreateFileChunksVector,
+        api::{query_vector_embeddings, CreateFileChunksVector},
         handlers,
         init::{DatabaseEnv, DbPool},
         models::{
@@ -12,11 +12,25 @@ use consoxide::{
         },
     },
 };
+use rand::prelude::*;
+use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;
 
 #[tokio::test]
 async fn testing_pool_health_check() {
     assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok())
+}
+
+#[tokio::test]
+async fn nearest_vectors_works() {
+    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+        .await
+        .expect("Failed to init testing pool");
+    let mut rng = rand::thread_rng();
+
+    let vector: Embedding = (0..384).map(|_| rng.gen::<f32>()).collect();
+    query_vector_embeddings(&pool, vector).await;
+    assert!(false);
 }
 
 #[tokio::test]
