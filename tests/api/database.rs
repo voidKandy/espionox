@@ -2,7 +2,7 @@ use crate::helpers;
 use consoxide::{
     core::File,
     database::{
-        api::{query_vector_embeddings, CreateFileChunksVector},
+        api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
         handlers,
         init::{DatabaseEnv, DbPool},
         models::{
@@ -12,7 +12,6 @@ use consoxide::{
         },
     },
 };
-use rand::prelude::*;
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;
 
@@ -26,15 +25,17 @@ async fn nearest_vectors_works() {
     let pool = DbPool::init_pool(DatabaseEnv::Testing)
         .await
         .expect("Failed to init testing pool");
-    let mut rng = rand::thread_rng();
+    // let mut rng = rand::thread_rng();
 
-    let vector: Embedding = (0..384).map(|_| rng.gen::<f32>()).collect();
-    query_vector_embeddings(&pool, vector).await;
-    assert!(false);
+    // let vector: Embedding = (0..384).map(|_| rng.gen::<f32>()).collect();
+    let vector = filepath_to_database().await;
+    assert!(vector_query_file_chunks(&pool, vector.clone(), 5)
+        .await
+        .is_ok());
+    assert!(vector_query_files(&pool, vector, 5).await.is_ok());
 }
 
-#[tokio::test]
-async fn filepath_to_database() {
+async fn filepath_to_database() -> Embedding {
     let pool = DbPool::init_pool(DatabaseEnv::Testing)
         .await
         .expect("Failed to init testing pool");
@@ -44,6 +45,9 @@ async fn filepath_to_database() {
     let file =
         CreateFileBody::build_from(&mut f, &settings.memory().unwrap().threadname().unwrap())
             .expect("Failed to build create file sql body");
+
+    let ret = file.summary_embedding.to_vec().clone();
+
     let chunks = CreateFileChunksVector::build_from(file_chunks, &file.id)
         .expect("Failed to build create file chunks sql body");
     assert!(handlers::file::post_file(&pool, file).await.is_ok());
@@ -52,6 +56,7 @@ async fn filepath_to_database() {
             .await
             .is_ok());
     }
+    ret
 }
 
 // ------ THREADS ------ //

@@ -3,6 +3,7 @@ use rust_bert::pipelines::sentence_embeddings::Embedding;
 use super::{
     init::DatabaseSettings,
     models::{file::*, file_chunks::*},
+    vector_embeddings::EmbeddingVector,
     DbPool,
 };
 use crate::{
@@ -30,8 +31,8 @@ impl CreateFileBody {
             None => {
                 tracing::info!("File has no summary, getting summary");
                 let sum = SummarizerAgent::init().summarize(file);
-                println!("{}", &sum);
                 file.summary = Some(sum.clone());
+                tracing::info!("File summary got");
                 sum
             }
             Some(summary) => summary.to_string(),
@@ -77,16 +78,53 @@ impl CreateFileChunksVector {
     }
 }
 
-pub async fn query_vector_embeddings(pool: &DbPool, vector: Embedding) {
-    let query = format!(
-        "SELECT * FROM file_chunks WHERE content_embedding <-> '{:?}' < 5;",
-        vector
-    );
-    let result = sqlx::query(&query).execute(pool.as_ref()).await;
+#[tracing::instrument(name = "Get similar file chunks from vector embedding")]
+pub async fn vector_query_file_chunks(
+    pool: &DbPool,
+    vector: Embedding,
+    distance: u8,
+) -> anyhow::Result<Vec<FileChunkModelSql>> {
+    let vector: EmbeddingVector = vector.into();
+    match sqlx::query_as::<_, FileChunkModelSql>(&format!(
+        "SELECT * FROM file_chunks WHERE content_embedding <-> $1 < {};",
+        distance
+    ))
+    .bind(&vector)
+    .fetch_all(pool.as_ref())
+    .await
+    {
+        Ok(chunks) => {
+            chunks
+                .iter()
+                .for_each(|chunk| tracing::info!("Chunk got: {:?} : {}", chunk.idx, chunk.content));
+            Ok(chunks)
+        }
+        Err(err) => Err(err.into()),
+    }
+}
 
-    match result {
-        Ok(chunks) => println!("Chunks got: {:?}", chunks),
-        Err(err) => panic!("{}", err),
+#[tracing::instrument(name = "Get similar files from vector embedding")]
+pub async fn vector_query_files(
+    pool: &DbPool,
+    vector: Embedding,
+    distance: u8,
+) -> anyhow::Result<Vec<FileModelSql>> {
+    let vector: EmbeddingVector = vector.into();
+    match sqlx::query_as::<_, FileModelSql>(&format!(
+        "SELECT * FROM files WHERE summary_embedding <-> $1 < {};",
+        distance
+    ))
+    .bind(&vector)
+    .fetch_all(pool.as_ref())
+    .await
+    {
+        Ok(files) => {
+            files.iter().for_each(|file| {
+                tracing::info!("File got: {:?} : {}", file.filepath, file.summary)
+            });
+            Ok(files)
+        }
+        Err(err) => Err(err.into()),
     }
 }
 
