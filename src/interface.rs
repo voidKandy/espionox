@@ -71,6 +71,33 @@ impl Op {
         }
         help
     }
+
+    fn execute(&self, ui: &mut Ui) -> Option<String> {
+        if let Some(agent) = ui.agent.as_mut() {
+            if let Some(res) = &ui.responder.take() {
+                if let UiResponder::AgentOp(command) = res {
+                    let response = match self {
+                        Op::SwitchMem => Some(ui.switch_agent_memory()),
+                        Op::Format => match command.get(1) {
+                            Some(path) => Some(ui.remember_from_path(path)),
+                            None => {
+                                Some(format!("Please path a valid path to a file or directory"))
+                            }
+                        },
+                        Op::Info => Some(agent.info_display_string()),
+                        Op::Save => {
+                            agent.context.save_buffer();
+                            Some(String::from("Saved current message buffer"))
+                        }
+                        Op::Help => Some(Op::help_message()),
+                    };
+                    return response;
+                }
+            }
+            return Some("No responder in UI".to_string());
+        }
+        Some("No agent in UI".to_string())
+    }
 }
 
 enum UiResponder {
@@ -133,7 +160,7 @@ impl<'a> Ui<'a> {
                     UiResponder::AgentOp(commands) => {
                         match Op::try_from(commands.to_owned() as AgentCommands) {
                             Ok(op) => {
-                                match self.execute_op(op) {
+                                match op.execute(self) {
                                     Some(message) => println!("{}", message),
                                     None => println!("No message returned from execution"),
                                 };
@@ -147,33 +174,6 @@ impl<'a> Ui<'a> {
                 }
             }
         }
-    }
-
-    fn execute_op(&mut self, op: Op) -> Option<String> {
-        if let Some(agent) = self.agent.as_mut() {
-            if let Some(res) = &self.responder.take() {
-                if let UiResponder::AgentOp(command) = res {
-                    let response = match op {
-                        Op::SwitchMem => Some(self.switch_agent_memory()),
-                        Op::Format => match command.get(1) {
-                            Some(path) => Some(self.remember_from_path(path)),
-                            None => {
-                                Some(format!("Please path a valid path to a file or directory"))
-                            }
-                        },
-                        Op::Info => Some(agent.info_display_string()),
-                        Op::Save => {
-                            agent.context.save_buffer();
-                            Some(String::from("Saved current message buffer"))
-                        }
-                        Op::Help => Some(Op::help_message()),
-                    };
-                    return response;
-                }
-            }
-            return Some("No responder in UI".to_string());
-        }
-        Some("No agent in UI".to_string())
     }
 
     fn switch_agent_memory(&mut self) -> String {

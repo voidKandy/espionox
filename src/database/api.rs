@@ -78,7 +78,7 @@ impl CreateFileChunksVector {
     }
 }
 
-#[tracing::instrument(name = "Get similar file chunks from vector embedding")]
+#[tracing::instrument(name = "Get similar file chunks from vector embedding" skip(pool, vector))]
 pub async fn vector_query_file_chunks(
     pool: &DbPool,
     vector: Embedding,
@@ -103,7 +103,7 @@ pub async fn vector_query_file_chunks(
     }
 }
 
-#[tracing::instrument(name = "Get similar files from vector embedding")]
+#[tracing::instrument(name = "Get similar files from vector embedding" skip(pool, vector))]
 pub async fn vector_query_files(
     pool: &DbPool,
     vector: Embedding,

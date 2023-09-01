@@ -1,14 +1,16 @@
+#[derive(Clone, Debug)]
 pub struct Function {
     pub name: String,
     pub description: String,
     pub perameters: Perameters,
 }
+#[derive(Clone, Debug)]
 pub struct Perameters {
     pub type_dec: String,
     pub properties: Box<Vec<Property>>,
     pub required: Vec<String>,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Property {
     pub name: String,
     pub return_value: String,

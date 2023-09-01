@@ -15,7 +15,7 @@ use tokio::runtime::Runtime;
 pub struct Agent {
     pub context: Context,
     gpt: Gpt,
-    settings: AgentSettings,
+    // settings: AgentSettings,
 }
 
 impl Default for Agent {
@@ -34,7 +34,7 @@ impl Agent {
         Ok(Agent {
             gpt,
             context,
-            settings,
+            // settings,
         })
     }
 
@@ -88,7 +88,7 @@ impl Agent {
     //     self.switch_mem(save_mem);
     //     response
     // }
-    //
+
     pub async fn async_prompt(&mut self, input: &str) -> String {
         self.context.push_to_buffer("user", &input);
 
@@ -104,6 +104,7 @@ impl Agent {
         result
     }
 
+    #[tracing::instrument(name = "Prompt GPT API for response")]
     pub fn prompt(&mut self, input: &str) -> String {
         self.context.push_to_buffer("user", &input);
 
@@ -182,6 +183,7 @@ impl Agent {
         // Ok(handle)
     }
 
+    #[tracing::instrument(name = "Function prompt GPT API for response")]
     pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
