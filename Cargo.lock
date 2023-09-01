@@ -288,6 +288,7 @@ name = "consoxide"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "byteorder",
  "bytes",
  "colored",
  "config",
