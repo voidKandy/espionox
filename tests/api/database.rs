@@ -17,7 +17,8 @@ use tokio;
 
 #[tokio::test]
 async fn testing_pool_health_check() {
-    assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok())
+    assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok());
+    assert!(DbPool::init_pool(DatabaseEnv::Default).await.is_ok());
 }
 
 #[tokio::test]
@@ -131,6 +132,7 @@ async fn post_get_delete_filechunks() {
         .expect("failed to init testing pool");
     let newchunk = CreateFileChunkBody {
         parent_file_id: "9999".to_string(),
+        parent_filepath: ".".to_string(),
         idx: 1 as i16,
         content: "chunk content".to_string(),
         content_embedding: pgvector::Vector::from(vec![0.0; 384]),

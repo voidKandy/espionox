@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use consoxide::{
+    agent::Agent,
     context::{memory::Memory, Context},
-    handler::agent::Agent,
     language_models::openai::functions::enums::FnEnum,
 };
 

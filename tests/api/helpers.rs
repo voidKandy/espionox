@@ -1,6 +1,6 @@
 use consoxide::{
+    agent::{Agent, AgentSettings},
     context::{Memory, MessageVector},
-    handler::{Agent, AgentSettings},
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
