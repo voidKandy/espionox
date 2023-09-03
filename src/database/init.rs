@@ -1,6 +1,6 @@
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{check_db_exists, init_and_migrate_db};
 
@@ -17,38 +17,73 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DatabaseEnv {
     Default,
     Testing,
 }
 
 impl DatabaseEnv {
-    fn config_file_name(&self) -> String {
+    fn config_file_path(&self) -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let configuration_dir = base_path.join("configuration");
         let filename = match self {
             DatabaseEnv::Default => "default",
             DatabaseEnv::Testing => "testing",
         };
-        String::from(format!(
-            "{}/{}.yaml",
-            configuration_dir.display().to_string(),
-            filename
-        ))
+        PathBuf::from(
+            format!(
+                "{}/{}.yaml",
+                configuration_dir.display().to_string(),
+                filename
+            )
+            .as_str(),
+        )
+    }
+
+    #[tracing::instrument(name = "Mutate settings specific to env")]
+    fn mutate_settings(&self, settings: &mut DatabaseSettings) {
+        match self {
+            DatabaseEnv::Default => {}
+            DatabaseEnv::Testing => {
+                let unique_id = uuid::Uuid::new_v4()
+                    .to_string()
+                    .split_once('-')
+                    .expect("Uuid did not contain a '-'")
+                    .0
+                    .to_string();
+                // settings.database_name = format!("{}_{}", settings.database_name, unique_id);
+            }
+        }
     }
 
     #[tracing::instrument(name = "Get settings from Database Environment")]
     pub fn get_settings(&self) -> Result<DatabaseSettings, config::ConfigError> {
-        let file = self.config_file_name();
-        let filepath = Path::new(&file);
-        tracing::info!(
-            "Loading database configuration from {}",
-            filepath.display().to_string()
-        );
-        let config = config::Config::builder()
-            .add_source(config::File::from(filepath))
-            .build()?;
+        let default_config_path = DatabaseEnv::Default.config_file_path();
+        let mut default_config_override: Option<PathBuf> = None;
+        match self {
+            DatabaseEnv::Default => {
+                tracing::info!("Using default database configuration");
+            }
+            _ => {
+                let filepath = self.config_file_path();
+                tracing::info!(
+                    "Using database configuration from {}",
+                    filepath.display().to_string()
+                );
+                default_config_override = Some(filepath);
+            }
+        }
+        let config = config::Config::builder().add_source(config::File::from(default_config_path));
+        if let Some(path) = default_config_override {
+            let config = config.add_source(config::File::from(path)).build()?;
+            let mut settings = config
+                .try_deserialize::<DatabaseSettings>()
+                .expect("Failed to build custom settings");
+            self.mutate_settings(&mut settings);
+            return Ok(settings);
+        }
+        let config = config.build()?;
         config.try_deserialize::<DatabaseSettings>()
     }
 }

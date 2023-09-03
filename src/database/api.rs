@@ -173,6 +173,7 @@ pub async fn check_db_exists(pool: &DbPool, db_name: &str) -> bool {
 
 #[tracing::instrument(name = "Initialize and migrate new database" skip(pool, settings))]
 pub async fn init_and_migrate_db(pool: &DbPool, settings: DatabaseSettings) -> anyhow::Result<()> {
+    tracing::info!("Creating database with name: {}", settings.database_name);
     sqlx::query(&format!("CREATE DATABASE {}", settings.database_name))
         .execute(pool.as_ref())
         .await?;
