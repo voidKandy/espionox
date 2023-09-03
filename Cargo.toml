@@ -7,8 +7,13 @@ edition = "2021"
 path = "src/lib.rs"
 
 [[bin]]
-path = "src/main.rs"
 name = "consoxide"
+path = "src/main.rs"
+
+[[bin]]
+name = "init_db" 
+path = "scripts/init_db.rs"
+
 
 [dependencies]
 
