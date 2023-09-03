@@ -19,7 +19,7 @@ pub enum Memory {
 
 #[derive(Debug)]
 pub struct MemoryCache {
-    messages: MessageVector,
+    pub messages: MessageVector,
     embedded_files: Vec<File>,
     embedded_chunks: Vec<FileChunk>,
 }
@@ -35,10 +35,6 @@ impl Default for MemoryCache {
 }
 
 impl MemoryCache {
-    fn messages(&self) -> MessageVector {
-        self.messages
-    }
-
     fn push_file(&mut self, file: File) {
         self.embedded_files.push(file);
     }
@@ -81,16 +77,16 @@ impl Memory {
         Self::CACHED_MEMORY.with(|st_mem| {
             tracing::info!(
                 "Cached messages before saving: {:?}",
-                st_mem.borrow().messages()
+                st_mem.borrow().messages
             );
             st_mem
                 .borrow_mut()
-                .messages()
+                .messages
                 .as_mut_ref()
                 .append(messages.to_owned().as_mut_ref());
             tracing::info!(
                 "Cached messages after saving: {:?}",
-                st_mem.borrow().messages()
+                st_mem.borrow().messages
             );
         });
     }
@@ -98,8 +94,8 @@ impl Memory {
     fn get_messages_from_cache() -> MessageVector {
         Self::CACHED_MEMORY.with(|mem| {
             let st_mem = mem.borrow();
-            tracing::info!("Messages loaded from Cache: {:?}", st_mem.messages());
-            st_mem.messages().to_owned()
+            tracing::info!("Messages loaded from Cache: {:?}", st_mem.messages);
+            st_mem.messages.to_owned()
         })
     }
 
