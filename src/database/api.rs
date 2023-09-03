@@ -7,8 +7,8 @@ use super::{
     DbPool,
 };
 use crate::{
+    agent::spo_agents::SummarizerAgent,
     core::{File, FileChunk},
-    handler::integrations::SummarizerAgent,
     language_models::embed,
 };
 
@@ -18,6 +18,28 @@ pub struct CreateFileChunksVector(Vec<CreateFileChunkBody>);
 impl AsRef<Vec<CreateFileChunkBody>> for CreateFileChunksVector {
     fn as_ref(&self) -> &Vec<CreateFileChunkBody> {
         &self.0
+    }
+}
+
+impl Into<crate::core::File> for FileModelSql {
+    fn into(self) -> File {
+        let mut file = File::from(self.filepath.as_str());
+        file.summary = Some(self.summary);
+        file
+    }
+}
+
+impl Into<crate::core::FileChunk> for FileChunkModelSql {
+    fn into(self) -> FileChunk {
+        let parent_filepath: Box<std::path::Path> =
+            std::fs::canonicalize(std::path::Path::new(&self.parent_filepath))
+                .expect("Failed to get parent filepath")
+                .into();
+        FileChunk {
+            parent_filepath,
+            content: self.content,
+            index: self.idx,
+        }
     }
 }
 
@@ -69,6 +91,7 @@ impl CreateFileChunksVector {
             );
             resulting_chunk_models.push(CreateFileChunkBody {
                 parent_file_id: parent_file_id.clone(),
+                parent_filepath: chunk.parent_filepath.display().to_string(),
                 idx: chunk.index,
                 content: chunk.content.clone(),
                 content_embedding,

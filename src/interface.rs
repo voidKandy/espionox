@@ -1,7 +1,7 @@
+use crate::agent::Agent;
 use crate::context::Memory;
 #[allow(unused)]
 use crate::core::{Directory, File, Io};
-use crate::handler::{agent::Agent, integrations::*};
 use colored::*;
 use inquire::{Confirm, InquireError, Select, Text};
 use std::path::Path;
@@ -21,6 +21,7 @@ impl<'a> UiResponse<'a> for String {}
 #[derive(Copy, Clone)]
 enum Op {
     SwitchMem,
+    FileSearch,
     Format,
     Info,
     Save,
@@ -43,6 +44,7 @@ impl Op {
     fn command(&self) -> &str {
         match self {
             Op::SwitchMem => "switch",
+            Op::FileSearch => "vs",
             Op::Format => "fmt",
             Op::Info => "info",
             Op::Save => "sv",
@@ -53,6 +55,7 @@ impl Op {
     fn description(&self) -> &str {
         match self {
             Op::SwitchMem => "Switch between memory modes",
+            Op::FileSearch => "Query database files with vector embedding",
             Op::Format => "Format a file or directory to the current buffer",
             Op::Info => "Display diagnostics on the Ui's current agent",
             Op::Save => "Save the current buffer to the current loaded agent's memory",
@@ -78,11 +81,21 @@ impl Op {
                 if let UiResponder::AgentOp(command) = res {
                     let response = match self {
                         Op::SwitchMem => Some(ui.switch_agent_memory()),
+                        Op::FileSearch => match command.get(1) {
+                            Some(query) => {
+                                let files = agent.vector_query_files(&query);
+                                files.into_iter().for_each(|f| {
+                                    Memory::save_embedded_to_cache(f);
+                                });
+                                Some(format!("Found files"))
+                            }
+                            None => Some(format!("Please provide a query to be embedded")),
+                        },
                         Op::Format => match command.get(1) {
                             Some(path) => Some(ui.remember_from_path(path)),
-                            None => {
-                                Some(format!("Please path a valid path to a file or directory"))
-                            }
+                            None => Some(format!(
+                                "Please provide a valid path to a file or directory"
+                            )),
                         },
                         Op::Info => Some(agent.info_display_string()),
                         Op::Save => {
@@ -199,12 +212,10 @@ impl<'a> Ui<'a> {
                 .prompt();
             let chosen_thread = match ans.unwrap() {
                 false => {
-                    let existing_threads: Vec<String> = agent
-                        .context
-                        .memory
-                        .get_active_long_term_threads()
-                        .unwrap()
-                        .to_vec();
+                    let existing_threads: Vec<String> =
+                        crate::context::integrations::database::get_active_long_term_threads()
+                            .unwrap()
+                            .to_vec();
                     Select::new("Choose thread to switch to", existing_threads)
                         .prompt()
                         .unwrap()

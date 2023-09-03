@@ -13,7 +13,9 @@ pub struct Message {
 pub struct MessageVector(Vec<Message>);
 
 impl Message {
-    pub fn new(role: String, content: String) -> Self {
+    pub fn new(role: &str, content: &str) -> Self {
+        let role = role.to_string();
+        let content = content.to_string();
         Message { role, content }
     }
     pub fn role(&self) -> &String {
