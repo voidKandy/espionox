@@ -1,1 +1,2 @@
-database_name: "consoxide_testing"
+database: 
+  database_name: "consoxide_testing"

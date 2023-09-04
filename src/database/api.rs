@@ -1,13 +1,13 @@
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 
 use super::{
-    init::DatabaseSettings,
     models::{file::*, file_chunks::*},
     vector_embeddings::EmbeddingVector,
     DbPool,
 };
 use crate::{
     agent::spo_agents::SummarizerAgent,
+    configuration::DatabaseSettings,
     core::{File, FileChunk},
     language_models::embed,
 };
@@ -181,5 +181,9 @@ pub async fn init_and_migrate_db(pool: &DbPool, settings: DatabaseSettings) -> a
         .run(pool.as_ref())
         .await
         .expect("Failed to migrate database.");
+    tracing::info!(
+        "{} database initialized and migrated",
+        settings.database_name
+    );
     Ok(())
 }

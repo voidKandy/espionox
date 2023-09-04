@@ -41,7 +41,7 @@ impl Default for Agent {
 
 impl Agent {
     pub fn build(settings: AgentSettings) -> anyhow::Result<Agent> {
-        let gpt = Gpt::init();
+        let gpt = Gpt::default();
         let context = match &settings.memory_override {
             Some(memory) => Context::build(memory.clone()),
             None => Context::build(Memory::default()),

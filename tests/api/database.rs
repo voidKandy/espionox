@@ -1,10 +1,11 @@
 use crate::helpers;
 use consoxide::{
+    configuration::ConfigEnv,
     core::File,
     database::{
         api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
         handlers,
-        init::{DatabaseEnv, DbPool},
+        init::DbPool,
         models::{
             error::{CreateErrorBody, DeleteErrorParams, GetErrorParams},
             file::{CreateFileBody, DeleteFileParams, GetFileParams},
@@ -17,13 +18,12 @@ use tokio;
 
 #[tokio::test]
 async fn testing_pool_health_check() {
-    assert!(DbPool::init_pool(DatabaseEnv::Testing).await.is_ok());
-    assert!(DbPool::init_pool(DatabaseEnv::Default).await.is_ok());
+    assert!(DbPool::init_pool(ConfigEnv::Testing).await.is_ok());
 }
 
 #[tokio::test]
 async fn nearest_vectors_works() {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("Failed to init testing pool");
     // let mut rng = rand::thread_rng();
@@ -37,7 +37,7 @@ async fn nearest_vectors_works() {
 }
 
 async fn filepath_to_database() -> Embedding {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("Failed to init testing pool");
     let settings = helpers::test_settings();
@@ -64,7 +64,7 @@ async fn filepath_to_database() -> Embedding {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_threads() {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("failed to init testing pool");
 
@@ -86,7 +86,7 @@ async fn post_get_delete_threads() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_file() {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("failed to init testing pool");
     let newfile = CreateFileBody {
@@ -127,7 +127,7 @@ async fn post_get_delete_file() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_filechunks() {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("failed to init testing pool");
     let newchunk = CreateFileChunkBody {
@@ -168,7 +168,7 @@ async fn post_get_delete_filechunks() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_errors() {
-    let pool = DbPool::init_pool(DatabaseEnv::Testing)
+    let pool = DbPool::init_pool(ConfigEnv::Testing)
         .await
         .expect("failed to init testing pool");
     let newerror = CreateErrorBody {

@@ -1,3 +1,5 @@
+use crate::configuration::ConfigEnv;
+
 use super::functions::config::Function;
 use bytes::Bytes;
 use futures::Stream;
@@ -34,7 +36,7 @@ pub struct Message {
     pub function_call: Option<Value>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
 }
@@ -44,7 +46,7 @@ pub struct GptConfig {
     api_key: String,
     client: Client,
     url: String,
-    // pub system_message: String,
+    model: String,
 }
 
 impl GptResponse {
@@ -140,26 +142,32 @@ impl StreamResponse {
 }
 
 impl GptConfig {
-    pub fn init() -> GptConfig {
-        dotenv::dotenv().ok();
-        let api_key = env::var("OPEN_AI_API_KEY").unwrap();
+    pub fn init(env: ConfigEnv) -> GptConfig {
+        let settings = env
+            .get_settings()
+            .expect("Failed to get model settings")
+            .language_model;
+        let api_key = settings.api_key;
+        let model = settings.model;
         let client = Client::new();
         let url = "https://api.openai.com/v1/chat/completions".to_string();
         GptConfig {
             api_key,
             client,
             url,
-            // system_message,
+            model,
         }
     }
 }
 
-impl Gpt {
-    pub fn init() -> Gpt {
-        let config = GptConfig::init();
+impl Default for Gpt {
+    fn default() -> Self {
+        let config = GptConfig::init(ConfigEnv::Default);
         Gpt { config }
     }
+}
 
+impl Gpt {
     pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
         // Completions will randomly not return any choices, so we handle it
         if err.to_string().contains("missing field `choices`") {
@@ -181,9 +189,8 @@ impl Gpt {
         &self,
         context: &Vec<Value>,
     ) -> Result<impl Stream<Item = Result<Bytes, reqwest::Error>>, Box<dyn Error>> {
-        let model = env::var("GPT_MODEL").unwrap();
         let payload = json!({
-            "model": model,
+            "model": self.config.model,
             "messages": context,
             "stream": true,
             "max_tokens": 1000,
@@ -207,9 +214,7 @@ impl Gpt {
     }
 
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
-        let model = env::var("GPT_MODEL").unwrap();
-        let payload =
-            json!({"model": model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
+        let payload = json!({"model": self.config.model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
         info!("PAYLOAD: {:?}", &payload);
         match self
             .config
@@ -239,9 +244,8 @@ impl Gpt {
         function: &Function,
     ) -> Result<GptResponse, Box<dyn Error>> {
         let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
-        let model = env::var("GPT_MODEL").unwrap();
         let payload = json!({
-            "model": model,
+            "model": self.config.model,
             "messages": context,
             "functions": [functions_json],
             "function_call": {"name": function.name}

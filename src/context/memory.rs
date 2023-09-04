@@ -3,8 +3,9 @@ use super::{
     messages::*,
 };
 use crate::{
+    configuration::ConfigEnv,
     core::{File, FileChunk},
-    database::init::{DatabaseEnv, DbPool},
+    database::init::DbPool,
 };
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
@@ -47,7 +48,7 @@ impl MemoryCache {
 impl Memory {
     thread_local! {
         static CACHED_MEMORY: RefCell<MemoryCache> = RefCell::new(MemoryCache::default());
-        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::sync_init_pool(DatabaseEnv::Default));
+        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::sync_init_pool(ConfigEnv::Default));
     }
 
     pub fn db_pool() -> Arc<DbPool> {

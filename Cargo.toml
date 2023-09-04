@@ -10,11 +10,6 @@ path = "src/lib.rs"
 name = "consoxide"
 path = "src/main.rs"
 
-[[bin]]
-name = "init_db" 
-path = "scripts/init_db.rs"
-
-
 [dependencies]
 
 dotenv = "0.15.0"

@@ -1,6 +1,12 @@
-host: "localhost"
-port: 6987
-username: "postgres"
-password: "mango.hustler.furrcoat.applebees"
-database_name: "consoxide"
+language_model:
+  model: "gpt-3.5-turbo"
+  api_key: "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"
+
+
+database: 
+  host: 127.0.0.1 
+  port: 6987
+  username: "postgres"
+  password: "mango.hustler.furrcoat.applebees"
+  database_name: "consoxide"
 
