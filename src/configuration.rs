@@ -29,6 +29,16 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
+impl std::fmt::Display for DatabaseSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Database Url: postgres://{}:{}@{}:{}/{}",
+            self.username, self.password, self.host, self.port, self.database_name
+        )
+    }
+}
+
 impl ConfigEnv {
     fn config_file_path(&self) -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
@@ -67,13 +77,17 @@ impl ConfigEnv {
         let config = config::Config::builder().add_source(config::File::from(default_config_path));
         if let Some(path) = default_config_override {
             let config = config.add_source(config::File::from(path)).build()?;
-            let mut settings = config
+            let settings = config
                 .try_deserialize::<GlobalSettings>()
                 .expect("Failed to build custom settings");
-            // self.mutate_settings(&mut settings);
+            tracing::info!("Database url from settings: \n{}", settings.database);
             return Ok(settings);
         }
         let config = config.build()?;
-        config.try_deserialize::<GlobalSettings>()
+        let settings = config
+            .try_deserialize::<GlobalSettings>()
+            .expect("Failed to build settings");
+        tracing::info!("Database url from settings: \n{}", settings.database);
+        Ok(settings)
     }
 }

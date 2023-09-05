@@ -24,7 +24,7 @@ pub async fn post_file_chunk(
     pool: &DbPool,
     chunk: CreateFileChunkBody,
 ) -> anyhow::Result<PgQueryResult> {
-    let query = "INSERT INTO file_chunks (id, parent_file_id, parent_filepath, idx, content, content_embedding) VALUES ($1, $2, $3, $4, $5)";
+    let query = "INSERT INTO file_chunks (id, parent_file_id, parent_filepath, idx, content, content_embedding) VALUES ($1, $2, $3, $4, $5, $6)";
     match sqlx::query(query)
         .bind(uuid::Uuid::new_v4().to_string())
         .bind(chunk.parent_file_id)

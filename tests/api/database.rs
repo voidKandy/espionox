@@ -18,7 +18,8 @@ use tokio;
 
 #[tokio::test]
 async fn testing_pool_health_check() {
-    assert!(DbPool::init_pool(ConfigEnv::Testing).await.is_ok());
+    let pool = DbPool::init_pool(ConfigEnv::Testing).await;
+    assert!(pool.is_ok());
 }
 
 #[tokio::test]
@@ -30,9 +31,9 @@ async fn nearest_vectors_works() {
 
     // let vector: Embedding = (0..384).map(|_| rng.gen::<f32>()).collect();
     let vector = filepath_to_database().await;
-    assert!(vector_query_file_chunks(&pool, vector.clone(), 5)
+    let returned_chunks = vector_query_file_chunks(&pool, vector.clone(), 5)
         .await
-        .is_ok());
+        .expect("Failed to get filechunks");
     assert!(vector_query_files(&pool, vector, 5).await.is_ok());
 }
 
@@ -53,9 +54,10 @@ async fn filepath_to_database() -> Embedding {
         .expect("Failed to build create file chunks sql body");
     assert!(handlers::file::post_file(&pool, file).await.is_ok());
     for chunk in chunks.as_ref().iter() {
-        assert!(handlers::file_chunks::post_file_chunk(&pool, chunk.clone())
-            .await
-            .is_ok());
+        match handlers::file_chunks::post_file_chunk(&pool, chunk.clone()).await {
+            Ok(res) => println!("Chunks posted: {:?}", res),
+            Err(err) => panic!("ERROR: {:?}", err),
+        }
     }
     ret
 }

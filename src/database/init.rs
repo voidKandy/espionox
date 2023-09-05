@@ -1,7 +1,5 @@
-use crate::configuration::{ConfigEnv, DatabaseSettings, GlobalSettings};
+use crate::configuration::{ConfigEnv, DatabaseSettings};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-
-use super::{check_db_exists, init_and_migrate_db};
 
 #[derive(Clone, Debug)]
 pub struct DbPool(sqlx::PgPool);
@@ -25,18 +23,14 @@ impl DbPool {
     #[tracing::instrument(name = "Initialize DbPool from Database Environment")]
     pub async fn init_pool(env: ConfigEnv) -> anyhow::Result<DbPool> {
         let settings = env.get_settings().expect("failed to get settings").database;
+        tracing::info!("Connecting to {:?}", settings.without_db());
         let pool = DbPool(
             PgPoolOptions::new()
                 .acquire_timeout(std::time::Duration::from_millis(2000))
-                .connect_with(settings.without_db())
+                .connect_with(settings.with_db())
                 .await
                 .expect("Failed to init pool from PoolOptions"),
         );
-        if !check_db_exists(&pool, &settings.database_name).await {
-            tracing::error!(
-                "Database needs to be initialized and migrated!\nHave you run scripts/init_db.sh?"
-            )
-        }
         Ok(pool)
     }
 
