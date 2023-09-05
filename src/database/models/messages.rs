@@ -1,5 +1,3 @@
-use serde_json::{json, Value};
-
 #[derive(sqlx::FromRow, Clone)]
 pub struct MessageModelSql {
     pub id: String,

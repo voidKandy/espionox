@@ -3,11 +3,12 @@ use crate::configuration::ConfigEnv;
 use super::functions::config::Function;
 use bytes::Bytes;
 use futures::Stream;
+#[allow(unused)]
 use futures_util::StreamExt;
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
-use std::{env, error::Error};
+use std::error::Error;
 use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]

@@ -7,7 +7,6 @@ use super::{
 };
 use crate::{
     agent::spo_agents::SummarizerAgent,
-    configuration::DatabaseSettings,
     core::{File, FileChunk},
     language_models::embed,
 };
