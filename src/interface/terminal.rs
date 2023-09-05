@@ -1,7 +1,8 @@
-use crate::agent::Agent;
-use crate::context::Memory;
-#[allow(unused)]
-use crate::core::{Directory, File, Io};
+use crate::{
+    agent::Agent,
+    context::Memory,
+    core::{Directory, File, Io},
+};
 use colored::*;
 use inquire::{Confirm, InquireError, Select, Text};
 use std::path::Path;
@@ -65,7 +66,13 @@ impl Op {
 
     fn help_message() -> String {
         let mut help = String::new();
-        for op_variant in &[Op::SwitchMem, Op::Format, Op::Info, Op::Save, Op::Help] {
+        for op_variant in &[
+            Op::SwitchMem,
+            Op::Format,
+            Op::Info,
+            Op::Save,
+            Op::FileSearch,
+        ] {
             help.push_str(&format!(
                 "{} - {}\n",
                 op_variant.command(),
