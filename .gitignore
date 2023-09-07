@@ -1,4 +1,4 @@
 /target
 .env
 /test-dir
-/configuration
+/configuration/default.yaml

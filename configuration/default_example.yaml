@@ -1,0 +1,12 @@
+language_model:
+  model: "gpt-3.5-turbo"
+  api_key: ""
+
+
+database: 
+  host: 
+  port: 
+  username: 
+  password: 
+  database_name: 
+
