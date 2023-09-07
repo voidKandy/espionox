@@ -20,6 +20,6 @@ Consoxide uses Postgres under the hood and is fully capable of storing and query
 As of right now only a rudimentary terminal interface is written and working, but an egui powered GUI is in the works. 
 
 ### Getting started
-You will need to host a Postgres database on your own machine. After cloning this repo, fill out the example `configuration/default.yaml` with your OpenAi Api key and all relavent database information. Then run `scripts/init_db.sh` to get started. You are now ready to use Consoxide! Try to run `cargo run --bin terminal` to check out the terminal interface.
+You will need to host a Postgres database on your own machine. After cloning this repo, fill out the example `configuration/default_example.yaml` with your OpenAi Api key and all relavent database information. Make sure to rename it to `default.yaml`. Then run `scripts/init_db.sh` to get started. You are now ready to use Consoxide! Try to run `cargo run --bin terminal` to check out the terminal interface.
 
 Please feel free to reach out with any questions, suggestions, issues or anything else :)
