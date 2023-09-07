@@ -78,15 +78,15 @@ impl Agent {
     }
 
     pub fn info_display_string(&self) -> String {
-        let buffer = self.context.buffer_as_string();
+        // let buffer = self.context.buffer_as_string();
         let current_mem = match &self.context.memory {
             Memory::Forget => "Forget".to_string(),
             Memory::ShortTerm => "ShortTerm".to_string(),
             Memory::LongTerm(thread) => {
-                format!("LongTerm Thread: {}", thread.clone())
+                format!("{}", thread.clone())
             }
         };
-        format!("In {current_mem}\n\nBuffer:\n{buffer}")
+        format!("{current_mem}")
     }
 
     pub fn format_to_buffer(&mut self, o: impl BufferDisplay) {

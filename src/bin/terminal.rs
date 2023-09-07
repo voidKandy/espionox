@@ -1,6 +1,6 @@
 use consoxide::{
     agent::{Agent, AgentSettings},
-    interface::terminal::Ui,
+    interfaces::terminal::Ui,
 };
 use tokio;
 

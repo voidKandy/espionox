@@ -8,7 +8,7 @@ use inquire::{Confirm, InquireError, Select, Text};
 use std::path::Path;
 
 pub struct Ui<'a> {
-    agent: Option<&'a mut Agent>,
+    pub agent: Option<&'a mut Agent>,
     responder: Option<UiResponder>,
 }
 
