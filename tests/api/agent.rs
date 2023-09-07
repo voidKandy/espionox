@@ -7,6 +7,29 @@ use consoxide::{
 
 use super::test_agent;
 
+#[tokio::test]
+async fn stream_completion_works() {
+    let mut agent = test_agent();
+    let prompt = String::from("Hello chat agent");
+    let mut receiver = agent.stream_prompt(&prompt).await;
+
+    let timeout_duration = std::time::Duration::from_millis(200);
+
+    while let Some(result) = tokio::time::timeout(timeout_duration, receiver.recv())
+        .await
+        .unwrap()
+    {
+        match result {
+            Ok(response) => {
+                println!("{}", response);
+            }
+            Err(err) => {
+                panic!("Error: {:?}", err);
+            }
+        }
+    }
+}
+
 #[ignore]
 #[test]
 fn function_agent_test() {

@@ -30,7 +30,6 @@ use tokio::runtime::Runtime;
 pub struct Agent {
     pub context: Context,
     gpt: Gpt,
-    // settings: AgentSettings,
 }
 
 impl Default for Agent {
@@ -46,11 +45,7 @@ impl Agent {
             Some(memory) => Context::build(memory.clone()),
             None => Context::build(Memory::default()),
         };
-        Ok(Agent {
-            gpt,
-            context,
-            // settings,
-        })
+        Ok(Agent { gpt, context })
     }
 
     pub fn vector_query_files(&mut self, query: &str) -> Vec<EmbeddedCoreStruct> {
@@ -78,15 +73,13 @@ impl Agent {
     }
 
     pub fn info_display_string(&self) -> String {
-        // let buffer = self.context.buffer_as_string();
-        let current_mem = match &self.context.memory {
+        match &self.context.memory {
             Memory::Forget => "Forget".to_string(),
             Memory::ShortTerm => "ShortTerm".to_string(),
             Memory::LongTerm(thread) => {
                 format!("{}", thread.clone())
             }
-        };
-        format!("{current_mem}")
+        }
     }
 
     pub fn format_to_buffer(&mut self, o: impl BufferDisplay) {
@@ -163,7 +156,29 @@ impl Agent {
         result
     }
 
-    // STREAMING RESPONSE STUFF THAT DOESNT WORK
+    #[tracing::instrument(name = "Prompt agent for stream response")]
+    pub async fn stream_prompt(
+        &mut self,
+        input: &str,
+    ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
+        self.context.push_to_buffer("assistant", &input);
+        let gpt = self.gpt.clone();
+        let buffer = self.context.buffer.clone();
+        let mut response = gpt
+            .stream_completion(&buffer.into())
+            .await
+            .expect("Failed to get completion.");
+
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        tokio::spawn(async move {
+            while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
+                tracing::info!("Token got: {}", token);
+                tx.send(Ok(token)).await.unwrap();
+            }
+        });
+        rx
+    }
+
     async fn poll_stream_for_token(
         mut response: impl Stream<Item = Result<Bytes, reqwest::Error>> + std::marker::Unpin,
     ) -> anyhow::Result<Option<String>> {
@@ -180,37 +195,5 @@ impl Agent {
         } else {
             Ok(None)
         }
-    }
-
-    #[tracing::instrument]
-    pub fn stream_prompt(
-        &mut self,
-        input: &str,
-    ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
-        self.context.push_to_buffer("assistant", &input);
-        let gpt = self.gpt.clone();
-        let buffer = self.context.buffer.clone();
-        let mut response = thread::spawn(move || {
-            let rt = Runtime::new().unwrap();
-            rt.block_on(async move {
-                gpt.stream_completion(&buffer.into())
-                    .await
-                    .expect("Failed to get completion.")
-            })
-        })
-        .join()
-        .unwrap();
-
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        tokio::spawn(async move {
-            while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
-                tx.send(Ok(token)).await.unwrap();
-            }
-
-            // tokio::time::sleep(Duration::from_millis(200)).await;
-        });
-        rx
-        // self.context.push_to_buffer("assistant", &result);
-        // Ok(handle)
     }
 }

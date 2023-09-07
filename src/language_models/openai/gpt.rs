@@ -186,6 +186,7 @@ impl Gpt {
         }
     }
 
+    #[tracing::instrument(name = "Get stream completion")]
     pub async fn stream_completion(
         &self,
         context: &Vec<Value>,
@@ -198,7 +199,7 @@ impl Gpt {
             "n": 1,
             "stop": null,
         });
-        info!("PAYLOAD: {:?}", &payload);
+        tracing::info!("PAYLOAD: {:?}", &payload);
 
         let response_stream = self
             .config
