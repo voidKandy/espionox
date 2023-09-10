@@ -22,7 +22,9 @@ impl Context {
     }
 
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
-        self.buffer.as_mut_ref().push(Message::new(role, content));
+        self.buffer
+            .as_mut_ref()
+            .push(Message::new_standard(role, content));
     }
 
     pub fn buffer_as_string(&self) -> String {

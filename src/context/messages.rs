@@ -1,29 +1,49 @@
-use crate::database::models::messages::MessageModelSql;
+use crate::{
+    database::models::messages::MessageModelSql, language_models::openai::gpt::GptMessage,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-pub struct Message {
-    role: String,
-    content: String,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum Message {
+    Standard { role: String, content: String },
+    Function { function_call: FunctionCall },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FunctionCall {
+    name: String,
+    arguments: Vec<Value>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MessageVector(Vec<Message>);
 
 impl Message {
-    pub fn new(role: &str, content: &str) -> Self {
+    pub fn new_standard(role: &str, content: &str) -> Self {
         let role = role.to_string();
         let content = content.to_string();
-        Message { role, content }
+        Message::Standard { role, content }
     }
-    pub fn role(&self) -> &String {
-        &self.role
+    pub fn role(&self) -> String {
+        match self {
+            Self::Standard { role, .. } => role.to_owned(),
+            Self::Function { .. } => "assistant".to_string(),
+        }
     }
 
-    pub fn content(&self) -> &String {
-        &self.content
+    pub fn content(&self) -> Option<String> {
+        match self {
+            Self::Standard { content, .. } => Some(content.to_owned()),
+            _ => None,
+        }
+    }
+}
+
+impl From<&str> for MessageVector {
+    fn from(system_prompt: &str) -> Self {
+        MessageVector::new(vec![Message::new_standard("system", system_prompt)])
     }
 }
 
@@ -51,6 +71,42 @@ impl Into<Vec<Value>> for MessageVector {
     }
 }
 
+impl From<Value> for FunctionCall {
+    fn from(value: Value) -> Self {
+        let name = value.get("name").expect("Failed to get name").to_string();
+        let arguments = value
+            .get("arguments")
+            .expect("Failed to get args")
+            .as_array()
+            .expect("Failed to get arguments array")
+            .to_vec();
+        Self { name, arguments }
+    }
+}
+
+impl Into<Value> for FunctionCall {
+    fn into(self) -> Value {
+        json!({"name": self.name, "arguments": self.arguments})
+    }
+}
+
+impl From<GptMessage> for Message {
+    fn from(value: GptMessage) -> Self {
+        match value.function_call {
+            Some(json_value) => Message::Function {
+                function_call: json_value.into(),
+            },
+            None => {
+                let content = value.content.expect("Value has no content");
+                Message::Standard {
+                    role: value.role,
+                    content,
+                }
+            }
+        }
+    }
+}
+
 impl From<Value> for Message {
     fn from(json: Value) -> Self {
         let role = json.get("role").expect("Couldn't get role").to_string();
@@ -58,19 +114,25 @@ impl From<Value> for Message {
             .get("content")
             .expect("Couldn't get content")
             .to_string();
-        Message { role, content }
+        Message::Standard { role, content }
     }
 }
 
 impl Into<Value> for Message {
     fn into(self) -> Value {
-        json!({"role": self.role, "content": self.content})
+        match self {
+            Self::Standard { role, content } => json!({"role": role, "content": content}),
+            Self::Function { function_call } => {
+                let func_call_json: Value = function_call.into();
+                json!({"role": "assistant", "content": null, "function_call": func_call_json})
+            }
+        }
     }
 }
 
 impl From<MessageModelSql> for Message {
     fn from(sql_model: MessageModelSql) -> Self {
-        Message {
+        Message::Standard {
             role: sql_model.role,
             content: sql_model.content,
         }
@@ -79,6 +141,11 @@ impl From<MessageModelSql> for Message {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\nRole: {}\nContent: {}\n", self.role, self.content)
+        write!(
+            f,
+            "\nRole: {}\nContent: {:?}\n",
+            self.role(),
+            self.content()
+        )
     }
 }

@@ -15,7 +15,7 @@ use crate::{
     language_models::{
         embed,
         openai::{
-            functions::config::Function,
+            functions::CustomFunction,
             gpt::{Gpt, StreamResponse},
         },
     },
@@ -23,6 +23,7 @@ use crate::{
 use bytes::Bytes;
 use futures::Stream;
 use futures_util::StreamExt;
+use serde_json::Value;
 use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
@@ -123,16 +124,19 @@ impl Agent {
     }
 
     #[tracing::instrument(name = "Function prompt GPT API for response")]
-    pub fn function_prompt(&mut self, function: Function) -> Vec<String> {
+    pub fn function_prompt(&mut self, custom_function: CustomFunction, input: &str) -> Value {
+        self.context.push_to_buffer("user", &input);
         let (tx, rx) = mpsc::channel();
+        let func = custom_function.function();
         let gpt = self.gpt.clone();
         let buffer = self.context.buffer.clone();
-        let function_name = &function.perameters.properties[0].name.clone();
+        tracing::info!("Buffer payload: {:?}", buffer);
+        // let function_name = &func.name.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async move {
-                gpt.function_completion(&buffer.into(), &function)
+                gpt.function_completion(&buffer.into(), &func)
                     .await
                     .expect("Failed to get completion.")
             });
@@ -140,21 +144,39 @@ impl Agent {
         })
         .join()
         .expect("Failed to join thread");
-        let result = rx
-            .recv()
-            .unwrap()
-            .parse_fn(&function_name)
-            .expect("Failed to parse completion response")
-            .clone()
-            .into_iter()
-            .map(|c| {
-                self.context.push_to_buffer("assistant", &c);
-                c
-            })
-            .collect();
+        let function_response = rx.recv().unwrap();
+        tracing::info!("Function response: {:?}", function_response);
 
-        result
+        // self.context.buffer.as_mut_ref().push(&function_response);
+        // .clone()
+        // .into_iter()
+        // .map(|c| {
+        //     self.context.push_to_buffer("assistant", &c.to_string());
+        //     c
+        // })
+        // .collect();
+
+        function_response
+            .parse_fn()
+            .expect("failed to parse response")
     }
+
+    // fn push_function_response_to_buffer(&mut self, response: &GptResponse) {
+    //     let function_call = response.choices[0]
+    //         .to_owned()
+    //         .message
+    //         .function_call
+    //         .expect("No function call in gpt_response");
+    //     tracing::info!("Parsed function call: {:?}", function_call);
+    //     let json_to_push = serde_json::json!({
+    //         "role": "assistant",
+    //         "content": null,
+    //         "function_call": function_call
+    //
+    //     });
+    //     let new_buffer: Value = serde_json::from_str(&self.context.buffer_as_string()).unwrap();
+    //     new_buffer.as_object_mut().insert(json_to_push);
+    // }
 
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(

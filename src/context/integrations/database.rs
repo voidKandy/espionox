@@ -171,7 +171,7 @@ pub fn save_messages_to_database(threadname: &str, messages: MessageVector) {
                     models::messages::CreateMessageBody {
                         thread_name: threadname.to_string(),
                         role: m.role().to_owned(),
-                        content: m.content().to_owned(),
+                        content: m.content().unwrap().to_owned(),
                     },
                 )
                 .await

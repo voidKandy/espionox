@@ -26,7 +26,7 @@ impl eframe::App for AgentApp {
                 .as_ref()
                 .iter()
                 .filter(|message| message.role() == "assistant")
-                .map(|message| message.content().to_string())
+                .map(|message| message.content().expect("No content").to_string())
                 .collect();
             ui.label(ai_responses.join("\n"));
         });
@@ -52,9 +52,9 @@ impl AgentApp {
 
             for message in self.agent.context.buffer.as_ref().into_iter() {
                 if message.role() == "assistant" {
-                    ai_responses.push(message.content().to_string());
+                    ai_responses.push(message.content().expect("No content").to_string());
                 } else if message.role() == "user" {
-                    user_inputs.push(message.content().to_string());
+                    user_inputs.push(message.content().expect("No content").to_string());
                 }
             }
             job.append(
