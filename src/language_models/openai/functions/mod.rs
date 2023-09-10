@@ -1,5 +1,5 @@
 pub mod config;
-pub mod enums;
+pub mod custom;
 
-pub use self::config::Function;
-pub use enums::FnEnum;
+pub use self::config::{Function, Property, PropertyInfo};
+pub use custom::CustomFunction;

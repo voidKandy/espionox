@@ -23,16 +23,17 @@ pub struct StreamResponse {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct StreamChoice {
-    pub delta: Message,
+    pub delta: GptMessage,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Choice {
-    pub message: Message,
+    pub message: GptMessage,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Message {
+pub struct GptMessage {
+    pub role: String,
     pub content: Option<String>,
     pub function_call: Option<Value>,
 }
@@ -58,7 +59,9 @@ impl GptResponse {
             None => Err("Unable to parse completion response".into()),
         }
     }
-    pub fn parse_fn(&self, fn_name: &str) -> Result<Vec<String>, Box<dyn Error>> {
+
+    #[tracing::instrument]
+    pub fn parse_fn(&self) -> Result<Value, Box<dyn Error>> {
         match self
             .choices
             .to_owned()
@@ -69,22 +72,27 @@ impl GptResponse {
             .function_call
         {
             Some(response) => {
-                // println!("{:?}", response);
-                let args_json = response
-                    .get("arguments")
-                    .expect("Couldn't parse arguments")
-                    .as_str()
-                    .unwrap();
+                tracing::info!("Function response: {:?}", response);
+                let args_json = serde_json::from_str::<Value>(
+                    response
+                        .get("arguments")
+                        .expect("Couldn't parse arguments")
+                        .as_str()
+                        .unwrap(),
+                )?;
 
-                let args_value = serde_json::from_str::<Value>(args_json)?;
-                let commands = args_value[fn_name].as_array().unwrap();
-
-                let command_strings: Vec<String> = commands
-                    .iter()
-                    .filter_map(|command| command.as_str().map(String::from))
-                    .collect();
-
-                Ok(command_strings)
+                tracing::info!("Args json: {:?}", args_json);
+                let mut args_output: Value = json!({});
+                if let Some(arguments) = args_json.as_object() {
+                    for (key, value) in arguments.iter() {
+                        args_output
+                            .as_object_mut()
+                            .expect("Failed to get array mut")
+                            .insert(key.to_string(), value.clone());
+                    }
+                }
+                tracing::info!("Args output: {:?}", args_output);
+                Ok(args_output)
             }
             None => Err("Unable to parse completion response".into()),
         }
@@ -175,7 +183,8 @@ impl Gpt {
             let message = format!("Something trivial went wrong please try again");
             GptResponse {
                 choices: vec![Choice {
-                    message: Message {
+                    message: GptMessage {
+                        role: "system".to_string(),
                         content: Some(message),
                         function_call: None,
                     },
@@ -240,18 +249,19 @@ impl Gpt {
         }
     }
 
+    #[tracing::instrument(name = "Get function completion")]
     pub async fn function_completion(
         &self,
         context: &Vec<Value>,
         function: &Function,
     ) -> Result<GptResponse, Box<dyn Error>> {
-        let functions_json: Value = serde_json::from_str(&function.render()).unwrap();
         let payload = json!({
             "model": self.config.model,
             "messages": context,
-            "functions": [functions_json],
+            "functions": [function.json],
             "function_call": {"name": function.name}
         });
+        tracing::info!("Full completion payload: {:?}", payload);
         let response = self
             .config
             .client
