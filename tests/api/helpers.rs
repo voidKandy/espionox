@@ -1,5 +1,6 @@
 use consoxide::{
     agent::{Agent, AgentSettings},
+    configuration::ConfigEnv,
     context::{Memory, MessageVector},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -29,5 +30,5 @@ pub fn test_settings() -> AgentSettings {
 }
 
 pub fn test_agent() -> Agent {
-    Agent::build(test_settings()).expect("Failed to build test agent")
+    Agent::build(test_settings(), ConfigEnv::Testing).expect("Failed to build test agent")
 }

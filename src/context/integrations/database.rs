@@ -1,7 +1,8 @@
-use super::super::{Memory, MessageVector};
+use super::super::MessageVector;
 use crate::{
+    context::Context,
     core::{File, FileChunk},
-    database::{self, handlers, models, vector_embeddings::EmbeddingVector},
+    database::{self, handlers, models, vector_embeddings::EmbeddingVector, DbPool},
     language_models::embed,
 };
 use std::{any::Any, thread};
@@ -49,15 +50,15 @@ impl EmbeddedCoreStruct {
 }
 
 pub trait Embedded: std::fmt::Debug {
-    fn get_from_embedding(query: EmbeddingVector) -> Vec<EmbeddedCoreStruct>
+    fn get_from_embedding(query: EmbeddingVector, pool: &DbPool) -> Vec<EmbeddedCoreStruct>
     where
         Self: Sized;
     fn as_any(&self) -> &dyn Any;
 }
 
 impl Embedded for File {
-    fn get_from_embedding(query: EmbeddingVector) -> Vec<EmbeddedCoreStruct> {
-        let pool = Memory::db_pool();
+    fn get_from_embedding(query: EmbeddingVector, pool: &DbPool) -> Vec<EmbeddedCoreStruct> {
+        let pool = pool.to_owned();
         let files = thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
@@ -90,8 +91,8 @@ impl Embedded for File {
 }
 
 impl Embedded for FileChunk {
-    fn get_from_embedding(query: EmbeddingVector) -> Vec<EmbeddedCoreStruct> {
-        let pool = Memory::db_pool();
+    fn get_from_embedding(query: EmbeddingVector, pool: &DbPool) -> Vec<EmbeddedCoreStruct> {
+        let pool = pool.to_owned();
         let chunks = thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
@@ -126,9 +127,9 @@ impl Embedded for FileChunk {
 }
 
 #[tracing::instrument(name = "Query files by summary embeddings")]
-pub fn get_files_by_summary_embeddings(query: &str) -> Vec<File> {
+pub fn get_files_by_summary_embeddings(query: &str, pool: &DbPool) -> Vec<File> {
+    let pool = pool.to_owned();
     let query_vector = embed(query).expect("Failed to embed query");
-    let pool = Memory::db_pool();
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -144,11 +145,12 @@ pub fn get_files_by_summary_embeddings(query: &str) -> Vec<File> {
     .expect("Failed to join thread")
 }
 
-pub fn get_active_long_term_threads() -> Result<Vec<String>, String> {
+pub fn get_active_long_term_threads(context: &Context) -> Result<Vec<String>, String> {
+    let context = context.to_owned();
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
-            match handlers::threads::get_all_threads(&Memory::db_pool()).await {
+            match handlers::threads::get_all_threads(context.pool()).await {
                 Ok(threads) => Ok(threads),
                 Err(err) => Err(format!("Couldn't get long term threads: {err:?}")),
             }
@@ -159,15 +161,16 @@ pub fn get_active_long_term_threads() -> Result<Vec<String>, String> {
 }
 
 #[tracing::instrument(name = "Save messages to database from threadname")]
-pub fn save_messages_to_database(threadname: &str, messages: MessageVector) {
+pub fn save_messages_to_database(threadname: &str, messages: MessageVector, pool: &DbPool) {
     let messages = messages.to_owned();
     let threadname = threadname.to_owned();
+    let pool = pool.to_owned();
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             for m in messages.as_ref().iter() {
                 handlers::messages::post_message(
-                    &Memory::db_pool(),
+                    &pool,
                     models::messages::CreateMessageBody {
                         thread_name: threadname.to_string(),
                         role: m.role().to_owned(),
@@ -181,12 +184,12 @@ pub fn save_messages_to_database(threadname: &str, messages: MessageVector) {
     });
 }
 #[tracing::instrument(name = "Get messages from database from threadname")]
-pub fn get_messages_from_database(threadname: &str) -> MessageVector {
+pub fn get_messages_from_database(threadname: &str, pool: &DbPool) -> MessageVector {
+    let pool = pool.to_owned();
     let threadname = threadname.to_owned();
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
-            let pool = Memory::db_pool();
             match handlers::threads::get_thread(&pool, &threadname).await {
                 Ok(_) => {}
                 Err(err) => {

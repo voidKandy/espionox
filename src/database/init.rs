@@ -19,6 +19,12 @@ impl DatabaseSettings {
     }
 }
 
+impl Default for DbPool {
+    fn default() -> Self {
+        DbPool::sync_init_pool(ConfigEnv::default())
+    }
+}
+
 impl DbPool {
     #[tracing::instrument(name = "Initialize DbPool from Database Environment")]
     pub async fn init_pool(env: ConfigEnv) -> anyhow::Result<DbPool> {

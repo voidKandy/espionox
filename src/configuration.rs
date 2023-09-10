@@ -1,7 +1,7 @@
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::path::PathBuf;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ConfigEnv {
     Default,
     Testing,
@@ -27,6 +27,12 @@ pub struct DatabaseSettings {
     pub password: String,
     pub host: String,
     pub database_name: String,
+}
+
+impl Default for ConfigEnv {
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 impl std::fmt::Display for DatabaseSettings {

@@ -1,14 +1,28 @@
-use super::{Agent, AgentSettings};
-use crate::context::integrations::core::BufferDisplay;
+use super::{Agent, AgentSettings, Memory};
+use crate::{
+    configuration::ConfigEnv,
+    context::{integrations::core::BufferDisplay, MessageVector},
+};
 
 #[derive(Debug)]
 pub struct SummarizerAgent(Agent);
 
 impl SummarizerAgent {
+    fn settings() -> AgentSettings {
+        let memory_override = Some(Memory::Forget);
+        let init_prompt = MessageVector::from(
+            r#"You are a code summarization Ai, you will be given a chunk of code to summarize
+                - Mistakes erode user's trust, so be as accurate and thorough as possible
+                - Be highly organized 
+                - Do not use lists or anything resembling a list in your summary
+                - think through your response step by step, your summary should be succinct but accurate"#,
+        );
+        AgentSettings::new(memory_override, init_prompt)
+    }
     #[tracing::instrument(name = "Create Summarizer Agent")]
     pub fn init() -> Self {
         SummarizerAgent(
-            Agent::build(AgentSettings::summarizer())
+            Agent::build(SummarizerAgent::settings(), ConfigEnv::Default)
                 .expect("Failed to initialize summarizer agent"),
         )
     }

@@ -4,6 +4,7 @@ pub mod spo_agents;
 pub use settings::AgentSettings;
 
 use crate::{
+    configuration::ConfigEnv,
     context::{
         integrations::{
             core::BufferDisplay,
@@ -35,28 +36,39 @@ pub struct Agent {
 
 impl Default for Agent {
     fn default() -> Self {
-        Agent::build(AgentSettings::default()).expect("Failed to build default agent")
+        Agent::build(AgentSettings::default(), ConfigEnv::default())
+            .expect("Failed to build default agent")
     }
 }
 
 impl Agent {
-    pub fn build(settings: AgentSettings) -> anyhow::Result<Agent> {
+    pub fn build(settings: AgentSettings, env: ConfigEnv) -> anyhow::Result<Agent> {
         let gpt = Gpt::default();
-        let context = match &settings.memory_override {
-            Some(memory) => Context::build(memory.clone()),
-            None => Context::build(Memory::default()),
+        let mut context = match &settings.memory_override {
+            Some(memory) => Context::build(memory.clone(), env),
+            None => Context::build(Memory::default(), env),
         };
+
+        match context.memory {
+            Memory::Forget => context.buffer = settings.init_prompt,
+            _ => {
+                if context.buffer.len() == 0 {
+                    context.buffer = settings.init_prompt;
+                }
+            }
+        }
+
         Ok(Agent { gpt, context })
     }
 
     pub fn vector_query_files(&mut self, query: &str) -> Vec<EmbeddedCoreStruct> {
         let query_vector = embed(query).expect("Failed to embed query");
-        File::get_from_embedding(query_vector.into())
+        File::get_from_embedding(query_vector.into(), self.context.pool())
     }
 
     pub fn vector_query_chunks(&mut self, query: &str) -> Vec<EmbeddedCoreStruct> {
         let query_vector = embed(query).expect("Failed to embed query");
-        FileChunk::get_from_embedding(query_vector.into())
+        FileChunk::get_from_embedding(query_vector.into(), self.context.pool())
     }
 
     pub fn build_with<F>(agent: &mut Agent, mut func: F) -> Agent
@@ -86,12 +98,11 @@ impl Agent {
     pub fn format_to_buffer(&mut self, o: impl BufferDisplay) {
         let mem = o.buffer_display();
         self.context.push_to_buffer("user", &mem);
-        // todo!("Match to handle cache and long term");
     }
 
     pub fn switch_mem(&mut self, memory: Memory) {
         self.context.save_buffer();
-        self.context = Context::build(memory);
+        self.context = Context::build(memory, self.context.env.to_owned());
     }
 
     #[tracing::instrument(name = "Prompt GPT API for response")]
@@ -112,7 +123,6 @@ impl Agent {
         })
         .join()
         .expect("Failed to join thread");
-        // let result = rx.recv().unwrap();
         let result = rx
             .recv()
             .unwrap()
@@ -131,7 +141,6 @@ impl Agent {
         let gpt = self.gpt.clone();
         let buffer = self.context.buffer.clone();
         tracing::info!("Buffer payload: {:?}", buffer);
-        // let function_name = &func.name.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().unwrap();
@@ -146,37 +155,10 @@ impl Agent {
         .expect("Failed to join thread");
         let function_response = rx.recv().unwrap();
         tracing::info!("Function response: {:?}", function_response);
-
-        // self.context.buffer.as_mut_ref().push(&function_response);
-        // .clone()
-        // .into_iter()
-        // .map(|c| {
-        //     self.context.push_to_buffer("assistant", &c.to_string());
-        //     c
-        // })
-        // .collect();
-
         function_response
             .parse_fn()
             .expect("failed to parse response")
     }
-
-    // fn push_function_response_to_buffer(&mut self, response: &GptResponse) {
-    //     let function_call = response.choices[0]
-    //         .to_owned()
-    //         .message
-    //         .function_call
-    //         .expect("No function call in gpt_response");
-    //     tracing::info!("Parsed function call: {:?}", function_call);
-    //     let json_to_push = serde_json::json!({
-    //         "role": "assistant",
-    //         "content": null,
-    //         "function_call": function_call
-    //
-    //     });
-    //     let new_buffer: Value = serde_json::from_str(&self.context.buffer_as_string()).unwrap();
-    //     new_buffer.as_object_mut().insert(json_to_push);
-    // }
 
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(

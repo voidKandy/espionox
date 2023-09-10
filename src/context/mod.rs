@@ -7,20 +7,32 @@ pub use messages::*;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+use crate::{configuration::ConfigEnv, database::DbPool};
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Context {
     pub memory: Memory,
     pub buffer: MessageVector,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub env: ConfigEnv,
+    #[serde(skip_serializing, skip_deserializing)]
+    db_pool: DbPool,
 }
 
 impl Context {
-    pub fn build(memory: Memory) -> Context {
+    pub fn build(memory: Memory, env: ConfigEnv) -> Context {
+        let db_pool = DbPool::sync_init_pool(env.to_owned());
         Context {
-            buffer: memory.load(),
+            buffer: memory.load(Some(&db_pool)),
             memory,
+            env,
+            db_pool,
         }
     }
 
+    pub fn pool(&self) -> &DbPool {
+        &self.db_pool
+    }
     pub fn push_to_buffer(&mut self, role: &str, content: &str) {
         self.buffer
             .as_mut_ref()
@@ -40,10 +52,16 @@ impl Context {
             self.buffer
                 .as_ref()
                 .iter()
-                .filter(|&value| !self.memory.load().as_ref().contains(value))
+                .filter(|&value| {
+                    !self
+                        .memory
+                        .load(Some(&self.db_pool))
+                        .as_ref()
+                        .contains(value)
+                })
                 .cloned()
                 .collect(),
         );
-        self.memory.save(buf_difference);
+        self.memory.save(buf_difference, Some(&self.db_pool));
     }
 }

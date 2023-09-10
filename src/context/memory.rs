@@ -3,12 +3,11 @@ use super::{
     messages::*,
 };
 use crate::{
-    configuration::ConfigEnv,
     core::{File, FileChunk},
-    database::init::DbPool,
+    database::DbPool,
 };
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, sync::Arc};
+use std::cell::RefCell;
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub enum Memory {
@@ -48,11 +47,6 @@ impl MemoryCache {
 impl Memory {
     thread_local! {
         static CACHED_MEMORY: RefCell<MemoryCache> = RefCell::new(MemoryCache::default());
-        static DATA_POOL: Arc<DbPool> = Arc::new(DbPool::sync_init_pool(ConfigEnv::Default));
-    }
-
-    pub fn db_pool() -> Arc<DbPool> {
-        Memory::DATA_POOL.with(|poo| Arc::clone(poo))
     }
 
     pub fn threadname(&self) -> Option<String> {
@@ -100,17 +94,21 @@ impl Memory {
         })
     }
 
-    pub fn load(&self) -> MessageVector {
+    pub fn load(&self, pool: Option<&DbPool>) -> MessageVector {
         match self {
-            Memory::LongTerm(threadname) => database::get_messages_from_database(threadname),
+            Memory::LongTerm(threadname) => {
+                let pool = pool.unwrap();
+                database::get_messages_from_database(threadname, &pool)
+            }
             Memory::ShortTerm => Self::get_messages_from_cache(),
             Memory::Forget => MessageVector::new(vec![]),
         }
     }
-    pub fn save(&self, messages: MessageVector) {
+    pub fn save(&self, messages: MessageVector, pool: Option<&DbPool>) {
         match self {
             Memory::LongTerm(threadname) => {
-                database::save_messages_to_database(threadname, messages);
+                let pool = pool.unwrap();
+                database::save_messages_to_database(threadname, messages, &pool);
             }
             Memory::ShortTerm => {
                 Self::save_messages_to_cache(messages);

@@ -220,9 +220,11 @@ impl<'a> Ui<'a> {
             let chosen_thread = match ans.unwrap() {
                 false => {
                     let existing_threads: Vec<String> =
-                        crate::context::integrations::database::get_active_long_term_threads()
-                            .unwrap()
-                            .to_vec();
+                        crate::context::integrations::database::get_active_long_term_threads(
+                            &agent.context,
+                        )
+                        .unwrap()
+                        .to_vec();
                     Select::new("Choose thread to switch to", existing_threads)
                         .prompt()
                         .unwrap()
