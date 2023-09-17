@@ -133,7 +133,7 @@ impl Agent {
         result
     }
 
-    #[tracing::instrument(name = "Function prompt GPT API for response")]
+    #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]
     pub fn function_prompt(&mut self, custom_function: CustomFunction, input: &str) -> Value {
         self.context.push_to_buffer("user", &input);
         let (tx, rx) = mpsc::channel();

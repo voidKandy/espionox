@@ -249,7 +249,7 @@ impl Gpt {
         }
     }
 
-    #[tracing::instrument(name = "Get function completion")]
+    #[tracing::instrument(name = "Get function completion" skip(context, function))]
     pub async fn function_completion(
         &self,
         context: &Vec<Value>,
@@ -271,7 +271,6 @@ impl Gpt {
             .json(&payload)
             .send()
             .await?;
-        // println!("{:?}", &response.text().await);
         let gpt_response = response.json().await?;
         Ok(gpt_response)
         // Err("tst".into())

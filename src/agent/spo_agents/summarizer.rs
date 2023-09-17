@@ -1,4 +1,4 @@
-use super::{Agent, AgentSettings, Memory};
+use super::super::{Agent, AgentSettings, Memory};
 use crate::{
     configuration::ConfigEnv,
     context::{integrations::core::BufferDisplay, MessageVector},
