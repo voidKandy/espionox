@@ -42,11 +42,14 @@ async fn filepath_to_database() -> Embedding {
         .await
         .expect("Failed to init testing pool");
     let settings = helpers::test_settings();
-    let mut f = File::from("./src/main.rs");
+    let mut f = File::from("./src/bin/terminal.rs");
     let file_chunks = f.chunks.clone();
-    let file =
-        CreateFileBody::build_from(&mut f, &settings.memory().unwrap().threadname().unwrap())
-            .expect("Failed to build create file sql body");
+    let file = CreateFileBody::build_from(
+        &mut f,
+        &settings.memory().unwrap().threadname().unwrap(),
+        ConfigEnv::Testing,
+    )
+    .expect("Failed to build create file sql body");
 
     let ret = file.summary_embedding.to_vec().clone();
 

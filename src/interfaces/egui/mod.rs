@@ -2,8 +2,19 @@ pub mod integration;
 pub mod window;
 use eframe::egui;
 
-#[derive(Default)]
-struct InitialApp {}
+use self::integration::AgentHandler;
+
+struct InitialApp {
+    agent_handler: AgentHandler,
+}
+
+impl Default for InitialApp {
+    fn default() -> Self {
+        InitialApp {
+            agent_handler: AgentHandler::default(),
+        }
+    }
+}
 
 impl eframe::App for InitialApp {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
@@ -14,7 +25,9 @@ impl eframe::App for InitialApp {
         window::custom_window_frame(ctx, frame, "Consoxide", |ui| {
             ui.label("This is just the contents of the window.");
             ui.horizontal(|ui| {
-                integration::AgentApp::default().message_window(ctx);
+                self.agent_handler.buffer_panel(ui);
+                // self.agent_handler.last_message_panel(ui);
+                self.agent_handler.user_input_panel(ctx);
                 //     ui.label("egui theme:");
                 //     egui::widgets::global_dark_light_mode_buttons(ui);
             });

@@ -170,9 +170,32 @@ impl<'a> Ui<'a> {
             if let Some(res) = &self.responder {
                 match res {
                     UiResponder::Converse(input) => {
+                        // std::thread::spawn(move || {
+                        //     let rt = tokio::runtime::Runtime::new().unwrap();
+                        //     rt.block_on(async move {
+                        //         let mut reciever = agent.stream_prompt(&input).await;
+                        //         let timeout_duration = std::time::Duration::from_millis(100);
+                        //         while let Some(result) =
+                        //             tokio::time::timeout(timeout_duration, reciever.recv())
+                        //                 .await
+                        //                 .unwrap()
+                        //         {
+                        //             print!(
+                        //                 "{}",
+                        //                 result
+                        //                     .expect("Something wrong with recieved value")
+                        //                     .green()
+                        //             )
+                        //         }
+                        //     });
+                        // })
+                        // .join()
+                        // .expect("Failed to join thread");
+                        // println!();
                         let res = agent.prompt(&input);
                         println!("{}", res.green());
                     }
+
                     UiResponder::ShellCommand(io) => {
                         println!("{}", io.o.red());
                         agent.format_to_buffer(io.to_owned());

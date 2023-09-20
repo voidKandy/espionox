@@ -25,7 +25,10 @@ use bytes::Bytes;
 use futures::Stream;
 use futures_util::StreamExt;
 use serde_json::Value;
-use std::{sync::mpsc, thread};
+use std::{
+    sync::{mpsc, Arc, Mutex},
+    thread,
+};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
@@ -165,7 +168,7 @@ impl Agent {
         &mut self,
         input: &str,
     ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
-        self.context.push_to_buffer("assistant", &input);
+        self.context.push_to_buffer("user", &input);
         let gpt = self.gpt.clone();
         let buffer = self.context.buffer.clone();
         let mut response = gpt
@@ -173,24 +176,34 @@ impl Agent {
             .await
             .expect("Failed to get completion.");
 
+        let full_message = Arc::new(Mutex::new(Vec::new()));
+        let full_message_closure_clone = Arc::clone(&full_message);
+
         let (tx, rx) = tokio::sync::mpsc::channel(100);
         tokio::spawn(async move {
             while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
                 tracing::info!("Token got: {}", token);
+                Arc::clone(&full_message_closure_clone)
+                    .lock()
+                    .unwrap()
+                    .push(token.to_owned());
                 tx.send(Ok(token)).await.unwrap();
             }
         });
+        self.context
+            .push_to_buffer("assistant", &full_message.lock().unwrap().join(" "));
         rx
     }
 
+    #[tracing::instrument(name = "Get token from stream" skip(response))]
     async fn poll_stream_for_token(
         mut response: impl Stream<Item = Result<Bytes, reqwest::Error>> + std::marker::Unpin,
     ) -> anyhow::Result<Option<String>> {
         if let Some(Ok(chunk)) = response.next().await {
             match StreamResponse::from_byte_chunk(chunk).await {
-                Ok(stream_res) => {
-                    let parsed_res = stream_res.parse().unwrap();
-                    Ok(Some(parsed_res))
+                Ok(stream_response) => {
+                    let parsed_response = stream_response.parse().unwrap();
+                    Ok(Some(parsed_response))
                 }
                 Err(err) => {
                     Err(anyhow::anyhow!("Problem getting stream response: {:?}", err).into())

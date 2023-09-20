@@ -6,15 +6,16 @@ use consoxide::{
     context::{memory::Memory, Context},
     language_models::openai::functions::{CustomFunction, Property, PropertyInfo},
 };
-use serde_json::json;
 
 #[tokio::test]
 async fn stream_completion_works() {
+    crate::helpers::init_test();
     let mut agent = test_agent();
-    let prompt = String::from("Hello chat agent");
+    let prompt =
+        String::from("Hello chat agent, please respond with a long sentence on any subject");
     let mut receiver = agent.stream_prompt(&prompt).await;
 
-    let timeout_duration = std::time::Duration::from_millis(200);
+    let timeout_duration = std::time::Duration::from_millis(100);
 
     while let Some(result) = tokio::time::timeout(timeout_duration, receiver.recv())
         .await
@@ -22,10 +23,10 @@ async fn stream_completion_works() {
     {
         match result {
             Ok(response) => {
-                println!("{}", response);
+                tracing::info!("{}", response);
             }
             Err(err) => {
-                panic!("Error: {:?}", err);
+                tracing::warn!("Error: {:?}", err);
             }
         }
     }

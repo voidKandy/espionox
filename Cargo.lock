@@ -746,6 +746,7 @@ dependencies = [
  "futures",
  "futures-util",
  "inquire",
+ "lazy_async_promise",
  "once_cell",
  "pgvector",
  "rand",
@@ -1967,6 +1968,15 @@ name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
+
+[[package]]
+name = "lazy_async_promise"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1423b5be0d5f8ac8becc37c250bad6fd783f3b32a69c8170d2f749d9049ce0e8"
+dependencies = [
+ "tokio",
+]
 
 [[package]]
 name = "lazy_static"

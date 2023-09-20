@@ -9,11 +9,12 @@ path = "src/lib.rs"
 
 [features]
 egui = []
-# egui=["dep:eframe"]
+# egui=["dep:eframe", "dep:lazy_async_promise"]
 
 [dependencies]
 # Change this to optional=true when done dveloping
 eframe = { version = "0.22.0", optional = false }
+lazy_async_promise = {version = "0.5.0", optional = false}
 
 anyhow = "1.0.71"
 rust-bert = "0.21.0"
