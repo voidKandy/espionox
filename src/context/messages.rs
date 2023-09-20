@@ -51,6 +51,9 @@ impl MessageVector {
     pub fn new(messages: Vec<Message>) -> Self {
         MessageVector(messages)
     }
+    pub fn init() -> Self {
+        MessageVector(vec![])
+    }
     pub fn as_mut_ref(&mut self) -> &mut Vec<Message> {
         &mut self.0
     }

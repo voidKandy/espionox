@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     agent::spo_agents::SummarizerAgent,
+    configuration::ConfigEnv,
     core::{File, FileChunk},
     language_models::embed,
 };
@@ -47,11 +48,12 @@ impl CreateFileBody {
     pub fn build_from(
         file: &mut File,
         thread_name: &str,
+        env: ConfigEnv,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let summary = match &file.summary {
             None => {
                 tracing::info!("File has no summary, getting summary");
-                let sum = SummarizerAgent::init().summarize(file);
+                let sum = SummarizerAgent::init(env).summarize(file);
                 file.summary = Some(sum.clone());
                 tracing::info!("File summary got");
                 sum
