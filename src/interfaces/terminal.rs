@@ -173,10 +173,10 @@ impl<'a> Ui<'a> {
                         // std::thread::spawn(move || {
                         //     let rt = tokio::runtime::Runtime::new().unwrap();
                         //     rt.block_on(async move {
-                        //         let mut reciever = agent.stream_prompt(&input).await;
+                        //         let mut receiver = agent.stream_prompt(&input).await;
                         //         let timeout_duration = std::time::Duration::from_millis(100);
                         //         while let Some(result) =
-                        //             tokio::time::timeout(timeout_duration, reciever.recv())
+                        //             tokio::time::timeout(timeout_duration, receiver.recv())
                         //                 .await
                         //                 .unwrap()
                         //         {

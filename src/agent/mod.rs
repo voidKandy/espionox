@@ -180,16 +180,15 @@ impl Agent {
         let full_message_closure_clone = Arc::clone(&full_message);
 
         let (tx, rx) = tokio::sync::mpsc::channel(100);
-        tokio::spawn(async move {
-            while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
-                tracing::info!("Token got: {}", token);
-                Arc::clone(&full_message_closure_clone)
-                    .lock()
-                    .unwrap()
-                    .push(token.to_owned());
-                tx.send(Ok(token)).await.unwrap();
-            }
-        });
+        while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
+            tracing::info!("Token got: {}", token);
+            Arc::clone(&full_message_closure_clone)
+                .lock()
+                .unwrap()
+                .push(token.to_owned());
+            tx.send(Ok(token)).await.unwrap();
+        }
+        drop(tx);
         self.context
             .push_to_buffer("assistant", &full_message.lock().unwrap().join(" "));
         rx
@@ -199,18 +198,21 @@ impl Agent {
     async fn poll_stream_for_token(
         mut response: impl Stream<Item = Result<Bytes, reqwest::Error>> + std::marker::Unpin,
     ) -> anyhow::Result<Option<String>> {
-        if let Some(Ok(chunk)) = response.next().await {
+        while let Some(Ok(chunk)) = response.next().await {
             match StreamResponse::from_byte_chunk(chunk).await {
-                Ok(stream_response) => {
+                Ok(Some(stream_response)) => {
                     let parsed_response = stream_response.parse().unwrap();
-                    Ok(Some(parsed_response))
+                    return Ok(Some(parsed_response));
                 }
+                Ok(None) => {}
                 Err(err) => {
-                    Err(anyhow::anyhow!("Problem getting stream response: {:?}", err).into())
+                    return Err(
+                        anyhow::anyhow!("Problem getting stream response: {:?}", err).into(),
+                    );
                 }
             }
-        } else {
-            Ok(None)
         }
+
+        Ok(None)
     }
 }
