@@ -108,11 +108,10 @@ impl StreamResponse {
     #[tracing::instrument(name = "Get token from byte chunk")]
     pub async fn from_byte_chunk(
         chunk: Bytes,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Option<Self>, Box<dyn std::error::Error + Send + Sync>> {
         let chunk_string = String::from_utf8_lossy(&chunk).trim().to_string();
 
         let chunk_strings: Vec<&str> = chunk_string.split('\n').filter(|s| !s.is_empty()).collect();
-        /// THE FIRST JSON IS THE ROLE, ROLE IS NOT CONTAINED IN ANY OTHER ONe
 
         tracing::info!("Chunk data strings: {:?}", chunk_strings);
         for string in chunk_strings
@@ -121,7 +120,7 @@ impl StreamResponse {
         {
             tracing::info!("Processing string: {}", string);
             if string == "[DONE]" {
-                break;
+                return Ok(None);
             }
 
             let stream_response = serde_json::from_str::<StreamResponse>(&string)
@@ -132,7 +131,7 @@ impl StreamResponse {
                 if choice.delta.content.is_none() && choice.delta.role.is_none() {
                     continue;
                 }
-                return Ok(stream_response);
+                return Ok(Some(stream_response));
             }
         }
         Err("No chunks processed, unexpected error. Likely no chunks we found.".into())
