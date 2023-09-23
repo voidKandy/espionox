@@ -5,7 +5,7 @@ pub struct FileModelSql {
     pub filepath: String,
     pub parent_dir_path: String,
     pub summary: String,
-    pub summary_embedding: pgvector::Vector,
+    pub summary_embedding: super::super::vector_embeddings::EmbeddingVector,
 }
 
 pub struct GetFileParams {
@@ -19,7 +19,7 @@ pub struct CreateFileBody {
     pub filepath: String,
     pub parent_dir_path: String,
     pub summary: String,
-    pub summary_embedding: pgvector::Vector,
+    pub summary_embedding: super::super::vector_embeddings::EmbeddingVector,
 }
 
 pub struct DeleteFileParams {

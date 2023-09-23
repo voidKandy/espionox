@@ -10,6 +10,8 @@ use serde_derive::Deserialize;
 use serde_json::{json, Value};
 use std::error::Error;
 
+pub use super::errors::GptError;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
@@ -35,6 +37,8 @@ pub struct StreamDelta {
 pub struct Choice {
     pub message: GptMessage,
 }
+
+pub type CompletionStream = Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send + Unpin>;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptMessage {
@@ -106,14 +110,16 @@ impl GptResponse {
 
 impl StreamResponse {
     #[tracing::instrument(name = "Get token from byte chunk")]
-    pub async fn from_byte_chunk(
-        chunk: Bytes,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn from_byte_chunk(chunk: Bytes) -> Result<Option<Self>, GptError> {
         let chunk_string = String::from_utf8_lossy(&chunk).trim().to_string();
 
         let chunk_strings: Vec<&str> = chunk_string.split('\n').filter(|s| !s.is_empty()).collect();
 
-        tracing::info!("Chunk data strings: {:?}", chunk_strings);
+        tracing::info!(
+            "{} chunk data strings to process: {:?}",
+            chunk_strings.len(),
+            chunk_strings
+        );
         for string in chunk_strings
             .iter()
             .map(|s| s.trim_start_matches("data:").trim())
@@ -123,18 +129,27 @@ impl StreamResponse {
                 return Ok(None);
             }
 
-            let stream_response = serde_json::from_str::<StreamResponse>(&string)
-                .expect("Failed to turn chunk string into json");
-            tracing::info!("Chunk as stream response: {:?}", stream_response);
-
-            if let Some(choice) = &stream_response.choices.get(0) {
-                if choice.delta.content.is_none() && choice.delta.role.is_none() {
-                    continue;
+            match serde_json::from_str::<StreamResponse>(&string) {
+                Ok(stream_response) => {
+                    if let Some(choice) = &stream_response.choices.get(0) {
+                        tracing::info!("Chunk as stream response: {:?}", stream_response);
+                        if choice.delta.role.is_some() {
+                            continue;
+                        }
+                        if choice.delta.content.is_none() && choice.delta.role.is_none() {
+                            continue;
+                        }
+                        return Ok(Some(stream_response));
+                    }
                 }
-                return Ok(Some(stream_response));
+                Err(err) => {
+                    if err.to_string().contains("expected value") {
+                        return Err(GptError::Completion);
+                    }
+                }
             }
         }
-        Err("No chunks processed, unexpected error. Likely no chunks we found.".into())
+        Ok(None)
     }
 
     #[tracing::instrument(name = "Parse stream response for string")]
@@ -206,7 +221,7 @@ impl Gpt {
     pub async fn stream_completion(
         &self,
         context: &Vec<Value>,
-    ) -> Result<impl Stream<Item = Result<Bytes, reqwest::Error>>, Box<dyn Error>> {
+    ) -> anyhow::Result<CompletionStream> {
         let payload = json!({
             "model": self.config.model,
             "messages": context,
@@ -228,7 +243,7 @@ impl Gpt {
             .await?
             .bytes_stream();
 
-        Ok(response_stream)
+        Ok(Box::new(response_stream))
     }
 
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {

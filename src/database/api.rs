@@ -62,7 +62,7 @@ impl CreateFileBody {
         };
         let parent_dir_path: String = file.filepath.parent().unwrap().display().to_string();
         let summary_embedding =
-            pgvector::Vector::from(embed(&summary).expect("Failed to create summary embedding"));
+            EmbeddingVector::from(embed(&summary).expect("Failed to create summary embedding"));
         let thread_name = thread_name.to_string();
         let id = uuid::Uuid::new_v4().to_string();
         Ok(CreateFileBody {
@@ -87,7 +87,7 @@ impl CreateFileChunksVector {
         let mut resulting_chunk_models = vec![];
         let parent_file_id = parent_file_id.to_string();
         for chunk in file_chunks.iter() {
-            let content_embedding = pgvector::Vector::from(
+            let content_embedding = EmbeddingVector::from(
                 embed(&chunk.content).expect("Failed to create summary embedding"),
             );
             resulting_chunk_models.push(CreateFileChunkBody {

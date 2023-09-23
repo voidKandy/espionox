@@ -1,7 +1,11 @@
+pub mod errors;
 pub mod settings;
 pub mod spo_agents;
+pub mod streaming_utils;
 
+pub use errors::AgentError;
 pub use settings::AgentSettings;
+pub use streaming_utils::*;
 
 use crate::{
     configuration::ConfigEnv,
@@ -15,20 +19,11 @@ use crate::{
     core::{File, FileChunk},
     language_models::{
         embed,
-        openai::{
-            functions::CustomFunction,
-            gpt::{Gpt, StreamResponse},
-        },
+        openai::{functions::CustomFunction, gpt::Gpt},
     },
 };
-use bytes::Bytes;
-use futures::Stream;
-use futures_util::StreamExt;
 use serde_json::Value;
-use std::{
-    sync::{mpsc, Arc, Mutex},
-    thread,
-};
+use std::{sync::mpsc, thread};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
@@ -164,55 +159,18 @@ impl Agent {
     }
 
     #[tracing::instrument(name = "Prompt agent for stream response")]
-    pub async fn stream_prompt(
-        &mut self,
-        input: &str,
-    ) -> tokio::sync::mpsc::Receiver<Result<String, anyhow::Error>> {
+    pub async fn stream_prompt(&mut self, input: &str) -> CompletionReceiverHandler {
         self.context.push_to_buffer("user", &input);
         let gpt = self.gpt.clone();
         let buffer = self.context.buffer.clone();
-        let mut response = gpt
+        let response_stream = gpt
             .stream_completion(&buffer.into())
             .await
             .expect("Failed to get completion.");
 
-        let full_message = Arc::new(Mutex::new(Vec::new()));
-        let full_message_closure_clone = Arc::clone(&full_message);
-
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        while let Ok(Some(token)) = Self::poll_stream_for_token(&mut response).await {
-            tracing::info!("Token got: {}", token);
-            Arc::clone(&full_message_closure_clone)
-                .lock()
-                .unwrap()
-                .push(token.to_owned());
-            tx.send(Ok(token)).await.unwrap();
-        }
-        drop(tx);
-        self.context
-            .push_to_buffer("assistant", &full_message.lock().unwrap().join(" "));
-        rx
-    }
-
-    #[tracing::instrument(name = "Get token from stream" skip(response))]
-    async fn poll_stream_for_token(
-        mut response: impl Stream<Item = Result<Bytes, reqwest::Error>> + std::marker::Unpin,
-    ) -> anyhow::Result<Option<String>> {
-        while let Some(Ok(chunk)) = response.next().await {
-            match StreamResponse::from_byte_chunk(chunk).await {
-                Ok(Some(stream_response)) => {
-                    let parsed_response = stream_response.parse().unwrap();
-                    return Ok(Some(parsed_response));
-                }
-                Ok(None) => {}
-                Err(err) => {
-                    return Err(
-                        anyhow::anyhow!("Problem getting stream response: {:?}", err).into(),
-                    );
-                }
-            }
-        }
-
-        Ok(None)
+        let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
+            tokio::sync::mpsc::channel(50);
+        CompletionStreamingThread::spawn_poll_stream_for_tokens(response_stream, tx);
+        CompletionReceiverHandler::from(rx)
     }
 }

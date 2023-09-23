@@ -5,7 +5,7 @@ pub struct FileChunkModelSql {
     pub parent_filepath: String,
     pub idx: i16,
     pub content: String,
-    pub content_embedding: pgvector::Vector,
+    pub content_embedding: super::super::vector_embeddings::EmbeddingVector,
 }
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ pub struct CreateFileChunkBody {
     pub parent_filepath: String,
     pub idx: i16,
     pub content: String,
-    pub content_embedding: pgvector::Vector,
+    pub content_embedding: super::super::vector_embeddings::EmbeddingVector,
 }
 
 pub struct GetFileChunkParams {
