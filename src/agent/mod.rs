@@ -95,7 +95,7 @@ impl Agent {
 
     pub fn format_to_buffer(&mut self, o: impl BufferDisplay) {
         let mem = o.buffer_display();
-        self.context.push_to_buffer("user", &mem);
+        self.context.buffer.push_std("user", &mem);
     }
 
     pub fn switch_mem(&mut self, memory: Memory) {
@@ -105,7 +105,7 @@ impl Agent {
 
     #[tracing::instrument(name = "Prompt GPT API for response")]
     pub fn prompt(&mut self, input: &str) -> String {
-        self.context.push_to_buffer("user", &input);
+        self.context.buffer.push_std("user", &input);
 
         let (tx, rx) = mpsc::channel();
         let gpt = self.gpt.clone();
@@ -127,13 +127,13 @@ impl Agent {
             .parse()
             .expect("Failed to parse completion response");
 
-        self.context.push_to_buffer("assistant", &result);
+        self.context.buffer.push_std("assistant", &result);
         result
     }
 
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]
     pub fn function_prompt(&mut self, custom_function: CustomFunction, input: &str) -> Value {
-        self.context.push_to_buffer("user", &input);
+        self.context.buffer.push_std("user", &input);
         let (tx, rx) = mpsc::channel();
         let func = custom_function.function();
         let gpt = self.gpt.clone();
@@ -160,7 +160,7 @@ impl Agent {
 
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(&mut self, input: &str) -> CompletionReceiverHandler {
-        self.context.push_to_buffer("user", &input);
+        self.context.buffer.push_std("user", &input);
         let gpt = self.gpt.clone();
         let buffer = self.context.buffer.clone();
         let response_stream = gpt

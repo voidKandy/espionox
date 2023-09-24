@@ -77,8 +77,8 @@ impl Memory {
             st_mem
                 .borrow_mut()
                 .messages
-                .as_mut_ref()
-                .append(messages.to_owned().as_mut_ref());
+                .as_mut()
+                .append(messages.to_owned().as_mut());
             tracing::info!(
                 "Cached messages after saving: {:?}",
                 st_mem.borrow().messages

@@ -47,6 +47,16 @@ impl From<&str> for MessageVector {
     }
 }
 
+impl ToString for MessageVector {
+    fn to_string(&self) -> String {
+        let mut output = String::new();
+        self.as_ref().into_iter().for_each(|mess| {
+            output.push_str(&format!("{}\n", mess));
+        });
+        format!("{}", output)
+    }
+}
+
 impl MessageVector {
     pub fn new(messages: Vec<Message>) -> Self {
         MessageVector(messages)
@@ -54,17 +64,23 @@ impl MessageVector {
     pub fn init() -> Self {
         MessageVector(vec![])
     }
-    pub fn as_mut_ref(&mut self) -> &mut Vec<Message> {
-        &mut self.0
-    }
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    pub fn push_std(&mut self, role: &str, content: &str) {
+        self.as_mut().push(Message::new_standard(role, content));
     }
 }
 
 impl AsRef<Vec<Message>> for MessageVector {
     fn as_ref(&self) -> &Vec<Message> {
         &self.0
+    }
+}
+
+impl AsMut<Vec<Message>> for MessageVector {
+    fn as_mut(&mut self) -> &mut Vec<Message> {
+        &mut self.0
     }
 }
 

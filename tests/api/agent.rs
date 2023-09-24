@@ -77,7 +77,7 @@ fn to_and_from_short_term_test() {
     agent.switch_mem(Memory::ShortTerm);
 
     let prompt = String::from("Hello chat agent");
-    agent.context.push_to_buffer("user", &prompt);
+    agent.context.buffer.push_std("user", &prompt);
     let cached_buf = agent.context.buffer.clone();
 
     agent.switch_mem(Memory::Forget);

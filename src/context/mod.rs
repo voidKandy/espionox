@@ -33,19 +33,6 @@ impl Context {
     pub fn pool(&self) -> &DbPool {
         &self.db_pool
     }
-    pub fn push_to_buffer(&mut self, role: &str, content: &str) {
-        self.buffer
-            .as_mut_ref()
-            .push(Message::new_standard(role, content));
-    }
-
-    pub fn buffer_as_string(&self) -> String {
-        let mut output = String::new();
-        self.buffer.as_ref().into_iter().for_each(|mess| {
-            output.push_str(&format!("{}\n", mess));
-        });
-        format!("{}", output)
-    }
 
     pub fn save_buffer(&self) {
         let buf_difference = MessageVector::new(
