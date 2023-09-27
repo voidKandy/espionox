@@ -1,4 +1,4 @@
-use espionoxide::{
+use espionox::{
     agent::{Agent, AgentSettings},
     configuration::ConfigEnv,
     context::{memory::long_term::database::DbPool, MemoryVariant, MessageVector},
@@ -24,10 +24,7 @@ pub fn init_test() {
 
 pub fn test_settings() -> AgentSettings {
     let pool = DbPool::sync_init_pool(ConfigEnv::Testing);
-    AgentSettings::new(
-        Some(MemoryVariant::new_long(pool)),
-        MessageVector::new(vec![]),
-    )
+    AgentSettings::new(Some(MemoryVariant::new_long(pool)), MessageVector::init())
 }
 
 pub fn test_agent() -> Agent {

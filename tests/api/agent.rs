@@ -1,7 +1,7 @@
 use super::test_agent;
 use crate::{functions::weather_test_function, helpers::init_test};
 #[allow(unused_imports)]
-use espionoxide::{
+use espionox::{
     agent::Agent,
     context::{memory::Memory, Context},
     language_models::openai::functions::{CustomFunction, Property, PropertyInfo},
@@ -74,15 +74,15 @@ fn prompt_agent_test() {
 #[test]
 fn to_and_from_short_term_test() {
     let mut agent = test_agent();
-    agent.switch_mem(espionoxide::context::MemoryVariant::new_short());
+    agent.switch_mem(espionox::context::MemoryVariant::new_short());
 
     let prompt = String::from("Hello chat agent");
     agent.context.buffer.push_std("user", &prompt);
     let cached_buf = agent.context.buffer.clone();
 
-    agent.switch_mem(espionoxide::context::MemoryVariant::Forget);
+    agent.switch_mem(espionox::context::MemoryVariant::Forget);
     assert_ne!(cached_buf, agent.context.buffer);
 
-    agent.switch_mem(espionoxide::context::MemoryVariant::new_short());
+    agent.switch_mem(espionox::context::MemoryVariant::new_short());
     assert_eq!(cached_buf, agent.context.buffer);
 }
