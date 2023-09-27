@@ -8,13 +8,15 @@ pub use settings::AgentSettings;
 pub use streaming_utils::*;
 
 #[cfg(feature = "long_term_memory")]
-use crate::context::integrations::database::{Embedded, EmbeddedCoreStruct};
+use crate::{
+    context::integrations::database::{Embedded, EmbeddedCoreStruct},
+    core::{File, FileChunk},
+    language_models::embed,
+};
 
 use crate::{
     configuration::ConfigEnv,
     context::{integrations::core::BufferDisplay, Context, MemoryVariant},
-    core::{File, FileChunk},
-    language_models::embed,
     language_models::openai::{functions::CustomFunction, gpt::Gpt},
 };
 use serde_json::Value;

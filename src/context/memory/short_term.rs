@@ -1,5 +1,6 @@
 #[cfg(feature = "long_term_memory")]
 use super::super::integrations::database::{EmbeddedCoreStruct, EmbeddedType};
+
 use super::{Memory, MessageVector};
 use crate::core::{File, FileChunk};
 use std::cell::RefCell;
@@ -68,6 +69,7 @@ impl ShortTermMemory {
         static CACHED_MEMORY: RefCell<MemoryCache> = RefCell::new(MemoryCache::default());
     }
 
+    #[cfg(feature = "long_term_memory")]
     pub fn save_embedded_to_cache(embedded: EmbeddedCoreStruct) {
         Self::CACHED_MEMORY.with(|st_mem| match embedded.get_type() {
             EmbeddedType::File => st_mem
