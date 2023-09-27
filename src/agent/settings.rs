@@ -8,9 +8,7 @@ pub struct AgentSettings {
 
 impl AgentSettings {
     pub fn new(
-        memory_override: Option<MemoryVariant>,
-        init_prompt: MessageVector,
-    ) -> AgentSettings {
+    pub fn new(memory_override: Option<Memory>) -> AgentSettings {
         AgentSettings {
             memory_override,
             init_prompt,
