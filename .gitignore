@@ -1,4 +1,5 @@
 /target
 .env
 /test-dir
-/configuration/default.yaml
+/configuration
+/scripts
