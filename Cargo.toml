@@ -8,7 +8,7 @@ path = "src/lib.rs"
 
 
 [features]
-default = ["long_term_memory"]
+# default = ["long_term_memory"]
 long_term_memory = ["dep:sqlx", "dep:pgvector"]
 # egui=["dep:eframe", "dep:lazy_async_promise"]
 
