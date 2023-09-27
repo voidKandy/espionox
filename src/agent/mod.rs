@@ -7,15 +7,12 @@ pub use errors::AgentError;
 pub use settings::AgentSettings;
 pub use streaming_utils::*;
 
+#[cfg(feature = "long_term_memory")]
+use crate::context::integrations::database::{Embedded, EmbeddedCoreStruct};
+
 use crate::{
     configuration::ConfigEnv,
-    context::{
-        integrations::{
-            core::BufferDisplay,
-            database::{Embedded, EmbeddedCoreStruct},
-        },
-        Context, MemoryVariant,
-    },
+    context::{integrations::core::BufferDisplay, Context, MemoryVariant},
     core::{File, FileChunk},
     language_models::embed,
     language_models::openai::{functions::CustomFunction, gpt::Gpt},

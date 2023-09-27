@@ -1,3 +1,4 @@
+#[cfg(feature = "long_term_memory")]
 use super::memory::long_term::database::models::messages::MessageModelSql;
 use crate::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};

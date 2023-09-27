@@ -1,7 +1,6 @@
-use super::{
-    super::integrations::database::{EmbeddedCoreStruct, EmbeddedType},
-    Memory, MessageVector,
-};
+#[cfg(feature = "long_term_memory")]
+use super::super::integrations::database::{EmbeddedCoreStruct, EmbeddedType};
+use super::{Memory, MessageVector};
 use crate::core::{File, FileChunk};
 use std::cell::RefCell;
 
