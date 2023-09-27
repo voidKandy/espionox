@@ -1,4 +1,4 @@
-use consoxide::{
+use espionoxide::{
     agent::{Agent, AgentSettings},
     configuration::ConfigEnv,
     context::{memory::long_term::database::DbPool, MemoryVariant, MessageVector},

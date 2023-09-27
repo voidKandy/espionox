@@ -1,5 +1,5 @@
 use crate::helpers;
-use consoxide::{
+use espionoxide::{
     configuration::ConfigEnv,
     context::{
         memory::long_term::database::{
