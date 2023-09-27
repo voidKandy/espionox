@@ -1,7 +1,7 @@
 use consoxide::{
     agent::{Agent, AgentSettings},
     configuration::ConfigEnv,
-    context::{Memory, MessageVector},
+    context::{memory::long_term::database::DbPool, MemoryVariant, MessageVector},
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
@@ -23,8 +23,9 @@ pub fn init_test() {
 }
 
 pub fn test_settings() -> AgentSettings {
+    let pool = DbPool::sync_init_pool(ConfigEnv::Testing);
     AgentSettings::new(
-        Some(Memory::LongTerm("Testing_Thread".to_string())),
+        Some(MemoryVariant::new_long(pool)),
         MessageVector::new(vec![]),
     )
 }

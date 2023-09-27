@@ -1,17 +1,20 @@
 use crate::helpers;
 use consoxide::{
     configuration::ConfigEnv,
-    core::File,
-    database::{
-        api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
-        handlers,
-        init::DbPool,
-        models::{
-            error::{CreateErrorBody, DeleteErrorParams, GetErrorParams},
-            file::{CreateFileBody, DeleteFileParams, GetFileParams},
-            file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
+    context::{
+        memory::long_term::database::{
+            api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
+            handlers,
+            init::DbPool,
+            models::{
+                file::{CreateFileBody, DeleteFileParams, GetFileParams},
+                file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
+            },
+            vector_embeddings::EmbeddingVector,
         },
+        MemoryVariant,
     },
+    core::File,
 };
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;
@@ -42,14 +45,14 @@ async fn filepath_to_database() -> Embedding {
         .await
         .expect("Failed to init testing pool");
     let settings = helpers::test_settings();
-    let mut f = File::from("./src/bin/terminal.rs");
+    let mut f = File::from("./Cargo.toml");
     let file_chunks = f.chunks.clone();
-    let file = CreateFileBody::build_from(
-        &mut f,
-        &settings.memory().unwrap().threadname().unwrap(),
-        ConfigEnv::Testing,
-    )
-    .expect("Failed to build create file sql body");
+    let threadname = match settings.memory().unwrap() {
+        MemoryVariant::Long(long_term) => &long_term.threadname,
+        _ => panic!("Memory variant should be long term"),
+    };
+    let file = CreateFileBody::build_from(&mut f, &threadname, ConfigEnv::Testing)
+        .expect("Failed to build create file sql body");
 
     let ret = file.summary_embedding.to_vec().clone();
 
@@ -100,7 +103,7 @@ async fn post_get_delete_file() {
         filepath: "path/to/test/file".to_string(),
         parent_dir_path: "path/to/test".to_string(),
         summary: "Summary".to_string(),
-        summary_embedding: pgvector::Vector::from(vec![0.0; 384]),
+        summary_embedding: EmbeddingVector::from(vec![0.0; 384]),
     };
     let res = handlers::file::post_file(&pool, newfile).await;
     if let Err(e) = res {
@@ -140,7 +143,7 @@ async fn post_get_delete_filechunks() {
         parent_filepath: ".".to_string(),
         idx: 1 as i16,
         content: "chunk content".to_string(),
-        content_embedding: pgvector::Vector::from(vec![0.0; 384]),
+        content_embedding: EmbeddingVector::from(vec![0.0; 384]),
     };
     let res = handlers::file_chunks::post_file_chunk(&pool, newchunk).await;
     if let Err(e) = res {
@@ -163,44 +166,6 @@ async fn post_get_delete_filechunks() {
         DeleteFileChunkParams {
             parent_file_id: "9999".to_string(),
             idx: 1,
-        }
-    )
-    .await
-    .is_ok());
-}
-
-// ------ ERRORS ------ //
-#[ignore]
-#[tokio::test]
-async fn post_get_delete_errors() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
-        .await
-        .expect("failed to init testing pool");
-    let newerror = CreateErrorBody {
-        thread_name: "test".to_string(),
-        content: "error content".to_string(),
-        content_embedding: pgvector::Vector::from(vec![0.0; 384]),
-    };
-    let res = handlers::error::post_error(&pool, newerror).await;
-    if let Err(e) = res {
-        panic!("Error posting file: {e:?}");
-    }
-
-    let goterror = handlers::error::get_errors(
-        &pool,
-        GetErrorParams {
-            thread_name: "test".to_string(),
-        },
-    )
-    .await;
-    if let Err(e) = goterror {
-        panic!("Error getting file: {e:?}");
-    }
-    assert_eq!("test".to_string(), goterror.unwrap()[0].thread_name);
-    assert!(handlers::error::delete_error(
-        &pool,
-        DeleteErrorParams {
-            id: "9999".to_string()
         }
     )
     .await

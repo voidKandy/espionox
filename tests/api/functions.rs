@@ -9,7 +9,7 @@ pub fn weather_test_function() -> CustomFunction {
         "description",
         json!("The city and state, e.g. San Francisco, CA"),
     );
-    let unit_info = PropertyInfo::new("enum", json!(["celsius", "fahrenheit"]));
+    let unit_info = PropertyInfo::new("enum", json!(["celcius", "fahrenheit"]));
 
     let location_prop = Property::build_from("location")
         .return_type("string")
@@ -43,7 +43,7 @@ fn test_function_render() {
                   },
                   "unit": {
                     "type": "string",
-                    "enum": ["celsius", "fahrenheit"]
+                    "enum": ["celcius", "fahrenheit"]
                   }
                 },
                 "required": ["location"]

@@ -1,8 +1,9 @@
-use super::super::MessageVector;
+use super::super::{
+    long_term::database::{self, handlers, models, vector_embeddings::EmbeddingVector, DbPool},
+    MessageVector,
+};
 use crate::{
-    context::Context,
     core::{File, FileChunk},
-    database::{self, handlers, models, vector_embeddings::EmbeddingVector, DbPool},
     language_models::embed,
 };
 use std::{any::Any, thread};
@@ -124,94 +125,4 @@ impl Embedded for FileChunk {
     {
         self
     }
-}
-
-#[tracing::instrument(name = "Query files by summary embeddings")]
-pub fn get_files_by_summary_embeddings(query: &str, pool: &DbPool) -> Vec<File> {
-    let pool = pool.to_owned();
-    let query_vector = embed(query).expect("Failed to embed query");
-    thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            let files: anyhow::Result<Vec<crate::core::File>> =
-                match database::api::vector_query_files(&pool, query_vector, 5).await {
-                    Ok(files_sql) => Ok(files_sql.into_iter().map(|sql| sql.into()).collect()),
-                    Err(err) => Err(err.into()),
-                };
-            files.unwrap()
-        })
-    })
-    .join()
-    .expect("Failed to join thread")
-}
-
-pub fn get_active_long_term_threads(context: &Context) -> Result<Vec<String>, String> {
-    let context = context.to_owned();
-    thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            match handlers::threads::get_all_threads(context.pool()).await {
-                Ok(threads) => Ok(threads),
-                Err(err) => Err(format!("Couldn't get long term threads: {err:?}")),
-            }
-        })
-    })
-    .join()
-    .expect("Failed to get long term threads")
-}
-
-#[tracing::instrument(name = "Save messages to database from threadname")]
-pub fn save_messages_to_database(threadname: &str, messages: MessageVector, pool: &DbPool) {
-    let messages = messages.to_owned();
-    let threadname = threadname.to_owned();
-    let pool = pool.to_owned();
-    thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            for m in messages.as_ref().iter() {
-                handlers::messages::post_message(
-                    &pool,
-                    models::messages::CreateMessageBody {
-                        thread_name: threadname.to_string(),
-                        role: m.role().to_owned(),
-                        content: m.content().unwrap().to_owned(),
-                    },
-                )
-                .await
-                .expect("Failed to store messages to long term memory");
-            }
-        });
-    });
-}
-#[tracing::instrument(name = "Get messages from database from threadname")]
-pub fn get_messages_from_database(threadname: &str, pool: &DbPool) -> MessageVector {
-    let pool = pool.to_owned();
-    let threadname = threadname.to_owned();
-    thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            match handlers::threads::get_thread(&pool, &threadname).await {
-                Ok(_) => {}
-                Err(err) => {
-                    if matches!(
-                        err.downcast_ref::<sqlx::Error>(),
-                        Some(sqlx::Error::RowNotFound)
-                    ) {
-                        tracing::info!("Thread doesn't exist, creating thread named: {threadname}");
-                        assert!(handlers::threads::post_thread(&pool, &threadname)
-                            .await
-                            .is_ok());
-                    } else {
-                        panic!("Error getting thread {err:?}");
-                    }
-                }
-            }
-            let messages = handlers::messages::get_messages_by_threadname(&pool, &threadname)
-                .await
-                .expect("Failed to get messages from context");
-            MessageVector::new(messages.into_iter().map(|m| m.into()).collect())
-        })
-    })
-    .join()
-    .expect("Failed to get long term memory messages")
 }

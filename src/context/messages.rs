@@ -1,6 +1,5 @@
-use crate::{
-    database::models::messages::MessageModelSql, language_models::openai::gpt::GptMessage,
-};
+use super::memory::long_term::database::models::messages::MessageModelSql;
+use crate::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;

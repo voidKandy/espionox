@@ -17,16 +17,16 @@ async fn stream_completion_works() {
 
     let timeout_duration = std::time::Duration::from_millis(100);
 
-    while let Some(result) = tokio::time::timeout(timeout_duration, receiver.recv())
+    while let Ok(result) = tokio::time::timeout(timeout_duration, receiver.receive())
         .await
         .unwrap()
     {
         match result {
-            Ok(response) => {
+            Some(response) => {
                 tracing::info!("{}", response);
             }
-            Err(err) => {
-                tracing::warn!("Error: {:?}", err);
+            None => {
+                tracing::warn!("Got None");
             }
         }
     }
@@ -74,15 +74,15 @@ fn prompt_agent_test() {
 #[test]
 fn to_and_from_short_term_test() {
     let mut agent = test_agent();
-    agent.switch_mem(Memory::ShortTerm);
+    agent.switch_mem(consoxide::context::MemoryVariant::new_short());
 
     let prompt = String::from("Hello chat agent");
     agent.context.buffer.push_std("user", &prompt);
     let cached_buf = agent.context.buffer.clone();
 
-    agent.switch_mem(Memory::Forget);
+    agent.switch_mem(consoxide::context::MemoryVariant::Forget);
     assert_ne!(cached_buf, agent.context.buffer);
 
-    agent.switch_mem(Memory::ShortTerm);
+    agent.switch_mem(consoxide::context::MemoryVariant::new_short());
     assert_eq!(cached_buf, agent.context.buffer);
 }

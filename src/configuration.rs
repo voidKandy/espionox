@@ -48,7 +48,7 @@ impl std::fmt::Display for DatabaseSettings {
 impl ConfigEnv {
     fn config_file_path(&self) -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-        let configuration_dir = base_path.join("consoxide/configuration");
+        let configuration_dir = base_path.join("configuration");
         let filename = match self {
             Self::Default => "default",
             Self::Testing => "testing",
