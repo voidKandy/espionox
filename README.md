@@ -1,5 +1,5 @@
-# Espionoxide
 
+# 🕵️
 
 # Simplifying Ai Agents in Rust 🦀
 There are hundred of Ai agent applications written Typescript and Python. So this repo is an attempt to make doing the same in Rust just as approachable.
