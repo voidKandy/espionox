@@ -7,20 +7,17 @@ pub use errors::AgentError;
 pub use settings::AgentSettings;
 pub use streaming_utils::*;
 
+#[cfg(feature = "long_term_memory")]
+use crate::{
+    context::integrations::database::{Embedded, EmbeddedCoreStruct},
+    core::{File, FileChunk},
+    language_models::embed,
+};
+
 use crate::{
     configuration::ConfigEnv,
-    context::{
-        integrations::{
-            core::BufferDisplay,
-            database::{Embedded, EmbeddedCoreStruct},
-        },
-        Context, Memory,
-    },
-    core::{File, FileChunk},
-    language_models::{
-        embed,
-        openai::{functions::CustomFunction, gpt::Gpt},
-    },
+    context::{integrations::core::BufferDisplay, Context, MemoryVariant},
+    language_models::openai::{functions::CustomFunction, gpt::Gpt},
 };
 use serde_json::Value;
 use std::{sync::mpsc, thread};
@@ -44,11 +41,11 @@ impl Agent {
         let gpt = Gpt::default();
         let mut context = match &settings.memory_override {
             Some(memory) => Context::build(memory.clone(), env),
-            None => Context::build(Memory::default(), env),
+            None => Context::build(MemoryVariant::default(), env),
         };
 
         match context.memory {
-            Memory::Forget => context.buffer = settings.init_prompt,
+            MemoryVariant::Forget => context.buffer = settings.init_prompt,
             _ => {
                 if context.buffer.len() == 0 {
                     context.buffer = settings.init_prompt;
@@ -59,46 +56,12 @@ impl Agent {
         Ok(Agent { gpt, context })
     }
 
-    pub fn vector_query_files(&mut self, query: &str) -> Vec<EmbeddedCoreStruct> {
-        let query_vector = embed(query).expect("Failed to embed query");
-        File::get_from_embedding(query_vector.into(), self.context.pool())
-    }
-
-    pub fn vector_query_chunks(&mut self, query: &str) -> Vec<EmbeddedCoreStruct> {
-        let query_vector = embed(query).expect("Failed to embed query");
-        FileChunk::get_from_embedding(query_vector.into(), self.context.pool())
-    }
-
-    pub fn build_with<F>(agent: &mut Agent, mut func: F) -> Agent
-    where
-        F: FnMut(&mut Agent) -> &mut Agent,
-    {
-        std::mem::take(func(agent))
-    }
-
-    pub fn do_with<F>(&mut self, mut func: F)
-    where
-        F: FnMut(&mut Self),
-    {
-        std::mem::take(&mut func(self))
-    }
-
-    pub fn info_display_string(&self) -> String {
-        match &self.context.memory {
-            Memory::Forget => "Forget".to_string(),
-            Memory::ShortTerm => "ShortTerm".to_string(),
-            Memory::LongTerm(thread) => {
-                format!("{}", thread.clone())
-            }
-        }
-    }
-
     pub fn format_to_buffer(&mut self, o: impl BufferDisplay) {
         let mem = o.buffer_display();
         self.context.buffer.push_std("user", &mem);
     }
 
-    pub fn switch_mem(&mut self, memory: Memory) {
+    pub fn switch_mem(&mut self, memory: MemoryVariant) {
         self.context.save_buffer();
         self.context = Context::build(memory, self.context.env.to_owned());
     }
@@ -172,5 +135,30 @@ impl Agent {
             tokio::sync::mpsc::channel(50);
         CompletionStreamingThread::spawn_poll_stream_for_tokens(response_stream, tx);
         CompletionReceiverHandler::from(rx)
+    }
+
+    #[cfg(feature = "long_term_memory")]
+    pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
+        match &self.context.memory {
+            MemoryVariant::Long(mem) => {
+                let query_vector = embed(query).expect("Failed to embed query");
+                Some(File::get_from_embedding(query_vector.into(), &mem.pool))
+            }
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "long_term_memory")]
+    pub fn vector_query_chunks(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
+        match &self.context.memory {
+            MemoryVariant::Long(mem) => {
+                let query_vector = embed(query).expect("Failed to embed query");
+                Some(FileChunk::get_from_embedding(
+                    query_vector.into(),
+                    &mem.pool,
+                ))
+            }
+            _ => None,
+        }
     }
 }

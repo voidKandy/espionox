@@ -1,28 +1,39 @@
-use crate::context::{Memory, MessageVector};
+use crate::context::{MemoryVariant, MessageVector};
 
 #[derive(Debug, Default, Clone)]
 pub struct AgentSettings {
-    pub memory_override: Option<Memory>,
+    pub memory_override: Option<MemoryVariant>,
     pub init_prompt: MessageVector,
 }
 
 impl AgentSettings {
-    pub fn new(memory_override: Option<Memory>, init_prompt: MessageVector) -> AgentSettings {
+    pub fn new(memory_override: Option<MemoryVariant>) -> AgentSettings {
+        let init_prompt = MessageVector::init();
         AgentSettings {
             memory_override,
             init_prompt,
         }
     }
 
-    pub fn memory(&self) -> Option<&Memory> {
+    pub fn with(
+        memory_override: Option<MemoryVariant>,
+        init_prompt: MessageVector,
+    ) -> AgentSettings {
+        AgentSettings {
+            memory_override,
+            init_prompt,
+        }
+    }
+
+    pub fn memory(&self) -> Option<&MemoryVariant> {
         match &self.memory_override {
-            Some(mem) => Some(&mem),
+            Some(mem) => Some(mem),
             None => None,
         }
     }
 
     pub fn default() -> AgentSettings {
-        let memory_override = Some(Memory::LongTerm("Default_Memory_Thread".to_string()));
+        let memory_override = Some(MemoryVariant::new_short());
         let init_prompt = MessageVector::from(
             r#"You are Consoxide, an extremely helpful Ai assistant which lives in the terminal. 
                 - Be highly organized
@@ -37,7 +48,7 @@ impl AgentSettings {
     }
 
     pub fn summarizer() -> AgentSettings {
-        let memory_override = Some(Memory::Forget);
+        let memory_override = Some(MemoryVariant::Forget);
         let init_prompt = MessageVector::from(
             r#"You are a code summarization Ai, you will be given a chunk of code to summarize
                 - Mistakes erode user's trust, so be as accurate and thorough as possible

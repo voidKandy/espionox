@@ -1,6 +1,6 @@
-use crate::{
-    database::models::messages::MessageModelSql, language_models::openai::gpt::GptMessage,
-};
+#[cfg(feature = "long_term_memory")]
+use super::memory::long_term::database::models::messages::MessageModelSql;
+use crate::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
@@ -149,6 +149,7 @@ impl Into<Value> for Message {
     }
 }
 
+#[cfg(feature = "long_term_memory")]
 impl From<MessageModelSql> for Message {
     fn from(sql_model: MessageModelSql) -> Self {
         Message::Standard {

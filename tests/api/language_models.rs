@@ -1,4 +1,4 @@
-use consoxide::language_models::huggingface::sentence_embeddings::embed;
+use espionox::language_models::huggingface::sentence_embeddings::embed;
 
 #[cfg(test)]
 #[ignore]
