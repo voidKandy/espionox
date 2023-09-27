@@ -149,6 +149,7 @@ impl Into<Value> for Message {
     }
 }
 
+#[cfg(feature = "long_term_memory")]
 impl From<MessageModelSql> for Message {
     fn from(sql_model: MessageModelSql) -> Self {
         Message::Standard {
