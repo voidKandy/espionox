@@ -42,7 +42,7 @@ impl Agent {
 
     #[tracing::instrument(name = "Prompt GPT API for response")]
     pub async fn prompt(&mut self, input: impl BufferDisplay) -> Result<String, AgentError> {
-        self.context.push_to_buffer("user", input);
+        // self.context.push_to_buffer("user", input);
 
         let gpt = &self.gpt;
         let buffer = self.context.buffer();
@@ -53,8 +53,8 @@ impl Agent {
             .parse()
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
 
-        self.context
-            .push_to_buffer("assistant", response.to_owned());
+        // self.context
+        //     .push_to_buffer("assistant", response.to_owned());
         Ok(response)
     }
 
