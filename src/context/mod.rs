@@ -65,6 +65,7 @@ impl Context {
         self.buffer_source = source;
     }
 
+    #[tracing::instrument(name = "Update current context buffer")]
     pub fn push_to_buffer(&mut self, role: &str, displayable: impl BufferDisplay) {
         match self.buffer_source {
             MemoryVariant::ShortTerm => self

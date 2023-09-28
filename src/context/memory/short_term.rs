@@ -46,7 +46,7 @@ impl Memory for ShortTermMemory {
         }
     }
 
-    #[tracing::instrument(name = "Save messages to cached static MessageVector")]
+    #[tracing::instrument(name = "Save messages to ShortTerm")]
     fn save(&mut self, messages: MessageVector) {
         match self {
             Self::Cache(mem) => {

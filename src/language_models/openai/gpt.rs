@@ -13,6 +13,7 @@ use std::error::Error;
 
 pub use super::errors::GptError;
 
+// Add tokens and status fields here
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
