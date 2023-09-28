@@ -26,7 +26,7 @@ impl SummarizerAgent {
             .finish()
     }
     #[tracing::instrument(name = "Summarize any struct that implements BufferDisplay")]
-    pub async fn summarize(content: &impl BufferDisplay) -> Result<String, AgentError> {
+    pub async fn summarize(content: impl BufferDisplay) -> Result<String, AgentError> {
         Self::init().0.prompt(content).await
     }
 }

@@ -65,7 +65,7 @@ impl Context {
         self.buffer_source = source;
     }
 
-    pub fn push_to_buffer(&mut self, role: &str, displayable: &impl BufferDisplay) {
+    pub fn push_to_buffer(&mut self, role: &str, displayable: impl BufferDisplay) {
         match self.buffer_source {
             MemoryVariant::ShortTerm => self
                 .short_term

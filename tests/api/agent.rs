@@ -28,6 +28,18 @@ async fn stream_completion_works() {
     }
 }
 
+#[tokio::test]
+fn prompting_can_be_blocked() {
+    let test = std::thread::spawn(async move {
+        crate::helpers::init_test();
+        let mut agent = test_agent();
+        let response = agent.prompt("Hello").await;
+        assert!(response.is_ok())
+    })
+    .join();
+    assert!(test.is_ok());
+}
+
 #[ignore]
 #[tokio::test]
 async fn function_agent_test() {
@@ -65,7 +77,7 @@ async fn function_agent_test() {
 async fn prompt_agent_test() {
     let mut agent = test_agent();
     let prompt = String::from("Hello chat agent");
-    let response = agent.prompt(&prompt).await.expect("Failed to get response");
+    let response = agent.prompt(prompt).await.expect("Failed to get response");
     println!("{:?}", &response);
     assert!(true);
 }
