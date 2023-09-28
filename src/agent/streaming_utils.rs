@@ -83,7 +83,7 @@ impl CompletionStreamingThread {
     async fn poll_stream_for_tokens(
         stream: &mut CompletionStream,
     ) -> Result<Option<String>, GptError> {
-        while let Ok(chunk) = stream.next().await.expect("No next byte") {
+        while let Some(Ok(chunk)) = stream.next().await {
             match StreamResponse::from_byte_chunk(chunk).await {
                 Ok(response_option) => {
                     if let Some(stream_response) = response_option {
