@@ -92,7 +92,7 @@ impl File {
     }
 
     pub async fn get_summary(&mut self) {
-        let summary = SummarizerAgent::summarize(self)
+        let summary = SummarizerAgent::summarize(self.to_owned())
             .await
             .expect("Failed to get summary");
         self.summary = Some(summary);
