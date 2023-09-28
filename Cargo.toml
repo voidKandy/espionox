@@ -8,15 +8,18 @@ path = "src/lib.rs"
 
 
 [features]
-default = []
-long_term_memory = ["dep:sqlx", "dep:pgvector"]
+default = [
+# "long_term_memory"
+]
+
+long_term_memory = ["dep:sqlx", "dep:pgvector", "dep:pollster"]
 # egui=["dep:eframe", "dep:lazy_async_promise"]
 
 [dependencies]
-# Change this to optional=true when done dveloping
 
 sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional = true }
 pgvector = { version = "0.2.2", features = ["sqlx", "postgres"], optional = true }
+pollster = { version = "0.3.0", optional = true }
 
 anyhow = "1.0.71"
 rust-bert = "0.21.0"

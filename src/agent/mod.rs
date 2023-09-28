@@ -44,8 +44,8 @@ impl Agent {
     pub async fn prompt(&mut self, input: impl BufferDisplay) -> Result<String, AgentError> {
         self.context.push_to_buffer("user", input);
 
-        let gpt = self.gpt.clone();
-        let buffer = self.context.buffer().clone();
+        let gpt = &self.gpt;
+        let buffer = self.context.buffer();
         let response = gpt
             .completion(&buffer.into())
             .await
@@ -56,17 +56,6 @@ impl Agent {
         self.context
             .push_to_buffer("assistant", response.to_owned());
         Ok(response)
-        // match rx.try_recv().unwrap() {
-        //     Ok(response) => {
-        //         let result = response
-        //             .parse()
-        //             .expect("Failed to parse completion response");
-        //         self.context.push_to_buffer("assistant", &result);
-        //
-        //         Ok(result)
-        //     }
-        //     Err(err) => Err(err),
-        // }
     }
 
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]
