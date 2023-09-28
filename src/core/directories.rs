@@ -1,6 +1,6 @@
 use super::File;
-use std::fs;
 use std::path::Path;
+use std::{fmt::Display, fs};
 
 #[derive(Debug, Clone)]
 pub struct Directory {
@@ -9,6 +9,46 @@ pub struct Directory {
     pub files: Vec<File>,
 }
 
+impl Display for Directory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = {
+            let mut payload = String::new();
+            for dir in self.children.iter() {
+                let mut files_payload = vec![];
+                dir.files.iter().for_each(|f| {
+                    files_payload.push(match &f.summary {
+                        None => format!(
+                            "FilePath: {}, Content: {}",
+                            &f.filepath.display(),
+                            &f.content()
+                        ),
+                        Some(summary) => format!(
+                            "FilePath: {}, Content: {}, Summary: {}",
+                            &f.filepath.display(),
+                            &f.content(),
+                            &summary
+                        ),
+                    })
+                });
+                let dir_payload = format!(
+                    "Directory path: {}, Child Directories: [{:?}], Files: [{}]",
+                    dir.dirpath.display().to_string(),
+                    dir.children
+                        .clone()
+                        .into_iter()
+                        .map(|c| c.dirpath.display().to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    files_payload.join(", ")
+                );
+                payload = format!("{}, {}", payload, dir_payload);
+            }
+            payload
+        };
+
+        write!(f, "{}", string)
+    }
+}
 impl From<&str> for Directory {
     fn from(path: &str) -> Self {
         let dirpath = fs::canonicalize(Path::new(path)).unwrap();

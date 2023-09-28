@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::process::{Command, Stdio};
+use std::{
+    fmt::Display,
+    process::{Command, Stdio},
+};
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, Debug)]
 pub struct Io {
@@ -7,6 +10,12 @@ pub struct Io {
     pub o: String,
 }
 
+impl Display for Io {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = format!("Input: {}, Output: {}", &self.i, &self.o,);
+        write!(f, "{}", string)
+    }
+}
 impl Io {
     fn run_input(input: &str) -> String {
         let args: Vec<&str> = input.split_whitespace().collect();

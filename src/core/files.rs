@@ -1,21 +1,52 @@
 use std::fs;
-use std::path::Path;
+use std::{fmt::Display, path::Path};
 use tracing::{self, info};
+
+use crate::agent::spo_agents::SummarizerAgent;
 
 #[derive(Debug, Clone)]
 pub struct File {
     pub filepath: Box<Path>,
     pub chunks: Vec<FileChunk>,
     pub summary: Option<String>,
-    // pub summary_embedding: Vec<f32>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FileChunk {
     pub parent_filepath: Box<Path>,
     pub content: String,
-    // pub content_embedding: Vec<f32>,
     pub index: i16,
+}
+
+impl Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match &self.summary {
+            None => format!(
+                "FilePath: {}, Content: {}",
+                &self.filepath.display(),
+                &self.content()
+            ),
+            Some(summary) => format!(
+                "FilePath: {}, Content: {}, Summary: {}",
+                &self.filepath.display(),
+                &self.content(),
+                &summary
+            ),
+        };
+        write!(f, "{}", string)
+    }
+}
+
+impl Display for FileChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = format!(
+            "FilePath: {}, ChunkIndex: {}, Content: {}",
+            &self.parent_filepath.display(),
+            &self.index,
+            &self.content,
+        );
+        write!(f, "{}", string)
+    }
 }
 
 impl From<&str> for File {
@@ -58,5 +89,12 @@ impl File {
         let mut content: Vec<&str> = Vec::new();
         self.chunks.iter().for_each(|c| content.push(&c.content));
         content.join("\n")
+    }
+
+    pub async fn get_summary(&mut self) {
+        let summary = SummarizerAgent::summarize(self)
+            .await
+            .expect("Failed to get summary");
+        self.summary = Some(summary);
     }
 }

@@ -1,6 +1,7 @@
 use crate::configuration::ConfigEnv;
 
 use super::functions::config::Function;
+use anyhow::anyhow;
 use bytes::Bytes;
 use futures::Stream;
 #[allow(unused)]
@@ -144,7 +145,10 @@ impl StreamResponse {
                 }
                 Err(err) => {
                     if err.to_string().contains("expected value") {
-                        return Err(GptError::Completion);
+                        return Err(GptError::Recoverable(format!(
+                            "Possibly recoverable error: {:?}",
+                            err
+                        )));
                     }
                 }
             }
@@ -193,14 +197,13 @@ impl GptConfig {
 
 impl Default for Gpt {
     fn default() -> Self {
-        let config = GptConfig::init(ConfigEnv::Default);
+        let config = GptConfig::init(ConfigEnv::default());
         Gpt { config }
     }
 }
 
 impl Gpt {
     pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
-        // Completions will randomly not return any choices, so we handle it
         if err.to_string().contains("missing field `choices`") {
             let message = format!("Something trivial went wrong please try again");
             GptResponse {
@@ -221,7 +224,7 @@ impl Gpt {
     pub async fn stream_completion(
         &self,
         context: &Vec<Value>,
-    ) -> anyhow::Result<CompletionStream> {
+    ) -> Result<CompletionStream, GptError> {
         let payload = json!({
             "model": self.config.model,
             "messages": context,
@@ -240,13 +243,14 @@ impl Gpt {
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?
+            .await
+            .map_err(|err| GptError::Completion(err))?
             .bytes_stream();
 
         Ok(Box::new(response_stream))
     }
 
-    pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, Box<dyn Error>> {
+    pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
         let payload = json!({"model": self.config.model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
         tracing::info!("PAYLOAD: {:?}", &payload);
         match self
@@ -259,14 +263,12 @@ impl Gpt {
             .send()
             .await
         {
-            Ok(response) => {
-                let gpt_response: GptResponse = response.json().await?;
-                tracing::info!("GPT RESPONSE: {:?}", gpt_response);
-                Ok(gpt_response)
-            }
+            Ok(response) => response.json().await.map_err(|err| {
+                GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
+            }),
             Err(err) => {
                 println!("Completion Error: {err:?}");
-                Err(err.into())
+                Err(GptError::Completion(err))
             }
         }
     }
@@ -276,7 +278,7 @@ impl Gpt {
         &self,
         context: &Vec<Value>,
         function: &Function,
-    ) -> Result<GptResponse, Box<dyn Error>> {
+    ) -> Result<GptResponse, GptError> {
         let payload = json!({
             "model": self.config.model,
             "messages": context,
@@ -295,6 +297,5 @@ impl Gpt {
             .await?;
         let gpt_response = response.json().await?;
         Ok(gpt_response)
-        // Err("tst".into())
     }
 }

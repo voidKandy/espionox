@@ -63,7 +63,7 @@ impl CompletionStreamingThread {
                     },
                     Err(err) => {
                         let error = match err {
-                            GptError::Completion => AgentError::RetryError,
+                            GptError::Recoverable(_) => AgentError::RetryError,
                             _ => err.into(),
                         };
 
