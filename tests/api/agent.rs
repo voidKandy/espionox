@@ -14,7 +14,7 @@ async fn stream_completion_works() {
     let prompt =
         String::from("Hello chat agent, please respond with a long sentence on any subject");
     let mut receiver = agent
-        .stream_prompt(&prompt)
+        .stream_prompt(prompt)
         .await
         .expect("Failed to get stream receiver");
 
@@ -28,13 +28,16 @@ async fn stream_completion_works() {
     }
 }
 
-#[tokio::test]
-fn prompting_can_be_blocked() {
-    let test = std::thread::spawn(async move {
+#[test]
+fn prompting_can_be_blocked_on_a_tokio_runtime() {
+    let test = std::thread::spawn(|| {
         crate::helpers::init_test();
         let mut agent = test_agent();
-        let response = agent.prompt("Hello").await;
-        assert!(response.is_ok())
+
+        let response = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(agent.prompt(String::from("Hello")));
+        assert!(response.is_ok());
     })
     .join();
     assert!(test.is_ok());
@@ -48,7 +51,7 @@ async fn function_agent_test() {
     let response_json = agent
         .function_prompt(
             weather_test_function(),
-            &"What's the weather like in Detroit michigan in celcius?",
+            "What's the weather like in Detroit michigan in celcius?".to_string(),
         )
         .await
         .expect("Failed to get function response");
