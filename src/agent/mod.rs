@@ -73,7 +73,7 @@ impl Agent {
     pub async fn function_prompt(
         &mut self,
         custom_function: CustomFunction,
-        input: &impl BufferDisplay,
+        input: impl BufferDisplay,
     ) -> Result<Value, AgentError> {
         self.context.push_to_buffer("user", input);
         let func = custom_function.function();
@@ -93,7 +93,7 @@ impl Agent {
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(
         &mut self,
-        input: &impl BufferDisplay,
+        input: impl BufferDisplay,
     ) -> Result<CompletionReceiverHandler, AgentError> {
         self.context.push_to_buffer("user", input);
         let gpt = self.gpt.clone();

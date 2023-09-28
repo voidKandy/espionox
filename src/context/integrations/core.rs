@@ -7,7 +7,7 @@ pub trait BufferDisplay: std::fmt::Debug + Display + ToString {
     }
 }
 impl BufferDisplay for String {}
-impl BufferDisplay for &str {}
+impl BufferDisplay for str {}
 
 impl BufferDisplay for FileChunk {}
 impl BufferDisplay for File {}
