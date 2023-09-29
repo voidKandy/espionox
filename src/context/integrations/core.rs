@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 pub trait BufferDisplay: std::fmt::Debug + Display + ToString {
     fn buffer_display(&self, role: &str) -> Message {
-        Message::new_standard(role, &format!("{}", self.to_string()))
+        Message::new_standard(role, &format!("{}", self.to_string().replace('\n', "")))
     }
 }
 impl BufferDisplay for String {}
