@@ -28,6 +28,7 @@ impl Default for MemoryCache {
     }
 }
 
+#[allow(unused)]
 impl MemoryCache {
     fn push_file(&mut self, file: File) {
         self.embedded_files.push(file);
