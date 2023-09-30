@@ -3,6 +3,7 @@ There are hundred of Ai agent applications written Typescript and Python. Espion
 
 ## Current features
  - Easy API for initializing `Agent` structs and using them to prompt OpenAi's endpoints
+ - Runtime Short Time Memory
  - Postgres database driven Long Term Memory behind `"long_term_memory"` feature flag
  - Embed and query files and directories using long term memory
 
