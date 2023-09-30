@@ -1,30 +1,32 @@
 use super::super::{Agent, AgentSettings};
 use crate::{
-    configuration::ConfigEnv,
-    context::{integrations::core::BufferDisplay, MemoryVariant, MessageVector},
+    agent::AgentError,
+    context::{integrations::core::BufferDisplay, short_term::ShortTermMemory, MessageVector},
 };
 
 #[derive(Debug)]
 pub struct SummarizerAgent(Agent);
 
 impl SummarizerAgent {
-    pub fn init(env: ConfigEnv) -> SummarizerAgent {
-        SummarizerAgent(Agent::build(Self::settings(), env).expect("Failed to init special Agent"))
+    pub fn init() -> SummarizerAgent {
+        SummarizerAgent(Agent::build(Self::settings()).expect("Failed to init special Agent"))
     }
     fn settings() -> AgentSettings {
-        let memory_override = Some(MemoryVariant::Forget);
-        let init_prompt = MessageVector::from(
+        let stm = ShortTermMemory::Forget;
+        let init_prompt = MessageVector::init_with_system_prompt(
             r#"You are a code summarization Ai, you will be given a chunk of code to summarize
                 - Mistakes erode user's trust, so be as accurate and thorough as possible
                 - Be highly organized 
                 - Do not use lists or anything resembling a list in your summary
                 - think through your response step by step, your summary should be succinct but accurate"#,
         );
-        AgentSettings::new(memory_override, init_prompt)
+        AgentSettings::new()
+            .init_prompt(init_prompt)
+            .short_term(stm)
+            .finish()
     }
     #[tracing::instrument(name = "Summarize any struct that implements BufferDisplay")]
-    pub fn summarize(&mut self, content: &mut impl BufferDisplay) -> String {
-        self.0.switch_mem(MemoryVariant::Forget);
-        self.0.prompt(&content.buffer_display())
+    pub async fn summarize(content: impl BufferDisplay) -> Result<String, AgentError> {
+        Self::init().0.prompt(content).await
     }
 }

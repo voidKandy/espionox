@@ -1,11 +1,7 @@
-use super::super::{
-    long_term::database::{self, handlers, models, vector_embeddings::EmbeddingVector, DbPool},
-    MessageVector,
+use super::super::long_term::feature::database::{
+    self, vector_embeddings::EmbeddingVector, DbPool,
 };
-use crate::{
-    core::{File, FileChunk},
-    language_models::embed,
-};
+use crate::core::{File, FileChunk};
 use std::{any::Any, thread};
 use tokio::runtime::Runtime;
 

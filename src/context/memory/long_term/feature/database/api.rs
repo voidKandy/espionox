@@ -52,11 +52,8 @@ impl CreateFileBody {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let summary = match &file.summary {
             None => {
-                tracing::info!("File has no summary, getting summary");
-                let sum = SummarizerAgent::init(env).summarize(file);
-                file.summary = Some(sum.clone());
-                tracing::info!("File summary got");
-                sum
+                tracing::warn!("File has no summary, consider summarizing before embedding");
+                String::new()
             }
             Some(summary) => summary.to_string(),
         };

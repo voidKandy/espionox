@@ -15,7 +15,6 @@ impl DatabaseSettings {
 
     pub fn with_db(&self) -> PgConnectOptions {
         self.without_db().database(&self.database_name)
-        // options.log_statements(tracing_log::log::LevelFilter::Trace);
     }
 }
 

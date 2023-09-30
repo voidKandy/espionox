@@ -2,9 +2,8 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ConfigEnv {
-    Default,
-    Testing,
+pub struct ConfigEnv {
+    config_file_name: String,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
@@ -31,7 +30,9 @@ pub struct DatabaseSettings {
 
 impl Default for ConfigEnv {
     fn default() -> Self {
-        Self::Default
+        Self {
+            config_file_name: "default".to_string(),
+        }
     }
 }
 
@@ -46,18 +47,19 @@ impl std::fmt::Display for DatabaseSettings {
 }
 
 impl ConfigEnv {
+    pub fn new(filename: &str) -> Self {
+        Self {
+            config_file_name: filename.to_string(),
+        }
+    }
     fn config_file_path(&self) -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let configuration_dir = base_path.join("configuration");
-        let filename = match self {
-            Self::Default => "default",
-            Self::Testing => "testing",
-        };
         PathBuf::from(
             format!(
                 "{}/{}.yaml",
                 configuration_dir.display().to_string(),
-                filename
+                self.config_file_name
             )
             .as_str(),
         )
@@ -65,10 +67,10 @@ impl ConfigEnv {
 
     #[tracing::instrument(name = "Get settings from environment")]
     pub fn get_settings(&self) -> Result<GlobalSettings, config::ConfigError> {
-        let default_config_path = Self::Default.config_file_path();
+        let default_config_path = Self::default().config_file_path();
         let mut default_config_override: Option<PathBuf> = None;
-        match self {
-            Self::Default => {
+        match self.config_file_name.as_str() {
+            "default" => {
                 tracing::info!("Using default database configuration");
             }
             _ => {

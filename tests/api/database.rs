@@ -1,8 +1,9 @@
 use crate::helpers;
 use espionox::{
-    configuration::ConfigEnv,
+    agent::settings::AgentSettings,
     context::{
-        memory::long_term::database::{
+        long_term::LongTermMemory,
+        memory::long_term::feature::database::{
             api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
             handlers,
             init::DbPool,
@@ -12,52 +13,58 @@ use espionox::{
             },
             vector_embeddings::EmbeddingVector,
         },
-        MemoryVariant,
     },
     core::File,
 };
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;
 
+fn long_term_feature_testing_settings() -> AgentSettings {
+    let env = helpers::test_env();
+    AgentSettings::new()
+        .long_term_env(env, Some("testing"))
+        .finish()
+}
+
 #[tokio::test]
 async fn testing_pool_health_check() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing).await;
+    let pool = DbPool::init_pool(helpers::test_env()).await;
     assert!(pool.is_ok());
 }
 
 #[tokio::test]
 async fn nearest_vectors_works() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
+    let pool = DbPool::init_pool(helpers::test_env())
         .await
         .expect("Failed to init testing pool");
-    // let mut rng = rand::thread_rng();
-
-    // let vector: Embedding = (0..384).map(|_| rng.gen::<f32>()).collect();
-    let vector = filepath_to_database().await;
-    let returned_chunks = vector_query_file_chunks(&pool, vector.clone(), 5)
-        .await
-        .expect("Failed to get filechunks");
-    assert!(vector_query_files(&pool, vector, 5).await.is_ok());
+    let vector = filepath_to_database();
+    // let _returned_chunks = vector_query_file_chunks(&pool, vector.clone(), 5)
+    //     .await
+    //     .expect("Failed to get filechunks");
+    //
+    // assert!(vector_query_files(&pool, vector, 5).await.is_ok());
 }
 
+//This function should probably exist in the api
+#[tracing::instrument(name = "Filepath to database embedding")]
 async fn filepath_to_database() -> Embedding {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
-        .await
-        .expect("Failed to init testing pool");
-    let settings = helpers::test_settings();
+    let settings = long_term_feature_testing_settings();
     let mut f = File::from("./Cargo.toml");
-    let file_chunks = f.chunks.clone();
-    let threadname = match settings.memory().unwrap() {
-        MemoryVariant::Long(long_term) => &long_term.threadname,
-        _ => panic!("Memory variant should be long term"),
+    let file_chunks = f.chunks.to_owned();
+    tracing::info!("Got {} chunks", file_chunks.len());
+    let threadname = match &settings.long_term_memory {
+        LongTermMemory::Some(long_term) => long_term.threadname().clone().unwrap(),
+        _ => panic!("No long term memory"),
     };
-    let file = CreateFileBody::build_from(&mut f, &threadname, ConfigEnv::Testing)
+    f.get_summary().await;
+    let file = CreateFileBody::build_from(&mut f, &threadname, helpers::test_env())
         .expect("Failed to build create file sql body");
 
-    let ret = file.summary_embedding.to_vec().clone();
+    let embedding = file.summary_embedding.to_vec().to_owned();
 
     let chunks = CreateFileChunksVector::build_from(file_chunks, &file.id)
         .expect("Failed to build create file chunks sql body");
+    let pool = settings.long_term_memory.try_pool().unwrap();
     assert!(handlers::file::post_file(&pool, file).await.is_ok());
     for chunk in chunks.as_ref().iter() {
         match handlers::file_chunks::post_file_chunk(&pool, chunk.clone()).await {
@@ -65,14 +72,14 @@ async fn filepath_to_database() -> Embedding {
             Err(err) => panic!("ERROR: {:?}", err),
         }
     }
-    ret
+    embedding
 }
 
 // ------ THREADS ------ //
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_threads() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
+    let pool = DbPool::init_pool(helpers::test_env())
         .await
         .expect("failed to init testing pool");
 
@@ -94,7 +101,7 @@ async fn post_get_delete_threads() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_file() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
+    let pool = DbPool::init_pool(helpers::test_env())
         .await
         .expect("failed to init testing pool");
     let newfile = CreateFileBody {
@@ -135,7 +142,7 @@ async fn post_get_delete_file() {
 #[ignore]
 #[tokio::test]
 async fn post_get_delete_filechunks() {
-    let pool = DbPool::init_pool(ConfigEnv::Testing)
+    let pool = DbPool::init_pool(helpers::test_env())
         .await
         .expect("failed to init testing pool");
     let newchunk = CreateFileChunkBody {

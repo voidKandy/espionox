@@ -1,5 +1,3 @@
-#[cfg(feature = "long_term_memory")]
-use super::memory::long_term::database::models::messages::MessageModelSql;
 use crate::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -26,6 +24,7 @@ impl Message {
         let content = content.to_string();
         Message::Standard { role, content }
     }
+
     pub fn role(&self) -> String {
         match self {
             Self::Standard { role, .. } => role.to_owned(),
@@ -41,12 +40,6 @@ impl Message {
     }
 }
 
-impl From<&str> for MessageVector {
-    fn from(system_prompt: &str) -> Self {
-        MessageVector::new(vec![Message::new_standard("system", system_prompt)])
-    }
-}
-
 impl ToString for MessageVector {
     fn to_string(&self) -> String {
         let mut output = String::new();
@@ -57,9 +50,18 @@ impl ToString for MessageVector {
     }
 }
 
+impl From<Vec<Message>> for MessageVector {
+    fn from(value: Vec<Message>) -> Self {
+        Self(value)
+    }
+}
+
 impl MessageVector {
-    pub fn new(messages: Vec<Message>) -> Self {
-        MessageVector(messages)
+    pub fn new(message: Message) -> Self {
+        MessageVector::from(vec![message])
+    }
+    pub fn init_with_system_prompt(system_prompt: &str) -> Self {
+        MessageVector::from(vec![Message::new_standard("system", system_prompt)])
     }
     pub fn init() -> Self {
         MessageVector(vec![])
@@ -145,16 +147,6 @@ impl Into<Value> for Message {
                 let func_call_json: Value = function_call.into();
                 json!({"role": "assistant", "content": null, "function_call": func_call_json})
             }
-        }
-    }
-}
-
-#[cfg(feature = "long_term_memory")]
-impl From<MessageModelSql> for Message {
-    fn from(sql_model: MessageModelSql) -> Self {
-        Message::Standard {
-            role: sql_model.role,
-            content: sql_model.content,
         }
     }
 }
