@@ -20,6 +20,6 @@ let prompt = "Hello chat agent!";
 let response = agent.prompt(prompt).await.unwrap();
 println!("{}", response);
 ```
-Docs are not yet written, for more info on the API check out the tests folder or consult this (WIP example GUI)[https://github.com/voidKandy/espionox_egui_demo/tree/master]
+Docs are not yet written, for more info on the API check out the tests folder or consult this [WIP example GUI](https://github.com/voidKandy/espionox_egui_demo/tree/master)
 
 Please feel free to reach out with any questions, suggestions, issues or anything else :)
