@@ -80,6 +80,7 @@ COMMIT;
 ```
 3. Fill out the relavent section in `configuration/default.yaml` and add the ***DATABASE_URL*** to your `.env` 
 
+## API overview
 At the highest level of abstraction initializing an agent and prompting for a response can be done in a few lines of code: 
 ```
 let mut agent = espionox::agent::Agent::default();
@@ -89,6 +90,5 @@ println!("{}", response);
 ```
 Docs are not yet written, for more info on the API check out the tests folder or consult this [WIP example GUI](https://github.com/voidKandy/espionox_egui_demo/tree/master)
 
-
-
+espionox is very early in development and everything in the API may be subject to change
 Please feel free to reach out with any questions, suggestions, issues or anything else :)
