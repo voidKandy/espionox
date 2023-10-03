@@ -4,14 +4,14 @@ use super::super::integrations::database::{EmbeddedCoreStruct, EmbeddedType};
 use super::{Memory, MessageVector};
 use crate::core::{File, FileChunk};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum ShortTermMemory {
     Cache(MemoryCache),
     #[default]
     Forget,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MemoryCache {
     pub messages: MessageVector,
     embedded_files: Vec<File>,

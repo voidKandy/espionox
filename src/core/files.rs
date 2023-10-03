@@ -4,14 +4,14 @@ use tracing::{self, info};
 
 use crate::agent::spo_agents::SummarizerAgent;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub filepath: Box<Path>,
     pub chunks: Vec<FileChunk>,
     pub summary: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileChunk {
     pub parent_filepath: Box<Path>,
     pub content: String,
