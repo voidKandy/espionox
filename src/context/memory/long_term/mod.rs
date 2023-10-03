@@ -6,7 +6,7 @@ use feature::{DbPool, MemoryThread};
 
 use crate::context::{Memory, MessageVector};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum LongTermMemory {
     #[default]
     None,
