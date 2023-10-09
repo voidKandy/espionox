@@ -1,3 +1,4 @@
+#[cfg(feature = "long_term_memory")]
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::path::PathBuf;
 
@@ -9,6 +10,7 @@ pub struct ConfigEnv {
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct GlobalSettings {
     pub language_model: LanguageModelSettings,
+    #[cfg(feature = "long_term_memory")]
     pub database: DatabaseSettings,
 }
 
@@ -18,6 +20,7 @@ pub struct LanguageModelSettings {
     pub api_key: String,
 }
 
+#[cfg(feature = "long_term_memory")]
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct DatabaseSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -36,6 +39,7 @@ impl Default for ConfigEnv {
     }
 }
 
+#[cfg(feature = "long_term_memory")]
 impl std::fmt::Display for DatabaseSettings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -88,6 +92,7 @@ impl ConfigEnv {
             let settings = config
                 .try_deserialize::<GlobalSettings>()
                 .expect("Failed to build custom settings");
+            #[cfg(feature = "long_term_memory")]
             tracing::info!("Database url from settings: \n{}", settings.database);
             return Ok(settings);
         }
@@ -95,6 +100,7 @@ impl ConfigEnv {
         let settings = config
             .try_deserialize::<GlobalSettings>()
             .expect("Failed to build settings");
+        #[cfg(feature = "long_term_memory")]
         tracing::info!("Database url from settings: \n{}", settings.database);
         Ok(settings)
     }
