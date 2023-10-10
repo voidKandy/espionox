@@ -19,6 +19,12 @@ pub struct MemoryThread {
     threadname: Option<String>,
 }
 
+impl PartialEq for MemoryThread {
+    fn eq(&self, other: &Self) -> bool {
+        self.threadname == other.threadname
+    }
+}
+
 #[cfg(feature = "long_term_memory")]
 impl From<MessageModelSql> for Message {
     fn from(sql_model: MessageModelSql) -> Self {
