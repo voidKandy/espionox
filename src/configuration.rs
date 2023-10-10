@@ -93,7 +93,12 @@ impl ConfigEnv {
                 .try_deserialize::<GlobalSettings>()
                 .expect("Failed to build custom settings");
             #[cfg(feature = "long_term_memory")]
-            tracing::info!("Database url from settings: \n{}", settings.database);
+            tracing::info!(
+                "Database url from settings set in .env: \n{}",
+                settings.database
+            );
+            #[cfg(feature = "long_term_memory")]
+            env::set_var("DYNAMIC_VARIABLE", &settings.database);
             return Ok(settings);
         }
         let config = config.build()?;
