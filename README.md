@@ -34,52 +34,7 @@ database:
 ***Only fill out the database section if you plan on using the long term memory feature***
 
 ## Using Long term memory 
-Soon a docker image for espionox will be made for easy configuration of the postgres database, but as of right here are the steps to configure the database.
-1. Create a Postgres server 
-2. Initialize a database with the following migration:
-```
-BEGIN;
-
-    CREATE EXTENSION IF NOT EXISTS vector;
-    
-    CREATE TABLE IF NOT EXISTS threads (
-        name TEXT NOT NULL PRIMARY KEY UNIQUE
-    );
-
-    CREATE TABLE IF NOT EXISTS files (
-        id TEXT PRIMARY KEY,
-        thread_name TEXT,
-        filepath TEXT NOT NULL,
-        parent_dir_path TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        summary_embedding vector(384)
-    );
-
-    CREATE TABLE IF NOT EXISTS file_chunks (
-        id TEXT PRIMARY KEY,
-        parent_file_id TEXT NOT NULL,
-        parent_filepath TEXT NOT NULL,
-        idx smallint NOT NULL,
-        content TEXT NOT NULL,
-        content_embedding vector(384)
-    );
-
-    CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        thread_name TEXT,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS io (
-        id TEXT PRIMARY KEY,
-        input TEXT,
-        output TEXT
-    );
-
-COMMIT;
-```
-3. Fill out the relavent section in `configuration/default.yaml` and add the ***DATABASE_URL*** to your `.env` 
+Check out the [this example repo](https://github.com/voidKandy/espionox_egui_demo/tree/master) for how to pull from the espionox docker image. Essentially, all you need to do is create an `.env` file with all the info provided in the example's `.env`. Then, create a `docker-compose.yaml` with all the relevant info. Run `docker-compose build` and finally `docker-compose up` to get your database running.
 
 ## API overview
 At the highest level of abstraction initializing an agent and prompting for a response can be done in a few lines of code: 
