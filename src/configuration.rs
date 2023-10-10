@@ -98,7 +98,7 @@ impl ConfigEnv {
                 settings.database
             );
             #[cfg(feature = "long_term_memory")]
-            std::env::set_var("DATABASE_URL", &settings.database);
+            std::env::set_var("DATABASE_URL", &settings.database.to_string().to_owned());
             return Ok(settings);
         }
         let config = config.build()?;
