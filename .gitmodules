@@ -1,6 +1,6 @@
 [submodule "lib"]
-    path = ./lib
-    url = https://github.com/voidKandy/espionox_lib
+	path = lib
+	url = https://github.com/voidKandy/espionox_lib
 
 [submodule "egui_demo"]
     path = ./egui_demo
