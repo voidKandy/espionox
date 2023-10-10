@@ -8,6 +8,6 @@
 
 [submodule "terminal_app"]
     path = ./terminal_app
-    url = https://github.com/voidKandy/espionox_lib
+    url = 
 
 
