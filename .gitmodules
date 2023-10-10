@@ -7,6 +7,6 @@
 	url = https://github.com/voidKandy/espionox_egui_demo
 
 [submodule "espionox-image"]
-    path = espionox-image
-    url = https://github.com/voidKandy/espionox-image
+	path = espionox-image
+	url = https://github.com/voidKandy/espionox-image
 
