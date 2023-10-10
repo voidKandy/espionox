@@ -6,10 +6,6 @@
     path = ./egui_demo
     url = https://github.com/voidKandy/espionox_egui_demo
 
-[submodule "terminal_app"]
-    path = ./terminal_app
-    url = https://github.com/voidKandy/terminal_app
-
 [submodule "espionox-image"]
     path = ./espionox-image
     url = https://github.com/voidKandy/espionox-image
