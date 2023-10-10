@@ -8,6 +8,9 @@
 
 [submodule "terminal_app"]
     path = ./terminal_app
-    url = 
+    url = https://github.com/voidKandy/terminal_app
 
+[submodule "espionox-image"]
+    path = ./espionox-image
+    url = https://github.com/voidKandy/espionox-image
 
