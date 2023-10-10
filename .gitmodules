@@ -1,0 +1,10 @@
+[submodule "./lib"]
+    path = ./lib
+    url = https://github.com/voidKandy/espionox
+
+
+[submodule "./egui_demo"]
+    path = ./egui_demo
+    url = https://github.com/voidKandy/espionox_egui_demo
+
+
