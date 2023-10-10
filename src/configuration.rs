@@ -98,7 +98,7 @@ impl ConfigEnv {
                 settings.database
             );
             #[cfg(feature = "long_term_memory")]
-            env::set_var("DYNAMIC_VARIABLE", &settings.database);
+            std::env::set_var("DATABASE_URL", &settings.database);
             return Ok(settings);
         }
         let config = config.build()?;
