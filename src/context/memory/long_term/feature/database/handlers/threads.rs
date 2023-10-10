@@ -1,9 +1,11 @@
 use super::super::init::DbPool;
 use super::super::models::threads::*;
+use dotenv::dotenv;
 use sqlx::postgres::PgQueryResult;
 use std::error::Error;
 
 pub async fn get_all_threads(pool: &DbPool) -> Result<Vec<String>, Box<dyn Error>> {
+    dotenv().ok();
     let threads: Vec<ThreadModelSql> =
         match sqlx::query_as!(ThreadModelSql, "SELECT * FROM threads",)
             .fetch_all(pool.as_ref())
@@ -16,6 +18,7 @@ pub async fn get_all_threads(pool: &DbPool) -> Result<Vec<String>, Box<dyn Error
 }
 
 pub async fn get_thread(pool: &DbPool, name: &str) -> anyhow::Result<ThreadModelSql> {
+    dotenv().ok();
     match sqlx::query_as!(
         ThreadModelSql,
         "SELECT * FROM threads WHERE name = $1",
