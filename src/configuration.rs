@@ -80,7 +80,7 @@ impl ConfigEnv {
             _ => {
                 let filepath = self.config_file_path();
                 tracing::info!(
-                    "Using database configuration from {}",
+                    "Using configuration from {}",
                     filepath.display().to_string()
                 );
                 default_config_override = Some(filepath);
@@ -93,12 +93,7 @@ impl ConfigEnv {
                 .try_deserialize::<GlobalSettings>()
                 .expect("Failed to build custom settings");
             #[cfg(feature = "long_term_memory")]
-            tracing::info!(
-                "Database url from settings set in .env: \n{}",
-                settings.database
-            );
-            #[cfg(feature = "long_term_memory")]
-            std::env::set_var("DATABASE_URL", &settings.database.to_string().to_owned());
+            tracing::info!("Database url from settings: \n{}", settings.database);
             return Ok(settings);
         }
         let config = config.build()?;
