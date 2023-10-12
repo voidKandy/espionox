@@ -1,3 +1,5 @@
+use crate::configuration::ConfigEnv;
+
 use super::*;
 
 #[cfg(feature = "long_term_memory")]
@@ -5,19 +7,28 @@ use super::long_term::feature::*;
 
 pub struct MemoryBuilder {
     init_prompt: Option<MessageVector>,
+    env: Option<ConfigEnv>, // Mostly for testing, can't think of a reason a dev would want to
+    // change the environment other than for that
     recall_mode: Option<RecallMode>,
     caching_mechanism: Option<CachingMechanism>,
-    long_term_memory: Option<LongTermMemory>,
+    long_term_thread: Option<String>,
 }
 
 impl MemoryBuilder {
     pub fn new() -> Self {
         Self {
             init_prompt: None,
+            env: None,
             recall_mode: None,
             caching_mechanism: None,
-            long_term_memory: None,
+            long_term_thread: None,
         }
+    }
+
+    #[cfg(feature = "long_term_memory")]
+    pub fn env(mut self, env: ConfigEnv) -> Self {
+        self.env = Some(env);
+        self
     }
 
     pub fn recall(mut self, recall: RecallMode) -> Self {
@@ -37,17 +48,29 @@ impl MemoryBuilder {
 
     #[cfg(feature = "long_term_memory")]
     pub fn long_term_thread(mut self, threadname: &str) -> Self {
-        let pool = DbPool::default();
-        self.long_term_memory = Some(LongTermMemory::from(MemoryThread::init(pool, threadname)));
+        self.long_term_thread = Some(threadname.to_string());
         self
     }
 
     pub fn finished(self) -> Memory {
+        #[cfg(feature = "long_term_memory")]
+        let pool = match self.env {
+            Some(env) => DbPool::sync_init_pool(env),
+            None => DbPool::default(),
+        };
+        let long_term = match self.long_term_thread {
+            Some(_threadname) =>
+            {
+                #[cfg(feature = "long_term_memory")]
+                LongTermMemory::from(MemoryThread::init(pool, &_threadname))
+            }
+            None => LongTermMemory::None,
+        };
         Memory {
             cache: self.init_prompt.unwrap_or_else(MessageVector::init),
             recall_mode: self.recall_mode.unwrap_or_default(),
             caching_mechanism: self.caching_mechanism.unwrap_or_default(),
-            long_term: self.long_term_memory.unwrap_or_default(),
+            long_term,
         }
     }
 }

@@ -59,14 +59,17 @@ impl Agent {
         let response = gpt
             .completion(&cache.into())
             .await
-            .map_err(|err| AgentError::GptError(err))?
+            .map_err(|err| AgentError::GptError(err))
+            .unwrap();
+        tracing::info!("Response got from gpt completion: {:?}", response);
+        let parsed_response = response
             .parse()
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
 
-        tracing::info!("Response got from gpt completion: {:?}", response);
         self.memory
-            .save_to_message_cache("assistant", response.to_owned());
-        Ok(response)
+            .save_to_message_cache("assistant", parsed_response.to_owned());
+        Ok(parsed_response)
+        // Ok("TestOk".to_string())
     }
 
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]

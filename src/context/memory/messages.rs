@@ -200,11 +200,14 @@ impl From<Value> for Message {
 
 impl Into<Value> for Message {
     fn into(self) -> Value {
+        let role = self.role().to_string();
         match self {
-            Self::Standard { role, content } => json!({"role": role, "content": content}),
+            Self::Standard { content, .. } => {
+                json!({"role": role, "content": content})
+            }
             Self::Function { function_call } => {
                 let func_call_json: Value = function_call.into();
-                json!({"role": "assistant", "content": null, "function_call": func_call_json})
+                json!({"role": role, "content": null, "function_call": func_call_json})
             }
         }
     }

@@ -40,7 +40,10 @@ pub fn test_gpt() -> Gpt {
 }
 
 pub fn test_agent() -> Agent {
-    let memory = Memory::build().long_term_thread("TestingThread").finished();
+    let memory = Memory::build()
+        .env(test_env())
+        .long_term_thread("TestingThread")
+        .finished();
     let model = LanguageModel::from(test_gpt());
     Agent { memory, model }
 }

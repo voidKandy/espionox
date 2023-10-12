@@ -81,8 +81,8 @@ pub struct GptConfig {
 }
 
 impl GptResponse {
+    #[tracing::instrument(name = "Parse gpt response into string")]
     pub fn parse(&self) -> Result<String, Box<dyn Error>> {
-        // println!("{:?}", &self);
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err("Unable to parse completion response".into()),
@@ -257,7 +257,7 @@ impl Gpt {
         }
     }
 
-    #[tracing::instrument(name = "Get stream completion")]
+    #[tracing::instrument(name = "Get streamed completion")]
     pub async fn stream_completion(
         &self,
         context: &Vec<Value>,
@@ -287,25 +287,37 @@ impl Gpt {
         Ok(Box::new(response_stream))
     }
 
+    #[tracing::instrument(name = "Get completion")]
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
         let payload = json!({"model": self.model_string(), "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
-        tracing::info!("PAYLOAD: {:?}", &payload);
-        match self
+        let request = self
             .config
             .client
             .post(&self.config.url.clone())
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await
-        {
-            Ok(response) => response.json().await.map_err(|err| {
-                GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
-            }),
-            Err(err) => {
-                println!("Completion Error: {err:?}");
-                Err(GptError::Completion(err))
+            .json(&payload);
+
+        tracing::info!(
+            "Request sent to openai endpoint: {:?}\nWith payload: {:?}",
+            &request,
+            payload
+        );
+        let response = request.send().await?;
+        match response.status().as_u16() {
+            200 => {
+                let return_val = response.json().await.map_err(|err| {
+                    GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
+                });
+                tracing::info!("Completion return value: {:?}", return_val);
+                return_val
+            }
+            bad_status => {
+                tracing::warn!("{} status in response:\n{:?}", bad_status, response);
+                Err(GptError::Undefined(anyhow!(
+                    "Bad status returned: {}",
+                    bad_status,
+                )))
             }
         }
     }

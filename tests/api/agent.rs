@@ -30,13 +30,13 @@ async fn stream_completion_works() {
 
 #[test]
 fn prompting_can_be_blocked_on_a_tokio_runtime() {
+    crate::helpers::init_test();
     let test = std::thread::spawn(|| {
-        crate::helpers::init_test();
         let mut agent = test_agent();
-
         let response = tokio::runtime::Runtime::new()
             .unwrap()
             .block_on(agent.prompt(String::from("Hello")));
+        tracing::info!("Got response from blocked prompt: {:?}", response);
         assert!(response.is_ok());
     })
     .join();
@@ -78,6 +78,7 @@ async fn function_agent_test() {
 #[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
+    init_test();
     let mut agent = test_agent();
     let prompt = String::from("Hello chat agent");
     let response = agent.prompt(prompt).await.expect("Failed to get response");
