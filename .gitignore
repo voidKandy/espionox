@@ -1,7 +1,6 @@
 /target
 .env
-/test-dir
-/configuration
+/espionox_config
+docker-compose.yaml
 /scripts
-/migrations
 start_session.sh

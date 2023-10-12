@@ -1,4 +1,4 @@
-use super::super::long_term::feature::database::{
+use super::super::memory::long_term::feature::database::{
     self, vector_embeddings::EmbeddingVector, DbPool,
 };
 use crate::core::{File, FileChunk};

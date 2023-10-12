@@ -1,7 +1,11 @@
 use espionox::{
-    agent::{Agent, AgentSettings},
+    agent::Agent,
     configuration::ConfigEnv,
-    context::short_term::ShortTermMemory,
+    context::memory::Memory,
+    language_models::{
+        openai::gpt::{Gpt, GptConfig},
+        LanguageModel,
+    },
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
@@ -26,12 +30,17 @@ pub fn test_env() -> ConfigEnv {
     ConfigEnv::new("testing")
 }
 
-pub fn test_settings() -> AgentSettings {
-    AgentSettings::new()
-        .short_term(ShortTermMemory::new_cache())
-        .finish()
+pub fn test_gpt() -> Gpt {
+    let config = GptConfig::init(test_env());
+    let model_override = None;
+    Gpt {
+        config,
+        model_override,
+    }
 }
 
 pub fn test_agent() -> Agent {
-    Agent::build(test_settings()).expect("Failed to build test agent")
+    let memory = Memory::build().long_term_thread("TestingThread").finished();
+    let model = LanguageModel::from(test_gpt());
+    Agent { memory, model }
 }

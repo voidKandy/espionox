@@ -52,6 +52,24 @@ pub struct GptMessage {
 #[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
+    pub model_override: Option<GptModel>,
+}
+
+/// More variations of these models should be added
+#[derive(Clone, Debug, Default)]
+pub enum GptModel {
+    #[default]
+    Gpt3,
+    Gpt4,
+}
+
+impl ToString for GptModel {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            Self::Gpt3 => "gpt-3.5-turbo-0613",
+            Self::Gpt4 => "gpt-4-0613",
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -59,7 +77,7 @@ pub struct GptConfig {
     api_key: String,
     client: Client,
     url: String,
-    model: String,
+    model: GptModel,
 }
 
 impl GptResponse {
@@ -184,7 +202,7 @@ impl GptConfig {
             .expect("Failed to get model settings")
             .language_model;
         let api_key = settings.api_key;
-        let model = settings.model;
+        let model = GptModel::default();
         let client = Client::new();
         let url = "https://api.openai.com/v1/chat/completions".to_string();
         GptConfig {
@@ -199,11 +217,29 @@ impl GptConfig {
 impl Default for Gpt {
     fn default() -> Self {
         let config = GptConfig::init(ConfigEnv::default());
-        Gpt { config }
+        let model_override = None;
+        Gpt {
+            config,
+            model_override,
+        }
     }
 }
 
 impl Gpt {
+    pub fn new(model: GptModel) -> Self {
+        let config = GptConfig::init(ConfigEnv::default());
+        let model_override = Some(model);
+        Self {
+            config,
+            model_override,
+        }
+    }
+    fn model_string(&self) -> String {
+        match &self.model_override {
+            Some(model) => model.to_string(),
+            None => self.config.model.to_string(),
+        }
+    }
     pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
         if err.to_string().contains("missing field `choices`") {
             let message = format!("Something trivial went wrong please try again");
@@ -227,7 +263,7 @@ impl Gpt {
         context: &Vec<Value>,
     ) -> Result<CompletionStream, GptError> {
         let payload = json!({
-            "model": self.config.model,
+            "model": self.model_string(),
             "messages": context,
             "stream": true,
             "max_tokens": 1000,
@@ -252,7 +288,7 @@ impl Gpt {
     }
 
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
-        let payload = json!({"model": self.config.model, "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
+        let payload = json!({"model": self.model_string(), "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
         tracing::info!("PAYLOAD: {:?}", &payload);
         match self
             .config
@@ -281,7 +317,7 @@ impl Gpt {
         function: &Function,
     ) -> Result<GptResponse, GptError> {
         let payload = json!({
-            "model": self.config.model,
+            "model": self.model_string(),
             "messages": context,
             "functions": [function.json],
             "function_call": {"name": function.name}

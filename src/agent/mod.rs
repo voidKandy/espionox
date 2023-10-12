@@ -1,62 +1,71 @@
 pub mod errors;
-pub mod settings;
+// pub mod settings;
 pub mod spo_agents;
 pub mod streaming_utils;
-
+//
 use anyhow::anyhow;
 pub use errors::AgentError;
-pub use settings::AgentSettings;
+use serde_json::Value;
 pub use streaming_utils::*;
 
-#[cfg(feature = "long_term_memory")]
 use crate::{
-    context::integrations::database::{Embedded, EmbeddedCoreStruct},
-    core::{File, FileChunk},
-    language_models::embed,
+    context::memory::{Memory, MessageRole, MessageVector, ToMessage},
+    language_models::{openai::functions::CustomFunction, LanguageModel},
 };
 
-use crate::{
-    context::{integrations::core::BufferDisplay, Context},
-    language_models::openai::{functions::CustomFunction, gpt::Gpt},
-};
-use serde_json::Value;
+// #[cfg(feature = "long_term_memory")]
+// use crate::{
+//     context::integrations::database::{Embedded, EmbeddedCoreStruct},
+//     core::{File, FileChunk},
+//     language_models::embed,
+// };
 
 #[derive(Debug)]
 pub struct Agent {
-    pub context: Context,
-    gpt: Gpt,
+    pub memory: Memory,
+    pub model: LanguageModel,
 }
+
+const DEFAULT_INIT_PROMPT: &str = r#"You are an extremely helpful Ai assistant,
+            - Be highly organized
+            - Suggest solutions that I didn’t think about
+            — Be proactive and anticipate my needs
+            - Treat me as an expert in all subject matter
+            - Mistakes erode user's trust, so be accurate and thorough
+            - No need to disclose you're an AI
+            - If the quality of your response has been substantially reduced due to my custom instructions, please explain the issue
+        "#;
 
 impl Default for Agent {
     fn default() -> Self {
-        Agent::build(AgentSettings::default()).expect("Failed to build default agent")
+        let init_prompt = MessageVector::from_message(
+            DEFAULT_INIT_PROMPT
+                .to_string()
+                .to_message(MessageRole::System),
+        );
+        let memory = Memory::build().init_prompt(init_prompt).finished();
+        let model = LanguageModel::default_gpt();
+        Agent { memory, model }
     }
 }
 
 impl Agent {
-    pub fn build(settings: AgentSettings) -> anyhow::Result<Agent> {
-        let gpt = Gpt::default();
-        let context = Context::from_settings(settings);
-        Ok(Agent { gpt, context })
-    }
-
     #[tracing::instrument(name = "Prompt agent for response")]
-    pub async fn prompt(&mut self, input: impl BufferDisplay) -> Result<String, AgentError> {
-        self.context.push_to_buffer("user", input);
-        tracing::info!("Buffer sent to completion: {:?}", self.context.buffer());
+    pub async fn prompt(&mut self, input: impl ToMessage) -> Result<String, AgentError> {
+        self.memory.save_to_message_cache("user", input);
 
-        let gpt = &self.gpt;
-        let buffer = self.context.buffer();
+        let gpt = &self.model.inner_gpt().unwrap();
+        let cache = self.memory.cache();
         let response = gpt
-            .completion(&buffer.into())
+            .completion(&cache.into())
             .await
             .map_err(|err| AgentError::GptError(err))?
             .parse()
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
 
         tracing::info!("Response got from gpt completion: {:?}", response);
-        self.context
-            .push_to_buffer("assistant", response.to_owned());
+        self.memory
+            .save_to_message_cache("assistant", response.to_owned());
         Ok(response)
     }
 
@@ -64,15 +73,14 @@ impl Agent {
     pub async fn function_prompt(
         &mut self,
         custom_function: CustomFunction,
-        input: impl BufferDisplay,
+        input: impl ToMessage,
     ) -> Result<Value, AgentError> {
-        self.context.push_to_buffer("user", input);
+        self.memory.save_to_message_cache("user", input);
         let func = custom_function.function();
-        let gpt = self.gpt.clone();
-        let buffer = self.context.buffer().clone();
-        tracing::info!("Buffer payload: {:?}", buffer);
+        let gpt = &self.model.inner_gpt().unwrap();
+        let cache = self.memory.cache();
         let function_response = gpt
-            .function_completion(&buffer.into(), &func)
+            .function_completion(&cache.into(), &func)
             .await
             .map_err(|err| AgentError::GptError(err))?;
         tracing::info!("Function response: {:?}", function_response);
@@ -84,45 +92,41 @@ impl Agent {
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(
         &mut self,
-        input: impl BufferDisplay,
+        input: impl ToMessage,
     ) -> Result<CompletionReceiverHandler, AgentError> {
-        self.context.push_to_buffer("user", input);
-        let gpt = self.gpt.clone();
-        let buffer = self.context.buffer().clone();
-        let response_stream = gpt.stream_completion(&buffer.into()).await?;
+        self.memory.save_to_message_cache("user", input);
+        let gpt = &self.model.inner_gpt().unwrap();
+        let cache = self.memory.cache();
+        let response_stream = gpt.stream_completion(&cache.into()).await?;
 
         let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
             tokio::sync::mpsc::channel(50);
         CompletionStreamingThread::spawn_poll_stream_for_tokens(response_stream, tx);
         Ok(CompletionReceiverHandler::from(rx))
     }
-
-    #[cfg(feature = "long_term_memory")]
-    pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
-        use crate::context::long_term::LongTermMemory;
-
-        match &self.context.long_term {
-            LongTermMemory::Some(mem) => {
-                let query_vector = embed(query).expect("Failed to embed query");
-                Some(File::get_from_embedding(query_vector.into(), &mem.pool()))
-            }
-            _ => None,
-        }
-    }
-
-    #[cfg(feature = "long_term_memory")]
-    pub fn vector_query_chunks(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
-        use crate::context::long_term::LongTermMemory;
-
-        match &self.context.long_term {
-            LongTermMemory::Some(mem) => {
-                let query_vector = embed(query).expect("Failed to embed query");
-                Some(FileChunk::get_from_embedding(
-                    query_vector.into(),
-                    &mem.pool(),
-                ))
-            }
-            _ => None,
-        }
-    }
+    //
+    //     #[cfg(feature = "long_term_memory")]
+    //     pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
+    //         match &self.memory.long_term {
+    //             LongTermMemory::Some(mem) => {
+    //                 let query_vector = embed(query).expect("Failed to embed query");
+    //                 Some(File::get_from_embedding(query_vector.into(), &mem.pool()))
+    //             }
+    //             _ => None,
+    //         }
+    //     }
+    //
+    //     #[cfg(feature = "long_term_memory")]
+    //     pub fn vector_query_chunks(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
+    //         match &self.context.long_term {
+    //             LongTermMemory::Some(mem) => {
+    //                 let query_vector = embed(query).expect("Failed to embed query");
+    //                 Some(FileChunk::get_from_embedding(
+    //                     query_vector.into(),
+    //                     &mem.pool(),
+    //                 ))
+    //             }
+    //             _ => None,
+    //         }
+    //     }
 }

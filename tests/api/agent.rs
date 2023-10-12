@@ -3,7 +3,7 @@ use crate::{functions::weather_test_function, helpers::init_test};
 #[allow(unused_imports)]
 use espionox::{
     agent::Agent,
-    context::{memory::Memory, Context},
+    context::memory::Memory,
     language_models::openai::functions::{CustomFunction, Property, PropertyInfo},
 };
 

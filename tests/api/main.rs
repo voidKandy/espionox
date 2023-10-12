@@ -7,4 +7,4 @@ pub mod functions;
 pub mod helpers;
 pub mod language_models;
 
-pub use helpers::{test_agent, test_settings};
+pub use helpers::test_agent;

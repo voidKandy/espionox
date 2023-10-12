@@ -1,12 +1,43 @@
-use crate::language_models::openai::gpt::GptMessage;
+use crate::{core::*, language_models::openai::gpt::GptMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::fmt;
+use std::fmt::{self, Display};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Message {
-    Standard { role: String, content: String },
+    Standard { role: MessageRole, content: String },
     Function { function_call: FunctionCall },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum MessageRole {
+    Assistant,
+    User,
+    System,
+    Other(String),
+}
+
+impl ToString for MessageRole {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            Self::System => "system",
+            Self::User => "user",
+            Self::Assistant => "assistant",
+            Self::Other(other) => other,
+        })
+    }
+}
+
+impl From<String> for MessageRole {
+    fn from(value: String) -> Self {
+        let value = value.to_lowercase();
+        match value.as_str() {
+            "user" => MessageRole::User,
+            "assistant" => MessageRole::Assistant,
+            "system" => MessageRole::System,
+            other => MessageRole::Other(other.to_string()),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -18,17 +49,30 @@ pub struct FunctionCall {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MessageVector(Vec<Message>);
 
+pub trait ToMessage: std::fmt::Debug + Display + ToString {
+    fn to_message(&self, role: MessageRole) -> Message {
+        Message::new_standard(role, &format!("{}", self))
+    }
+}
+
+impl ToMessage for String {}
+impl ToMessage for str {}
+
+impl ToMessage for FileChunk {}
+impl ToMessage for File {}
+impl ToMessage for Directory {}
+impl ToMessage for Io {}
+
 impl Message {
-    pub fn new_standard(role: &str, content: &str) -> Self {
-        let role = role.to_string();
+    pub fn new_standard(role: MessageRole, content: &str) -> Self {
         let content = content.to_string();
         Message::Standard { role, content }
     }
 
-    pub fn role(&self) -> String {
+    pub fn role(&self) -> MessageRole {
         match self {
             Self::Standard { role, .. } => role.to_owned(),
-            Self::Function { .. } => "assistant".to_string(),
+            Self::Function { .. } => MessageRole::Assistant,
         }
     }
 
@@ -56,24 +100,6 @@ impl From<Vec<Message>> for MessageVector {
     }
 }
 
-impl MessageVector {
-    pub fn new(message: Message) -> Self {
-        MessageVector::from(vec![message])
-    }
-    pub fn init_with_system_prompt(system_prompt: &str) -> Self {
-        MessageVector::from(vec![Message::new_standard("system", system_prompt)])
-    }
-    pub fn init() -> Self {
-        MessageVector(vec![])
-    }
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-    pub fn push_std(&mut self, role: &str, content: &str) {
-        self.as_mut().push(Message::new_standard(role, content));
-    }
-}
-
 impl AsRef<Vec<Message>> for MessageVector {
     fn as_ref(&self) -> &Vec<Message> {
         &self.0
@@ -86,9 +112,38 @@ impl AsMut<Vec<Message>> for MessageVector {
     }
 }
 
-impl Into<Vec<Value>> for MessageVector {
+impl Into<Vec<Value>> for &MessageVector {
     fn into(self) -> Vec<Value> {
-        self.0.into_iter().map(|m| m.into()).collect::<Vec<Value>>()
+        self.0
+            .to_owned()
+            .into_iter()
+            .map(|m| m.into())
+            .collect::<Vec<Value>>()
+    }
+}
+
+impl MessageVector {
+    pub fn from_message(message: Message) -> Self {
+        MessageVector::from(vec![message])
+    }
+    pub fn init() -> Self {
+        MessageVector(vec![])
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn reset_to_system_prompt(&mut self) {
+        self.as_mut()
+            .retain(|message| message.role() == MessageRole::System);
+    }
+    pub fn len_excluding_system_prompt(&self) -> usize {
+        self.as_ref()
+            .iter()
+            .filter(|m| m.role() != MessageRole::System)
+            .count()
+    }
+    pub fn push(&mut self, message: Message) {
+        self.as_mut().push(message);
     }
 }
 
@@ -120,7 +175,7 @@ impl From<GptMessage> for Message {
             None => {
                 let content = value.content.expect("Value has no content");
                 Message::Standard {
-                    role: value.role,
+                    role: value.role.into(),
                     content,
                 }
             }
@@ -130,7 +185,11 @@ impl From<GptMessage> for Message {
 
 impl From<Value> for Message {
     fn from(json: Value) -> Self {
-        let role = json.get("role").expect("Couldn't get role").to_string();
+        let role = json
+            .get("role")
+            .expect("Couldn't get role")
+            .to_string()
+            .into();
         let content = json
             .get("content")
             .expect("Couldn't get content")
@@ -156,7 +215,7 @@ impl fmt::Display for Message {
         write!(
             f,
             "\nRole: {}\nContent: {:?}\n",
-            self.role(),
+            self.role().to_string(),
             self.content()
         )
     }

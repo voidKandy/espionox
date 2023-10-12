@@ -16,7 +16,7 @@ pub struct GlobalSettings {
 
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct LanguageModelSettings {
-    pub model: String,
+    // pub model: String,
     pub api_key: String,
 }
 
@@ -58,7 +58,7 @@ impl ConfigEnv {
     }
     fn config_file_path(&self) -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-        let configuration_dir = base_path.join("configuration");
+        let configuration_dir = base_path.join("espionox_config");
         PathBuf::from(
             format!(
                 "{}/{}.yaml",

@@ -7,16 +7,16 @@ pub use database::{
 use pollster::FutureExt as _;
 
 use crate::{
-    context::messages::{Message, MessageVector},
+    context::memory::messages::{Message, MessageVector},
     core::File,
     language_models::embed,
 };
-use std::{ops::Deref, sync::Arc, thread};
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub struct MemoryThread {
     pool: Arc<DbPool>,
-    threadname: Option<String>,
+    threadname: String,
 }
 
 impl PartialEq for MemoryThread {
@@ -29,27 +29,25 @@ impl PartialEq for MemoryThread {
 impl From<MessageModelSql> for Message {
     fn from(sql_model: MessageModelSql) -> Self {
         Message::Standard {
-            role: sql_model.role,
+            role: sql_model.role.into(),
             content: sql_model.content,
         }
     }
 }
 
 impl MemoryThread {
-    pub fn init(pool: Arc<DbPool>, threadname: Option<&str>) -> Self {
-        let threadname = match threadname {
-            Some(str) => Some(str.to_string()),
-            None => None,
-        };
+    pub fn init(pool: DbPool, threadname: &str) -> Self {
+        let pool = Arc::new(pool);
+        let threadname = threadname.to_string();
         Self { pool, threadname }
     }
 
-    pub fn switch_thread(&mut self, name: &str) {
-        self.threadname = Some(name.to_string());
+    pub fn threadname(&self) -> &String {
+        &self.threadname
     }
 
-    pub fn threadname(&self) -> &Option<String> {
-        &self.threadname
+    pub fn switch_thread(&mut self, name: &str) {
+        self.threadname = name.to_string();
     }
 
     pub fn pool(&self) -> DbPool {
@@ -70,7 +68,7 @@ impl MemoryThread {
     #[tracing::instrument(name = "Save messages to database from threadname")]
     pub fn save_messages_to_database(&self, messages: MessageVector) {
         let messages = messages.to_owned();
-        let threadname = self.threadname.to_owned().expect("No threadname");
+        let threadname = self.threadname.to_owned();
         let pool = self.pool.to_owned();
         let future = async {
             for m in messages.as_ref().iter() {
@@ -78,7 +76,7 @@ impl MemoryThread {
                     &pool,
                     models::messages::CreateMessageBody {
                         thread_name: threadname.to_string(),
-                        role: m.role().to_owned(),
+                        role: m.role().to_string(),
                         content: m.content().unwrap().to_owned(),
                     },
                 )
@@ -92,7 +90,7 @@ impl MemoryThread {
     #[tracing::instrument(name = "Get messages from database from threadname")]
     pub fn get_messages_from_database(&self) -> MessageVector {
         let pool = self.pool.to_owned();
-        let threadname = self.threadname.to_owned().expect("No threadname");
+        let threadname = self.threadname.to_owned();
         let future = async {
             match handlers::threads::get_thread(&pool, &threadname.to_owned()).await {
                 Ok(_) => {}

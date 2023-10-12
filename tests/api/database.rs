@@ -1,30 +1,19 @@
-use crate::helpers;
+use crate::{helpers, test_agent};
 use espionox::{
-    agent::settings::AgentSettings,
-    context::{
-        long_term::LongTermMemory,
-        memory::long_term::feature::database::{
-            api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
-            handlers,
-            init::DbPool,
-            models::{
-                file::{CreateFileBody, DeleteFileParams, GetFileParams},
-                file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
-            },
-            vector_embeddings::EmbeddingVector,
+    context::memory::long_term::feature::database::{
+        api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
+        handlers,
+        init::DbPool,
+        models::{
+            file::{CreateFileBody, DeleteFileParams, GetFileParams},
+            file_chunks::{CreateFileChunkBody, DeleteFileChunkParams, GetFileChunkParams},
         },
+        vector_embeddings::EmbeddingVector,
     },
     core::File,
 };
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;
-
-fn long_term_feature_testing_settings() -> AgentSettings {
-    let env = helpers::test_env();
-    AgentSettings::new()
-        .long_term_env(env, Some("testing"))
-        .finish()
-}
 
 #[tokio::test]
 async fn testing_pool_health_check() {
@@ -48,14 +37,11 @@ async fn nearest_vectors_works() {
 //This function should probably exist in the api
 #[tracing::instrument(name = "Filepath to database embedding")]
 async fn filepath_to_database() -> Embedding {
-    let settings = long_term_feature_testing_settings();
+    let agent = test_agent();
     let mut f = File::from("./Cargo.toml");
     let file_chunks = f.chunks.to_owned();
     tracing::info!("Got {} chunks", file_chunks.len());
-    let threadname = match &settings.long_term_memory {
-        LongTermMemory::Some(long_term) => long_term.threadname().clone().unwrap(),
-        _ => panic!("No long term memory"),
-    };
+    let threadname = agent.memory.long_term_thread().unwrap();
     f.get_summary().await;
     let file = CreateFileBody::build_from(&mut f, &threadname, helpers::test_env())
         .expect("Failed to build create file sql body");
@@ -64,7 +50,7 @@ async fn filepath_to_database() -> Embedding {
 
     let chunks = CreateFileChunksVector::build_from(file_chunks, &file.id)
         .expect("Failed to build create file chunks sql body");
-    let pool = settings.long_term_memory.try_pool().unwrap();
+    let pool = agent.memory.long_term_pool().unwrap();
     assert!(handlers::file::post_file(&pool, file).await.is_ok());
     for chunk in chunks.as_ref().iter() {
         match handlers::file_chunks::post_file_chunk(&pool, chunk.clone()).await {
