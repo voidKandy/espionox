@@ -34,6 +34,7 @@ pub enum MemoryVariant {
     LongTerm,
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub struct Memory {
     cache: MessageVector,
