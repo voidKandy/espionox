@@ -65,7 +65,12 @@ impl ToMessage for Io {}
 
 impl Message {
     pub fn new_standard(role: MessageRole, content: &str) -> Self {
-        let content = content.to_string();
+        // Message content should not have excessive whitespace or newlines
+        let content = content
+            .split_whitespace()
+            .collect::<Vec<&str>>()
+            .join(" ")
+            .replace('\n', " ");
         Message::Standard { role, content }
     }
 
@@ -88,9 +93,13 @@ impl ToString for MessageVector {
     fn to_string(&self) -> String {
         let mut output = String::new();
         self.as_ref().into_iter().for_each(|mess| {
-            output.push_str(&format!("{}\n", mess));
+            output.push_str(&format!(
+                "Role: [{}] Content: [{}] ",
+                mess.role().to_string(),
+                mess.content().unwrap()
+            ));
         });
-        format!("{}", output)
+        output
     }
 }
 
@@ -131,6 +140,15 @@ impl MessageVector {
     }
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    pub fn clone_sans_system_prompt(&self) -> MessageVector {
+        MessageVector::from(
+            self.as_ref()
+                .iter()
+                .filter(|message| message.role() != MessageRole::System)
+                .cloned()
+                .collect::<Vec<Message>>(),
+        )
     }
     pub fn reset_to_system_prompt(&mut self) {
         self.as_mut()

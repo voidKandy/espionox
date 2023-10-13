@@ -56,11 +56,25 @@ pub struct Gpt {
 }
 
 /// More variations of these models should be added
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub enum GptModel {
     #[default]
     Gpt3,
     Gpt4,
+}
+
+impl TryFrom<String> for GptModel {
+    type Error = GptError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "gpt-3.5-turbo-0613" => Ok(Self::Gpt3),
+            "gpt-4-0613" => Ok(Self::Gpt4),
+            _ => Err(GptError::Undefined(anyhow!(
+                "{} does not have a corresponding GPT variant",
+                value
+            ))),
+        }
+    }
 }
 
 impl ToString for GptModel {
@@ -198,7 +212,7 @@ impl StreamResponse {
 impl GptConfig {
     pub fn init(env: ConfigEnv) -> GptConfig {
         let settings = env
-            .get_settings()
+            .global_settings()
             .expect("Failed to get model settings")
             .language_model;
         let api_key = settings.api_key;
@@ -299,7 +313,7 @@ impl Gpt {
             .json(&payload);
 
         tracing::info!(
-            "Request sent to openai endpoint: {:?}\nWith payload: {:?}",
+            "Request to be sent to openai endpoint: {:?}\nWith payload: {:?}",
             &request,
             payload
         );
@@ -309,7 +323,6 @@ impl Gpt {
                 let return_val = response.json().await.map_err(|err| {
                     GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
                 });
-                tracing::info!("Completion return value: {:?}", return_val);
                 return_val
             }
             bad_status => {

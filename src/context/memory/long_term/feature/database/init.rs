@@ -27,7 +27,11 @@ impl Default for DbPool {
 impl DbPool {
     #[tracing::instrument(name = "Initialize DbPool from Database Environment")]
     pub async fn init_pool(env: ConfigEnv) -> anyhow::Result<DbPool> {
-        let settings = env.get_settings().expect("failed to get settings").database;
+        let settings = env
+            .global_settings()
+            .expect("failed to get settings")
+            .database
+            .expect("No database settings");
         tracing::info!("Connecting to {:?}", settings.without_db());
         let pool = DbPool(
             PgPoolOptions::new()

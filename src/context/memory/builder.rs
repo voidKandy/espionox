@@ -53,15 +53,13 @@ impl MemoryBuilder {
     }
 
     pub fn finished(self) -> Memory {
-        #[cfg(feature = "long_term_memory")]
-        let pool = match self.env {
-            Some(env) => DbPool::sync_init_pool(env),
-            None => DbPool::default(),
-        };
         let long_term = match self.long_term_thread {
-            Some(_threadname) =>
-            {
-                #[cfg(feature = "long_term_memory")]
+            #[cfg(feature = "long_term_memory")]
+            Some(_threadname) => {
+                let pool = match self.env {
+                    Some(env) => DbPool::sync_init_pool(env),
+                    None => DbPool::default(),
+                };
                 LongTermMemory::from(MemoryThread::init(pool, &_threadname))
             }
             None => LongTermMemory::None,

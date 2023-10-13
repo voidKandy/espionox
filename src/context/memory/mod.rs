@@ -5,7 +5,7 @@ pub mod messages;
 #[cfg(feature = "long_term_memory")]
 use long_term::feature::DbPool;
 
-use crate::errors::error_chain_fmt;
+use crate::{agent::spo_agents::SummarizerAgent, errors::error_chain_fmt};
 use builder::MemoryBuilder;
 use long_term::*;
 pub use messages::*;
@@ -79,9 +79,15 @@ impl Memory {
         &self.cache
     }
 
-    pub fn save_to_message_cache(&mut self, role: &str, displayable: impl ToMessage) {
+    pub fn force_push_message_to_cache(&mut self, role: &str, displayable: impl ToMessage) {
+        self.cache
+            .as_mut()
+            .push(displayable.to_message(role.to_string().into()));
+    }
+
+    pub async fn push_to_message_cache(&mut self, role: &str, displayable: impl ToMessage) {
         if self.cache_size_limit_reached() {
-            self.handle_oversized_cache();
+            self.handle_oversized_cache().await;
         }
         self.cache
             .as_mut()
@@ -108,11 +114,17 @@ impl Memory {
         self.cache.len_excluding_system_prompt() >= self.caching_mechanism.limit()
     }
 
-    fn handle_oversized_cache(&mut self) {
+    #[async_recursion::async_recursion]
+    async fn handle_oversized_cache(&mut self) {
         match self.caching_mechanism {
             CachingMechanism::Forgetful => self.cache.reset_to_system_prompt(),
             CachingMechanism::SummarizeAtLimit { save_to_lt, .. } => {
-                // NEED TO SOMEHOW SYNCRONOUSLY SUMMARIZE AND THEN WRITE TO TARGET
+                let summary =
+                    SummarizerAgent::summarize_memory(self.cache.clone_sans_system_prompt())
+                        .await
+                        .expect("Failed to get memory summary");
+                self.cache.reset_to_system_prompt();
+                self.cache.push(summary.to_message(MessageRole::System))
             }
         }
     }

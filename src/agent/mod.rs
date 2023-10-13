@@ -52,7 +52,7 @@ impl Default for Agent {
 impl Agent {
     #[tracing::instrument(name = "Prompt agent for response")]
     pub async fn prompt(&mut self, input: impl ToMessage) -> Result<String, AgentError> {
-        self.memory.save_to_message_cache("user", input);
+        self.memory.push_to_message_cache("user", input).await;
 
         let gpt = &self.model.inner_gpt().unwrap();
         let cache = self.memory.cache();
@@ -67,7 +67,8 @@ impl Agent {
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
 
         self.memory
-            .save_to_message_cache("assistant", parsed_response.to_owned());
+            .push_to_message_cache("assistant", parsed_response.to_owned())
+            .await;
         Ok(parsed_response)
         // Ok("TestOk".to_string())
     }
@@ -78,7 +79,7 @@ impl Agent {
         custom_function: CustomFunction,
         input: impl ToMessage,
     ) -> Result<Value, AgentError> {
-        self.memory.save_to_message_cache("user", input);
+        self.memory.push_to_message_cache("user", input).await;
         let func = custom_function.function();
         let gpt = &self.model.inner_gpt().unwrap();
         let cache = self.memory.cache();
@@ -97,7 +98,7 @@ impl Agent {
         &mut self,
         input: impl ToMessage,
     ) -> Result<CompletionReceiverHandler, AgentError> {
-        self.memory.save_to_message_cache("user", input);
+        self.memory.push_to_message_cache("user", input).await;
         let gpt = &self.model.inner_gpt().unwrap();
         let cache = self.memory.cache();
         let response_stream = gpt.stream_completion(&cache.into()).await?;
