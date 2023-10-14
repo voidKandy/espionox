@@ -20,7 +20,7 @@ use crate::{
 //     language_models::embed,
 // };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Agent {
     pub memory: Memory,
     pub model: LanguageModel,
