@@ -150,6 +150,15 @@ impl MessageVector {
                 .collect::<Vec<Message>>(),
         )
     }
+    pub fn clone_system_prompt(&self) -> MessageVector {
+        MessageVector::from(
+            self.as_ref()
+                .iter()
+                .filter(|message| message.role() == MessageRole::System)
+                .cloned()
+                .collect::<Vec<Message>>(),
+        )
+    }
     pub fn reset_to_system_prompt(&mut self) {
         self.as_mut()
             .retain(|message| message.role() == MessageRole::System);
