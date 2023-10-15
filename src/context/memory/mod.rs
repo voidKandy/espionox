@@ -80,6 +80,14 @@ impl Memory {
         &self.cache
     }
 
+    pub fn recall_mode(&self) -> &RecallMode {
+        &self.recall_mode
+    }
+
+    pub fn caching_mechanism(&self) -> &CachingMechanism {
+        &self.caching_mechanism
+    }
+
     pub fn force_push_message_to_cache(&mut self, role: &str, displayable: impl ToMessage) {
         self.cache
             .as_mut()
