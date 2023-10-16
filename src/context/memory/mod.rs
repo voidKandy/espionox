@@ -57,9 +57,7 @@ pub enum RecallMode {
 
 impl Default for CachingMechanism {
     fn default() -> Self {
-        let limit = 50;
-        let save_to_lt = false;
-        CachingMechanism::SummarizeAtLimit { limit, save_to_lt }
+        Self::default_summary_at_limit()
     }
 }
 
@@ -75,6 +73,11 @@ impl CachingMechanism {
             Self::Forgetful => false,
             Self::SummarizeAtLimit { save_to_lt, .. } => *save_to_lt,
         }
+    }
+    pub fn default_summary_at_limit() -> Self {
+        let limit = 50;
+        let save_to_lt = false;
+        CachingMechanism::SummarizeAtLimit { limit, save_to_lt }
     }
 }
 impl Memory {
