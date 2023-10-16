@@ -70,6 +70,12 @@ impl CachingMechanism {
             Self::SummarizeAtLimit { limit, .. } => *limit as usize,
         }
     }
+    pub fn lont_term_enabled(&self) -> bool {
+        match self {
+            Self::Forgetful => false,
+            Self::SummarizeAtLimit { save_to_lt, .. } => *save_to_lt,
+        }
+    }
 }
 impl Memory {
     pub fn build() -> MemoryBuilder {
