@@ -108,6 +108,7 @@ impl OverwriteWith<GlobalSettingsYamlMap> for GlobalSettings {
             match key.as_str() {
                 "language_model" => self.language_model.overwrite_with(map),
 
+                #[cfg(feature = "long_term_memory")]
                 "database" => {
                     if let Some(database) = self.database.as_mut() {
                         database.overwrite_with(map);
