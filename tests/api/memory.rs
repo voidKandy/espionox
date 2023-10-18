@@ -33,7 +33,7 @@ async fn summarize_at_limit_works() {
 async fn forgetful_works() {
     init_test();
     let mech = CachingMechanism::Forgetful;
-    let memory = Memory::build().caching_mechanism(mech).finished();
+    let memory = Memory::build().caching_mechanism(mech.clone()).finished();
     let model = LanguageModel::from(test_gpt());
     let mut agent = Agent { memory, model };
     for _ in 0..=3 {

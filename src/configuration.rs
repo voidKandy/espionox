@@ -235,9 +235,14 @@ impl ConfigEnv {
             config_file_name: filename.to_string(),
         }
     }
-    fn config_file_path(&self) -> PathBuf {
+
+    pub fn config_dir_path() -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-        let configuration_dir = base_path.join("espionox_config");
+        base_path.join("espionox_config")
+    }
+
+    fn config_file_path(&self) -> PathBuf {
+        let configuration_dir = Self::config_dir_path().join("env");
         PathBuf::from(
             format!(
                 "{}/{}.yaml",

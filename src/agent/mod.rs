@@ -26,23 +26,12 @@ pub struct Agent {
     pub model: LanguageModel,
 }
 
-const DEFAULT_INIT_PROMPT: &str = r#"You are an extremely helpful Ai assistant,
-            - Be highly organized
-            - Suggest solutions that I didn’t think about
-            — Be proactive and anticipate my needs
-            - Treat me as an expert in all subject matter
-            - Mistakes erode user's trust, so be accurate and thorough
-            - No need to disclose you're an AI
-            - If the quality of your response has been substantially reduced due to my custom instructions, please explain the issue
-        "#;
+// const DEFAULT_INIT_PROMPT: &str = r#"        "#;
 
 impl Default for Agent {
     fn default() -> Self {
-        let init_prompt = MessageVector::from_message(
-            DEFAULT_INIT_PROMPT
-                .to_string()
-                .to_message(MessageRole::System),
-        );
+        let init_prompt = crate::persistance::prompts::get_prompt_by_name("DEFAULT_INIT_PROMPT")
+            .expect("Failed to get default init prompt");
         let memory = Memory::build().init_prompt(init_prompt).finished();
         let model = LanguageModel::default_gpt();
         Agent { memory, model }
