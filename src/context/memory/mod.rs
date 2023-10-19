@@ -80,6 +80,7 @@ impl CachingMechanism {
         CachingMechanism::SummarizeAtLimit { limit, save_to_lt }
     }
 }
+
 impl Memory {
     pub fn build() -> MemoryBuilder {
         MemoryBuilder::new()

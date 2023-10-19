@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 use std::{fmt::Display, path::Path};
 use tracing::{self, info};
 
@@ -54,6 +55,18 @@ impl From<&str> for File {
         let filepath = fs::canonicalize(Path::new(filename)).unwrap().into();
         File {
             filepath,
+            chunks: vec![],
+            summary: None,
+            // summary_embedding: Vec::new(),
+        }
+        .chunkify()
+    }
+}
+
+impl From<PathBuf> for File {
+    fn from(path: PathBuf) -> Self {
+        File {
+            filepath: path.into(),
             chunks: vec![],
             summary: None,
             // summary_embedding: Vec::new(),

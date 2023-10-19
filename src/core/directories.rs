@@ -1,5 +1,5 @@
 use super::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{fmt::Display, fs};
 
 #[derive(Debug, Clone)]
@@ -49,9 +49,23 @@ impl Display for Directory {
         write!(f, "{}", string)
     }
 }
+
 impl From<&str> for Directory {
     fn from(path: &str) -> Self {
         let dirpath = fs::canonicalize(Path::new(path)).unwrap();
+        let (children, files) =
+            Directory::get_children_and_files(&dirpath).expect("Failure walking directory");
+        Directory {
+            dirpath: dirpath.into(),
+            children,
+            files,
+        }
+    }
+}
+
+impl From<PathBuf> for Directory {
+    fn from(path: PathBuf) -> Self {
+        let dirpath: &Path = &path;
         let (children, files) =
             Directory::get_children_and_files(&dirpath).expect("Failure walking directory");
         Directory {

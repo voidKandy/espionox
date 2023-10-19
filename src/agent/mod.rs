@@ -59,7 +59,6 @@ impl Agent {
             .push_to_message_cache("assistant", parsed_response.to_owned())
             .await;
         Ok(parsed_response)
-        // Ok("TestOk".to_string())
     }
 
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]
