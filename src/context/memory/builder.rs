@@ -53,22 +53,27 @@ impl MemoryBuilder {
     }
 
     pub fn finished(self) -> Memory {
-        let long_term = match self.long_term_thread {
-            #[cfg(feature = "long_term_memory")]
-            Some(_threadname) => {
-                let pool = match self.env {
-                    Some(env) => DbPool::sync_init_pool(env),
-                    None => DbPool::default(),
-                };
-                LongTermMemory::from(MemoryThread::init(pool, &_threadname))
-            }
-            None => LongTermMemory::None,
-        };
-        Memory {
-            cache: self.init_prompt.unwrap_or_else(MessageVector::init),
-            recall_mode: self.recall_mode.unwrap_or_default(),
-            caching_mechanism: self.caching_mechanism.unwrap_or_default(),
-            long_term,
+        #[cfg(feature = "long_term_memory")]
+        if let Some(_threadname) = self.long_term_thread {
+            let pool = match self.env {
+                Some(env) => DbPool::sync_init_pool(env),
+                None => DbPool::default(),
+            };
+            let long_term = LongTermMemory::from(MemoryThread::init(pool, &_threadname));
+            return Memory {
+                cache: self.init_prompt.unwrap_or_else(MessageVector::init),
+                recall_mode: self.recall_mode.unwrap_or_default(),
+                caching_mechanism: self.caching_mechanism.unwrap_or_default(),
+                long_term,
+            };
+        } else {
+            let long_term = LongTermMemory::None;
+            return Memory {
+                cache: self.init_prompt.unwrap_or_else(MessageVector::init),
+                recall_mode: self.recall_mode.unwrap_or_default(),
+                caching_mechanism: self.caching_mechanism.unwrap_or_default(),
+                long_term,
+            };
         }
     }
 }
