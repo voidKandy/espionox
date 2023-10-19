@@ -30,3 +30,17 @@ pub fn get_prompt_by_name(name: &str) -> Option<MessageVector> {
         None => None,
     }
 }
+
+pub fn add_prompt_to_file(prompt: Prompt) -> Result<(), anyhow::Error> {
+    let config_dir = ConfigEnv::config_dir_path();
+    let prompt_yaml_file = config_dir.join("prompts.yaml");
+
+    let mut prompts = get_prompts_from_file().unwrap_or_else(|_| Prompts::new());
+    prompts.push(prompt);
+
+    let serialized_prompts = serde_yaml::to_string(&prompts)?;
+
+    fs::write(prompt_yaml_file, serialized_prompts)?;
+
+    Ok(())
+}
