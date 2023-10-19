@@ -66,12 +66,14 @@ impl ToMessage for Io {}
 impl Message {
     pub fn new_standard(role: MessageRole, content: &str) -> Self {
         // Message content should not have excessive whitespace or newlines
-        let content = content
-            .split_whitespace()
-            .collect::<Vec<&str>>()
-            .join(" ")
-            .replace('\n', " ");
-        Message::Standard { role, content }
+        // let content = content
+        //     .split_whitespace()
+        //     .collect::<Vec<&str>>()
+        //     .join(" ");
+        Message::Standard {
+            role,
+            content: content.to_string(),
+        }
     }
 
     pub fn role(&self) -> MessageRole {
@@ -230,6 +232,12 @@ impl Into<Value> for Message {
         let role = self.role().to_string();
         match self {
             Self::Standard { content, .. } => {
+                // Model should not receive excessive whitespace or newlines
+                let content = content
+                    .split_whitespace()
+                    .collect::<Vec<&str>>()
+                    .join(" ")
+                    .replace('\n', " ");
                 json!({"role": role, "content": content})
             }
             Self::Function { function_call } => {
