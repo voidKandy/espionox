@@ -1,7 +1,7 @@
-use super::super::memory::long_term::feature::database::{
+use crate::core::{File, FileChunk};
+use crate::features::long_term_memory::database::{
     self, vector_embeddings::EmbeddingVector, DbPool,
 };
-use crate::core::{File, FileChunk};
 use std::{any::Any, thread};
 use tokio::runtime::Runtime;
 

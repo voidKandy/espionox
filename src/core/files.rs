@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fmt::Display, path::Path};
 use tracing::{self, info};
 
-use crate::agent::spo_agents::SummarizerAgent;
+use crate::agents::spo_agents::SummarizerAgent;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {

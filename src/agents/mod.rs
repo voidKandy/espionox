@@ -9,8 +9,8 @@ use serde_json::Value;
 pub use streaming_utils::*;
 
 use crate::{
-    context::memory::{Memory, MessageRole, MessageVector, ToMessage},
     language_models::{openai::functions::CustomFunction, LanguageModel},
+    memory::{Memory, MessageRole, MessageVector, ToMessage},
 };
 
 // #[cfg(feature = "long_term_memory")]

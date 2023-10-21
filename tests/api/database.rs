@@ -1,6 +1,7 @@
 use crate::{helpers, test_agent};
 use espionox::{
-    context::memory::long_term::feature::database::{
+    core::File,
+    features::long_term_memory::database::{
         api::{vector_query_file_chunks, vector_query_files, CreateFileChunksVector},
         handlers,
         init::DbPool,
@@ -10,7 +11,6 @@ use espionox::{
         },
         vector_embeddings::EmbeddingVector,
     },
-    core::File,
 };
 use rust_bert::pipelines::sentence_embeddings::Embedding;
 use tokio;

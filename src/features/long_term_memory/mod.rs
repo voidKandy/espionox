@@ -7,21 +7,21 @@ pub use database::{
 use pollster::FutureExt as _;
 
 use crate::{
-    context::memory::messages::{Message, MessageVector},
     core::File,
     language_models::embed,
+    memory::messages::{Message, MessageVector},
 };
 use std::{ops::Deref, sync::Arc};
 
 #[derive(Clone, Debug)]
-pub struct MemoryThread {
+pub struct LtmHandler {
     pool: Arc<DbPool>,
-    threadname: String,
+    current_thread: String,
 }
 
-impl PartialEq for MemoryThread {
+impl PartialEq for LtmHandler {
     fn eq(&self, other: &Self) -> bool {
-        self.threadname == other.threadname
+        self.current_thread == other.current_thread
     }
 }
 
@@ -35,19 +35,22 @@ impl From<MessageModelSql> for Message {
     }
 }
 
-impl MemoryThread {
-    pub fn init(pool: DbPool, threadname: &str) -> Self {
+impl LtmHandler {
+    pub fn init(pool: DbPool, current_thread: &str) -> Self {
         let pool = Arc::new(pool);
-        let threadname = threadname.to_string();
-        Self { pool, threadname }
+        let current_thread = current_thread.to_string();
+        Self {
+            pool,
+            current_thread,
+        }
     }
 
-    pub fn threadname(&self) -> &String {
-        &self.threadname
+    pub fn current_thread(&self) -> &String {
+        &self.current_thread
     }
 
     pub fn switch_thread(&mut self, name: &str) {
-        self.threadname = name.to_string();
+        self.current_thread = name.to_string();
     }
 
     pub fn pool(&self) -> DbPool {
@@ -65,17 +68,17 @@ impl MemoryThread {
         future.block_on()
     }
 
-    #[tracing::instrument(name = "Save messages to database from threadname")]
+    #[tracing::instrument(name = "Save messages to database from current_thread")]
     pub fn save_messages_to_database(&self, messages: MessageVector) {
         let messages = messages.to_owned();
-        let threadname = self.threadname.to_owned();
+        let current_thread = self.current_thread.to_owned();
         let pool = self.pool.to_owned();
         let future = async {
             for m in messages.as_ref().iter() {
                 handlers::messages::post_message(
                     &pool,
                     models::messages::CreateMessageBody {
-                        thread_name: threadname.to_string(),
+                        thread_name: current_thread.to_string(),
                         role: m.role().to_string(),
                         content: m.content().unwrap().to_owned(),
                     },
@@ -87,12 +90,12 @@ impl MemoryThread {
         future.block_on();
     }
 
-    #[tracing::instrument(name = "Get messages from database from threadname")]
+    #[tracing::instrument(name = "Get messages from database from current_thread")]
     pub fn get_messages_from_database(&self) -> MessageVector {
         let pool = self.pool.to_owned();
-        let threadname = self.threadname.to_owned();
+        let current_thread = self.current_thread.to_owned();
         let future = async {
-            match handlers::threads::get_thread(&pool, &threadname.to_owned()).await {
+            match handlers::threads::get_thread(&pool, &current_thread.to_owned()).await {
                 Ok(_) => {}
                 Err(err) => {
                     if matches!(
@@ -100,9 +103,9 @@ impl MemoryThread {
                         Some(sqlx::Error::RowNotFound)
                     ) {
                         tracing::info!(
-                            "Thread doesn't exist, creating thread named: {threadname:?}"
+                            "Thread doesn't exist, creating thread named: {current_thread:?}"
                         );
-                        assert!(handlers::threads::post_thread(&pool, &threadname)
+                        assert!(handlers::threads::post_thread(&pool, &current_thread)
                             .await
                             .is_ok());
                     } else {
@@ -110,7 +113,7 @@ impl MemoryThread {
                     }
                 }
             }
-            let messages = handlers::messages::get_messages_by_threadname(&pool, &threadname)
+            let messages = handlers::messages::get_messages_by_threadname(&pool, &current_thread)
                 .await
                 .expect("Failed to get messages from context");
             MessageVector::from(

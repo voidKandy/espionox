@@ -1,5 +1,5 @@
 use espionox::{
-    context::memory::Message,
+    memory::Message,
     persistance::prompts::{add_prompt_to_file, get_prompt_by_name, get_prompts_from_file, Prompt},
 };
 
@@ -25,7 +25,7 @@ fn add_prompt_to_file_works() {
     let prompt_to_add = Prompt {
         name: "test".to_string(),
         messages: vec![Message::new_standard(
-            espionox::context::memory::MessageRole::System,
+            espionox::memory::MessageRole::System,
             "this is a test",
         )],
     };

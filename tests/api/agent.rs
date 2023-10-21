@@ -2,9 +2,9 @@ use super::test_agent;
 use crate::{functions::weather_test_function, helpers::init_test};
 #[allow(unused_imports)]
 use espionox::{
-    agent::Agent,
-    context::memory::Memory,
+    agents::Agent,
     language_models::openai::functions::{CustomFunction, Property, PropertyInfo},
+    memory::Memory,
 };
 
 #[tokio::test]
@@ -75,11 +75,14 @@ async fn function_agent_test() {
     );
 }
 
-#[ignore]
+// #[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
     init_test();
     let mut agent = test_agent();
+    // agent
+    //     .memory
+    //     .force_push_message_to_cache("file_share", "file content".to_string());
     let prompt = String::from("Hello chat agent");
     let response = agent.prompt(prompt).await.expect("Failed to get response");
     println!("{:?}", &response);

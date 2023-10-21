@@ -1,11 +1,11 @@
 use espionox::{
-    agent::Agent,
+    agents::Agent,
     configuration::ConfigEnv,
-    context::memory::Memory,
     language_models::{
         openai::gpt::{Gpt, GptConfig},
         LanguageModel,
     },
+    memory::Memory,
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
@@ -39,11 +39,17 @@ pub fn test_gpt() -> Gpt {
     }
 }
 
-pub fn test_agent() -> Agent {
+pub fn test_agent_lt() -> Agent {
     let memory = Memory::build()
         .env(test_env())
         .long_term_thread("TestingThread")
         .finished();
+    let model = LanguageModel::from(test_gpt());
+    Agent { memory, model }
+}
+
+pub fn test_agent() -> Agent {
+    let memory = Memory::build().finished();
     let model = LanguageModel::from(test_gpt());
     Agent { memory, model }
 }

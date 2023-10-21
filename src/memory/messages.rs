@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt::{self, Display};
 
+// content should be dyn or enum
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Message {
     Standard { role: MessageRole, content: String },
@@ -50,18 +51,47 @@ pub struct FunctionCall {
 pub struct MessageVector(Vec<Message>);
 
 pub trait ToMessage: std::fmt::Debug + Display + ToString {
+    fn with_default_role(&self) -> Message {
+        Message::Standard {
+            role: Self::role(),
+            content: self.to_string(),
+        }
+    }
     fn to_message(&self, role: MessageRole) -> Message {
-        Message::new_standard(role, &format!("{}", self))
+        Message::Standard {
+            role,
+            content: self.to_string(),
+        }
+    }
+    fn role() -> MessageRole;
+}
+
+impl ToMessage for String {
+    fn role() -> MessageRole {
+        MessageRole::System
     }
 }
 
-impl ToMessage for String {}
-impl ToMessage for str {}
-
-impl ToMessage for FileChunk {}
-impl ToMessage for File {}
-impl ToMessage for Directory {}
-impl ToMessage for Io {}
+impl ToMessage for FileChunk {
+    fn role() -> MessageRole {
+        MessageRole::Other("file_chunk_sharer".to_string())
+    }
+}
+impl ToMessage for File {
+    fn role() -> MessageRole {
+        MessageRole::Other("file_sharer".to_string())
+    }
+}
+impl ToMessage for Directory {
+    fn role() -> MessageRole {
+        MessageRole::Other("directory_sharer".to_string())
+    }
+}
+impl ToMessage for Io {
+    fn role() -> MessageRole {
+        MessageRole::Other("io".to_string())
+    }
+}
 
 impl Message {
     pub fn new_standard(role: MessageRole, content: &str) -> Self {

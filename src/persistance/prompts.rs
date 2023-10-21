@@ -1,6 +1,6 @@
 use crate::{
     configuration::ConfigEnv,
-    context::memory::{Message, MessageVector},
+    memory::{Message, MessageVector},
 };
 use serde::{Deserialize, Serialize};
 use std::fs;

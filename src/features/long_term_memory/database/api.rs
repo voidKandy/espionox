@@ -6,7 +6,7 @@ use super::{
     DbPool,
 };
 use crate::{
-    agent::spo_agents::SummarizerAgent,
+    agents::spo_agents::SummarizerAgent,
     configuration::ConfigEnv,
     core::{File, FileChunk},
     language_models::embed,

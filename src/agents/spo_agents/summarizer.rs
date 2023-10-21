@@ -1,7 +1,7 @@
 use crate::{
-    agent::{Agent, AgentError},
-    context::memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
+    agents::{Agent, AgentError},
     language_models::LanguageModel,
+    memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
 };
 
 // #[derive(Debug)]

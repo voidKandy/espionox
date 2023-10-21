@@ -1,8 +1,8 @@
 use crate::helpers::{init_test, test_gpt};
 use espionox::{
-    agent::Agent,
-    context::memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
+    agents::Agent,
     language_models::LanguageModel,
+    memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
 };
 
 #[tokio::test]

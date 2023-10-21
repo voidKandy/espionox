@@ -1,12 +1,13 @@
 mod builder;
+pub mod cache;
 pub mod long_term;
 pub mod messages;
 
 #[cfg(feature = "long_term_memory")]
-use long_term::feature::DbPool;
-
-use crate::{agent::spo_agents::SummarizerAgent, errors::error_chain_fmt};
+use crate::features::long_term_memory::DbPool;
+use crate::{agents::spo_agents::SummarizerAgent, errors::error_chain_fmt};
 use builder::MemoryBuilder;
+pub use cache::*;
 use long_term::*;
 pub use messages::*;
 
@@ -37,16 +38,10 @@ pub enum MemoryVariant {
 #[allow(unused)]
 #[derive(Clone, Debug)]
 pub struct Memory {
-    cache: MessageVector,
+    cache: MemoryCache,
     long_term: LongTermMemory,
     recall_mode: RecallMode,
     caching_mechanism: CachingMechanism,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum CachingMechanism {
-    Forgetful,
-    SummarizeAtLimit { limit: usize, save_to_lt: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -55,39 +50,19 @@ pub enum RecallMode {
     Default,
 }
 
-impl Default for CachingMechanism {
-    fn default() -> Self {
-        Self::default_summary_at_limit()
-    }
-}
-
-impl CachingMechanism {
-    pub fn limit(&self) -> usize {
-        match self {
-            Self::Forgetful => 2, // Only allows for user in agent out
-            Self::SummarizeAtLimit { limit, .. } => *limit as usize,
-        }
-    }
-    pub fn long_term_enabled(&self) -> bool {
-        match self {
-            Self::Forgetful => false,
-            Self::SummarizeAtLimit { save_to_lt, .. } => *save_to_lt,
-        }
-    }
-    pub fn default_summary_at_limit() -> Self {
-        let limit = 50;
-        let save_to_lt = false;
-        CachingMechanism::SummarizeAtLimit { limit, save_to_lt }
-    }
-}
-
 impl Memory {
+    fn save_cache_to_long_term(&self) -> Result<(), anyhow::Error> {
+        unimplemented!();
+        // let cache = self.cache
+        // self.long_term.
+    }
+
     pub fn build() -> MemoryBuilder {
         MemoryBuilder::new()
     }
 
     pub fn cache(&self) -> &MessageVector {
-        &self.cache
+        &self.cache.messages
     }
 
     pub fn recall_mode(&self) -> &RecallMode {
@@ -98,10 +73,19 @@ impl Memory {
         &self.caching_mechanism
     }
 
-    pub fn force_push_message_to_cache(&mut self, role: &str, displayable: impl ToMessage) {
-        self.cache
-            .as_mut()
-            .push(displayable.to_message(role.to_string().into()));
+    pub fn force_push_message_to_cache(&mut self, message: Message) {
+        self.cache.messages.as_mut().push(message);
+    }
+
+    pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
+        match &mut self.cache.cached_structs {
+            Some(structs) => {
+                structs.push(obj.flatten());
+            }
+            None => {
+                self.cache.cached_structs = Some(vec![obj.flatten()]);
+            }
+        }
     }
 
     pub async fn push_to_message_cache(&mut self, role: &str, displayable: impl ToMessage) {
@@ -109,6 +93,7 @@ impl Memory {
             self.handle_oversized_cache().await;
         }
         self.cache
+            .messages
             .as_mut()
             .push(displayable.to_message(role.to_string().into()));
     }
@@ -117,7 +102,7 @@ impl Memory {
     pub fn long_term_thread(&self) -> Option<String> {
         match &self.long_term {
             LongTermMemory::None => None,
-            LongTermMemory::Some(mem) => Some(mem.threadname().to_string()),
+            LongTermMemory::Some(mem) => Some(mem.current_thread().to_string()),
         }
     }
 
@@ -130,20 +115,24 @@ impl Memory {
     }
 
     fn cache_size_limit_reached(&self) -> bool {
-        self.cache.len_excluding_system_prompt() >= self.caching_mechanism.limit()
+        self.cache.messages.len_excluding_system_prompt() >= self.caching_mechanism.limit()
     }
 
     #[async_recursion::async_recursion]
     async fn handle_oversized_cache(&mut self) {
         match self.caching_mechanism {
-            CachingMechanism::Forgetful => self.cache.reset_to_system_prompt(),
+            CachingMechanism::Forgetful => self.cache.messages.reset_to_system_prompt(),
             CachingMechanism::SummarizeAtLimit { save_to_lt, .. } => {
-                let summary =
-                    SummarizerAgent::summarize_memory(self.cache.clone_sans_system_prompt())
-                        .await
-                        .expect("Failed to get memory summary");
-                self.cache.reset_to_system_prompt();
-                self.cache.push(summary.to_message(MessageRole::System))
+                if save_to_lt {
+                    self.save_cache_to_long_term();
+                }
+                let summary = SummarizerAgent::summarize_memory(
+                    self.cache.messages.clone_sans_system_prompt(),
+                )
+                .await
+                .expect("Failed to get memory summary");
+                self.cache.messages.reset_to_system_prompt();
+                self.force_push_message_to_cache(summary.to_message(MessageRole::System))
             }
         }
     }
