@@ -1,3 +1,4 @@
+pub mod embedded_structs;
 pub mod sqlx_wrapper;
 pub mod vector_model;
 
