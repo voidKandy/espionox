@@ -95,15 +95,20 @@ impl Memory {
         }
     }
 
-    pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
+    pub fn push_flattened_struct_to_cache(&mut self, obj: FlattenedStruct) {
         match &mut self.cache.cached_structs {
             Some(structs) => {
-                structs.push(obj.flatten());
+                structs.push(obj);
             }
             None => {
-                self.cache.cached_structs = Some(vec![obj.flatten()]);
+                self.cache.cached_structs = Some(vec![obj]);
             }
         }
+    }
+
+    pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
+        let flat = obj.flatten();
+        self.push_flattened_struct_to_cache(flat);
     }
 
     pub async fn push_to_message_cache(&mut self, role: &str, displayable: impl ToMessage) {
