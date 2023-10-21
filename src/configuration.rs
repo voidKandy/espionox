@@ -241,7 +241,7 @@ impl ConfigEnv {
         base_path.join("espionox_config")
     }
 
-    fn config_file_path(&self) -> PathBuf {
+    pub fn config_file_path(&self) -> PathBuf {
         let configuration_dir = Self::config_dir_path().join("env");
         PathBuf::from(
             format!(

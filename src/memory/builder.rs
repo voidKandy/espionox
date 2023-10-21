@@ -67,6 +67,10 @@ impl MemoryBuilder {
 
         #[cfg(feature = "long_term_memory")]
         if let Some(_threadname) = self.long_term_thread {
+            tracing::info!(
+                "Initializing long term memory with threadname: {}",
+                _threadname
+            );
             let pool = match self.env {
                 Some(env) => DbPool::sync_init_pool(env),
                 None => DbPool::default(),

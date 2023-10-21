@@ -11,8 +11,8 @@ pub enum LongTermMemory {
 
 #[cfg(feature = "long_term_memory")]
 impl From<LtmHandler> for LongTermMemory {
-    fn from(thread: LtmHandler) -> Self {
-        LongTermMemory::Some(thread)
+    fn from(handler: LtmHandler) -> Self {
+        LongTermMemory::Some(handler)
     }
 }
 
@@ -20,8 +20,8 @@ impl From<LtmHandler> for LongTermMemory {
 impl TryInto<LtmHandler> for LongTermMemory {
     type Error = anyhow::Error;
     fn try_into(self) -> Result<LtmHandler, Self::Error> {
-        if let LongTermMemory::Some(thread) = self {
-            Ok(thread)
+        if let LongTermMemory::Some(handler) = self {
+            Ok(handler)
         } else {
             Err(anyhow::anyhow!("LongTermMemory is None"))
         }

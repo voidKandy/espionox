@@ -1,8 +1,10 @@
 use crate::{
-    core::{Directory, File, FileChunk, Io},
+    core::{Directory, File, Io},
+    features::long_term_memory::{
+        database::SqlFromFlattenableStruct, models::file::CreateFileBody,
+    },
     memory::MessageVector,
 };
-use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct MemoryCache {
@@ -11,14 +13,37 @@ pub struct MemoryCache {
 }
 
 #[derive(Clone, Debug)]
-pub struct FlattenedCachedStruct {
-    string: String,
-    metadata: Option<CachedStructMetadata>,
+pub enum FlatType {
+    File,
+    Directory,
+    // Io,
 }
 
 #[derive(Clone, Debug)]
-struct CachedStructMetadata {
-    index: Option<i16>,
+pub enum BuildFrom {
+    String(String),
+}
+
+#[derive(Clone, Debug)]
+pub struct FlattenedCachedStruct {
+    pub build_from: BuildFrom,
+    pub flat_type: FlatType,
+}
+
+impl From<String> for BuildFrom {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl TryInto<String> for BuildFrom {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<String, Self::Error> {
+        match self {
+            Self::String(str) => Ok(str),
+            _ => Err(anyhow::anyhow!("Build from is not of string variant")),
+        }
+    }
 }
 
 pub trait FlattenStruct: std::fmt::Debug {
@@ -39,105 +64,71 @@ impl From<MessageVector> for MemoryCache {
 
 impl FlattenStruct for File {
     fn flatten(self) -> FlattenedCachedStruct {
-        let string = self.filepath.to_string_lossy().to_string();
+        let build_from = self.filepath.to_string_lossy().to_string().into();
         FlattenedCachedStruct {
-            string,
-            metadata: None,
+            build_from,
+            flat_type: FlatType::File,
         }
     }
     fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
     where
         Self: Sized,
     {
-        if flattened.is_file() {
-            Ok(File::from(flattened.string.as_str()))
-        } else {
-            Err(anyhow::anyhow!("Flattened string is not a file path"))
-        }
-    }
-}
-
-impl FlattenStruct for FileChunk {
-    fn flatten(self) -> FlattenedCachedStruct {
-        let string = self.parent_filepath.to_string_lossy().to_string();
-        let metadata = Some(CachedStructMetadata {
-            index: Some(self.index),
-        });
-        FlattenedCachedStruct { string, metadata }
-    }
-    fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
-    where
-        Self: Sized,
-    {
-        if flattened.is_file() {
-            if let Some(metadata) = flattened.metadata {
-                match metadata.index {
-                    Some(idx) => {
-                        let path = PathBuf::from(flattened.string);
-                        let file = File::from(path);
-                        Ok(file.chunks.get(idx as usize).unwrap().to_owned())
-                    }
-                    None => Err(anyhow::anyhow!("No index is in metadata")),
-                }
-            } else {
-                Err(anyhow::anyhow!("No metadata"))
+        match flattened.flat_type {
+            FlatType::File => {
+                let path: String = flattened.build_from.try_into().unwrap();
+                Ok(File::from(path.as_str()))
             }
-        } else {
-            Err(anyhow::anyhow!("Flattened struct is not a file chunk"))
+            _ => Err(anyhow::anyhow!("Flattened string is not a file path")),
         }
     }
 }
 
 impl FlattenStruct for Directory {
     fn flatten(self) -> FlattenedCachedStruct {
-        let string = self.dirpath.to_string_lossy().to_string();
+        let build_from = self.dirpath.to_string_lossy().to_string().into();
         FlattenedCachedStruct {
-            string,
-            metadata: None,
+            build_from,
+            flat_type: FlatType::Directory,
         }
     }
     fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
     where
         Self: Sized,
     {
-        if flattened.is_dir() {
-            Ok(Directory::from(flattened.string.as_str()))
-        } else {
-            Err(anyhow::anyhow!("Flattened string is not a dir path"))
+        match flattened.flat_type {
+            FlatType::Directory => {
+                let path: String = flattened.build_from.try_into().unwrap();
+                Ok(Directory::from(path.as_str()))
+            }
+            _ => Err(anyhow::anyhow!("Flattened string is not a dir path")),
         }
     }
 }
 
-impl FlattenStruct for Io {
-    fn flatten(self) -> FlattenedCachedStruct {
-        let string = self.i;
-        FlattenedCachedStruct {
-            string,
-            metadata: None,
-        }
-    }
-    fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
-    where
-        Self: Sized,
-    {
-        if !flattened.is_file() && !flattened.is_dir() {
-            let mut io = Io::init(&flattened.string);
-            io.run_input();
-            Ok(io)
-        } else {
-            Err(anyhow::anyhow!("Flattened struct is file or directory"))
-        }
-    }
-}
-
-impl FlattenedCachedStruct {
-    fn is_file(&self) -> bool {
-        PathBuf::from(self.string.to_string()).is_file()
-    }
-    fn is_dir(&self) -> bool {
-        PathBuf::from(self.string.to_string()).is_dir()
-    }
-}
+// impl FlattenStruct for Io {
+//     fn flatten(self) -> FlattenedCachedStruct {
+//         let build_from = self.i.into();
+//         FlattenedCachedStruct {
+//             build_from,
+//             flat_type: FlatType::Io,
+//         }
+//     }
+//     fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
+//     where
+//         Self: Sized,
+//     {
+//         match flattened.flat_type {
+//             FlatType::Io => {
+//                 let input: &str = flattened.build_from.try_into().unwrap();
+//                 let mut io = Io::init(input);
+//                 io.run_input();
+//                 Ok(io)
+//             }
+//             _ => Err(anyhow::anyhow!("Flattened struct is file or directory")),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CachingMechanism {
@@ -168,5 +159,16 @@ impl CachingMechanism {
         let limit = 50;
         let save_to_lt = false;
         CachingMechanism::SummarizeAtLimit { limit, save_to_lt }
+    }
+}
+
+impl MemoryCache {
+    fn push_flattenable_struct(&mut self, flat: impl FlattenStruct) {
+        match &mut self.cached_structs {
+            Some(structs) => {
+                structs.push(flat.flatten());
+            }
+            None => self.cached_structs = Some(vec![flat.flatten()]),
+        }
     }
 }

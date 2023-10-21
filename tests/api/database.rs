@@ -43,7 +43,7 @@ async fn filepath_to_database() -> Embedding {
     tracing::info!("Got {} chunks", file_chunks.len());
     let threadname = agent.memory.long_term_thread().unwrap();
     f.get_summary().await;
-    let file = CreateFileBody::build_from(&mut f, &threadname, helpers::test_env())
+    let file = CreateFileBody::build_from(&mut f, &threadname)
         .expect("Failed to build create file sql body");
 
     let embedding = file.summary_embedding.to_vec().to_owned();

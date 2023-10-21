@@ -1,4 +1,4 @@
-use crate::helpers::{init_test, test_gpt};
+use crate::helpers::{init_test, test_env, test_file, test_gpt};
 use espionox::{
     agents::Agent,
     language_models::LanguageModel,
@@ -47,4 +47,25 @@ async fn forgetful_works() {
             .await;
     }
     assert!(mech.limit() >= agent.memory.cache().len_excluding_system_prompt());
+}
+
+#[tokio::test]
+async fn long_term_memory_integration() {
+    init_test();
+    let mut memory = Memory::build()
+        .env(test_env())
+        .long_term_thread("testing")
+        .finished();
+    let file = test_file();
+    memory.flatten_struct_to_cache(file);
+    match memory.save_cache_to_long_term().await {
+        Ok(_) => {
+            tracing::info!("Succesfully saved cache to ltm");
+            assert!(true)
+        }
+        Err(err) => {
+            tracing::warn!("Error: {:?}", err);
+            assert!(false)
+        }
+    }
 }

@@ -51,10 +51,20 @@ pub enum RecallMode {
 }
 
 impl Memory {
-    fn save_cache_to_long_term(&self) -> Result<(), anyhow::Error> {
-        unimplemented!();
-        // let cache = self.cache
-        // self.long_term.
+    #[cfg(feature = "long_term_memory")]
+    #[tracing::instrument(name = "Save cache to database")]
+    pub async fn save_cache_to_long_term(&self) -> Result<(), anyhow::Error> {
+        if let LongTermMemory::Some(ltm) = &self.long_term {
+            let messages = self.cache.messages.clone();
+            tracing::info!("{} messages to be saved", messages.len());
+            ltm.save_messages_to_database(messages).await;
+            if let Some(flattened_structs) = &self.cache.cached_structs {
+                tracing::info!("{} structs to be saved", flattened_structs.len());
+                ltm.save_cached_structs(flattened_structs.to_vec()).await;
+            }
+            return Ok(());
+        }
+        Err(anyhow::anyhow!("No long term memory in memory"))
     }
 
     pub fn build() -> MemoryBuilder {
@@ -124,7 +134,9 @@ impl Memory {
             CachingMechanism::Forgetful => self.cache.messages.reset_to_system_prompt(),
             CachingMechanism::SummarizeAtLimit { save_to_lt, .. } => {
                 if save_to_lt {
-                    self.save_cache_to_long_term();
+                    self.save_cache_to_long_term()
+                        .await
+                        .expect("Failed to save cache to long term when handling oversized cache");
                 }
                 let summary = SummarizerAgent::summarize_memory(
                     self.cache.messages.clone_sans_system_prompt(),

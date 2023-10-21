@@ -1,6 +1,7 @@
 use espionox::{
     agents::Agent,
-    configuration::ConfigEnv,
+    configuration::{self, ConfigEnv},
+    core::File,
     language_models::{
         openai::gpt::{Gpt, GptConfig},
         LanguageModel,
@@ -52,4 +53,9 @@ pub fn test_agent() -> Agent {
     let memory = Memory::build().finished();
     let model = LanguageModel::from(test_gpt());
     Agent { memory, model }
+}
+
+pub fn test_file() -> File {
+    let filepath = test_env().config_file_path();
+    File::from(filepath)
 }
