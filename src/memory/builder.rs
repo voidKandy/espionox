@@ -7,7 +7,7 @@ use crate::features::long_term_memory::*;
 
 pub struct MemoryBuilder {
     init_prompt: Option<MessageVector>,
-    cached_structs: Option<Vec<FlattenedCachedStruct>>,
+    cached_structs: Option<Vec<FlattenedStruct>>,
     env: Option<ConfigEnv>, // Mostly for testing, can't think of a reason a dev would want to
     // change the environment other than for that
     recall_mode: Option<RecallMode>,
@@ -39,7 +39,7 @@ impl MemoryBuilder {
     }
 
     pub fn with_structs_flattened(mut self, structs: Vec<impl FlattenStruct>) -> Self {
-        let flattened_structs: Vec<FlattenedCachedStruct> =
+        let flattened_structs: Vec<FlattenedStruct> =
             structs.into_iter().map(|s| s.flatten()).collect();
         self.cached_structs = Some(flattened_structs);
         self

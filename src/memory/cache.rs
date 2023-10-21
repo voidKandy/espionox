@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::{
     core::{Directory, File, Io},
     features::long_term_memory::{
@@ -6,16 +8,18 @@ use crate::{
     memory::MessageVector,
 };
 
+use super::ToMessage;
+
 #[derive(Clone, Debug)]
 pub struct MemoryCache {
     pub messages: MessageVector,
-    pub cached_structs: Option<Vec<FlattenedCachedStruct>>,
+    pub cached_structs: Option<Vec<FlattenedStruct>>,
 }
 
 #[derive(Clone, Debug)]
-pub enum FlatType {
-    File,
-    Directory,
+pub enum FlattenedStruct {
+    File(BuildFrom),
+    Directory(BuildFrom),
     // Io,
 }
 
@@ -24,10 +28,27 @@ pub enum BuildFrom {
     String(String),
 }
 
-#[derive(Clone, Debug)]
-pub struct FlattenedCachedStruct {
-    pub build_from: BuildFrom,
-    pub flat_type: FlatType,
+impl fmt::Display for FlattenedStruct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self,)
+    }
+}
+
+impl ToMessage for FlattenedStruct {
+    fn with_default_role(&self) -> super::Message {
+        match self {
+            FlattenedStruct::File(_) => File::rebuild(self.to_owned())
+                .expect("Failed to rebuild file")
+                .with_default_role(),
+            FlattenedStruct::Directory(_) => Directory::rebuild(self.to_owned())
+                .expect("Failed to rebuild file")
+                .with_default_role(),
+        }
+    }
+    // This should never be called but needs to be defined for compilation
+    fn role() -> super::MessageRole {
+        super::MessageRole::System
+    }
 }
 
 impl From<String> for BuildFrom {
@@ -46,9 +67,9 @@ impl TryInto<String> for BuildFrom {
     }
 }
 
-pub trait FlattenStruct: std::fmt::Debug {
-    fn flatten(self) -> FlattenedCachedStruct;
-    fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
+pub trait FlattenStruct: std::fmt::Debug + ToMessage {
+    fn flatten(self) -> FlattenedStruct;
+    fn rebuild(flattened: FlattenedStruct) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
@@ -63,20 +84,17 @@ impl From<MessageVector> for MemoryCache {
 }
 
 impl FlattenStruct for File {
-    fn flatten(self) -> FlattenedCachedStruct {
+    fn flatten(self) -> FlattenedStruct {
         let build_from = self.filepath.to_string_lossy().to_string().into();
-        FlattenedCachedStruct {
-            build_from,
-            flat_type: FlatType::File,
-        }
+        FlattenedStruct::File(build_from)
     }
-    fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
+    fn rebuild(flattened: FlattenedStruct) -> Result<Self, anyhow::Error>
     where
         Self: Sized,
     {
-        match flattened.flat_type {
-            FlatType::File => {
-                let path: String = flattened.build_from.try_into().unwrap();
+        match flattened {
+            FlattenedStruct::File(build_from) => {
+                let path: String = build_from.try_into().unwrap();
                 Ok(File::from(path.as_str()))
             }
             _ => Err(anyhow::anyhow!("Flattened string is not a file path")),
@@ -85,20 +103,17 @@ impl FlattenStruct for File {
 }
 
 impl FlattenStruct for Directory {
-    fn flatten(self) -> FlattenedCachedStruct {
+    fn flatten(self) -> FlattenedStruct {
         let build_from = self.dirpath.to_string_lossy().to_string().into();
-        FlattenedCachedStruct {
-            build_from,
-            flat_type: FlatType::Directory,
-        }
+        FlattenedStruct::Directory(build_from)
     }
-    fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
+    fn rebuild(flattened: FlattenedStruct) -> Result<Self, anyhow::Error>
     where
         Self: Sized,
     {
-        match flattened.flat_type {
-            FlatType::Directory => {
-                let path: String = flattened.build_from.try_into().unwrap();
+        match flattened {
+            FlattenedStruct::Directory(build_from) => {
+                let path: String = build_from.try_into().unwrap();
                 Ok(Directory::from(path.as_str()))
             }
             _ => Err(anyhow::anyhow!("Flattened string is not a dir path")),
@@ -107,14 +122,14 @@ impl FlattenStruct for Directory {
 }
 
 // impl FlattenStruct for Io {
-//     fn flatten(self) -> FlattenedCachedStruct {
+//     fn flatten(self) -> FlattenedStruct {
 //         let build_from = self.i.into();
-//         FlattenedCachedStruct {
+//         FlattenedStruct {
 //             build_from,
 //             flat_type: FlatType::Io,
 //         }
 //     }
-//     fn rebuild(flattened: FlattenedCachedStruct) -> Result<Self, anyhow::Error>
+//     fn rebuild(flattened: FlattenedStruct) -> Result<Self, anyhow::Error>
 //     where
 //         Self: Sized,
 //     {

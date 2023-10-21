@@ -10,7 +10,7 @@ use crate::{
     language_models::embed,
     memory::{
         messages::{Message, MessageVector},
-        FlatType, FlattenStruct, FlattenedCachedStruct,
+        FlattenStruct, FlattenedStruct,
     },
 };
 use std::{ops::Deref, sync::Arc};
@@ -68,13 +68,13 @@ impl LtmHandler {
     }
 
     #[tracing::instrument(name = "Save cached structs to database")]
-    pub async fn save_cached_structs(&self, structs: Vec<FlattenedCachedStruct>) {
+    pub async fn save_cached_structs(&self, structs: Vec<FlattenedStruct>) {
         let structs = structs.to_owned();
         let current_thread = self.current_thread.to_owned();
         let pool = self.pool.to_owned();
         for flat in structs.into_iter() {
-            match flat.flat_type {
-                FlatType::File => {
+            match flat {
+                FlattenedStruct::File(_) => {
                     let mut file = File::rebuild(flat).unwrap();
                     let sql = CreateFileBody::build_from(&mut file, &current_thread)
                         .expect("Failed to create sql body");
@@ -82,7 +82,7 @@ impl LtmHandler {
                         .await
                         .expect("Failed to post single file");
                 }
-                FlatType::Directory => {
+                FlattenedStruct::Directory(_) => {
                     let dir = Directory::rebuild(flat).unwrap();
                     for mut file in dir.files {
                         let sql = CreateFileBody::build_from(&mut file, &current_thread)

@@ -87,6 +87,14 @@ impl Memory {
         self.cache.messages.as_mut().push(message);
     }
 
+    pub fn force_push_cached_structs_to_messages(&mut self) {
+        if let Some(structs) = self.cache.cached_structs.to_owned() {
+            for s in structs.iter() {
+                self.force_push_message_to_cache(s.with_default_role())
+            }
+        }
+    }
+
     pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
         match &mut self.cache.cached_structs {
             Some(structs) => {
