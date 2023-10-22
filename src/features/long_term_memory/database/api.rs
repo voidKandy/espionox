@@ -49,10 +49,7 @@ impl SqlFromFlattenableStruct for Vec<CreateFileBody> {}
 
 impl CreateFileBody {
     #[tracing::instrument(name = "Build CreateFileBody Sql struct from File struct")]
-    pub fn build_from(
-        file: &mut File,
-        thread_name: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn build_from(file: &File, thread_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let summary = match &file.summary {
             None => {
                 tracing::warn!("File has no summary, consider summarizing before embedding");

@@ -10,7 +10,7 @@ use crate::{
     language_models::embed,
     memory::{
         messages::{Message, MessageVector},
-        FlattenStruct, FlattenedStruct,
+        ToMessage,
     },
 };
 use std::{ops::Deref, sync::Arc};
@@ -68,30 +68,19 @@ impl LtmHandler {
     }
 
     #[tracing::instrument(name = "Save cached structs to database")]
-    pub async fn save_cached_structs(&self, structs: Vec<FlattenedStruct>) {
-        let structs = structs.to_owned();
+    pub async fn save_cached_structs(&self, structs: Vec<Box<dyn ToMessage>>) {
         let current_thread = self.current_thread.to_owned();
         let pool = self.pool.to_owned();
-        for flat in structs.into_iter() {
-            match flat {
-                FlattenedStruct::File(_) => {
-                    let mut file = File::rebuild(flat).unwrap();
-                    let sql = CreateFileBody::build_from(&mut file, &current_thread)
-                        .expect("Failed to create sql body");
-                    handlers::file::post_file(&pool, sql)
-                        .await
-                        .expect("Failed to post single file");
-                }
-                FlattenedStruct::Directory(_) => {
-                    let dir = Directory::rebuild(flat).unwrap();
-                    for mut file in dir.files {
-                        let sql = CreateFileBody::build_from(&mut file, &current_thread)
-                            .expect("Failed to create sql body");
-                        handlers::file::post_file(&pool, sql)
-                            .await
-                            .expect("Failed to post file in directory");
-                    }
-                }
+        for s in structs.into_iter() {
+            if let Some(file) = s.as_file() {
+                let sql = CreateFileBody::build_from(&file, &current_thread)
+                    .expect("Failed to create sql body");
+                handlers::file::post_file(&pool, sql)
+                    .await
+                    .expect("Failed to post single file");
+            }
+            if let Some(io) = s.as_io() {
+                unimplemented!();
             }
         }
     }
@@ -101,7 +90,7 @@ impl LtmHandler {
         let messages = messages.to_owned();
         let current_thread = self.current_thread.to_owned();
         let pool = self.pool.to_owned();
-        for m in messages.as_ref().iter() {
+        for m in messages.as_ref().iter().filter(|m| m.content().is_some()) {
             handlers::messages::post_message(
                 &pool,
                 models::messages::CreateMessageBody {

@@ -1,7 +1,7 @@
 use crate::{
     agents::{Agent, AgentError},
     language_models::LanguageModel,
-    memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
+    memory::{CachingMechanism, Memory, Message, MessageRole, MessageVector, ToMessage},
 };
 
 // #[derive(Debug)]
@@ -14,6 +14,9 @@ pub enum SummarizerAgent {
 }
 
 impl SummarizerAgent {
+    pub fn message_role() -> MessageRole {
+        MessageRole::Other(String::from("summarizer"))
+    }
     pub fn agent(&self) -> Agent {
         match self {
             Self::General => {
@@ -23,7 +26,7 @@ impl SummarizerAgent {
                 - Be highly organized 
                 - Do not use lists or anything resembling a list in your summary
                 - think through your response step by step, your summary should be succinct but accurate"#
-        .to_string().to_message(MessageRole::System));
+        .to_string().to_message_with_role(MessageRole::System));
 
                 let memory = Memory::build()
                     .init_prompt(init_prompt)
@@ -41,7 +44,7 @@ impl SummarizerAgent {
             Your summaries should be helpful and reflect the essence of the 
             conversation. Remember, clarity and brevity are essential."#
                         .to_string()
-                        .to_message(MessageRole::System),
+                        .to_message_with_role(MessageRole::System),
                 );
 
                 let memory = Memory::build()

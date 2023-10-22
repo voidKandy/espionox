@@ -1,13 +1,24 @@
 use crate::{core::*, language_models::openai::gpt::GptMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+};
 
-// content should be dyn or enum
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Message {
-    Standard { role: MessageRole, content: String },
-    Function { function_call: FunctionCall },
+    Standard {
+        role: MessageRole,
+        content: String,
+    },
+    FlatStruct {
+        content: String,
+        metadata: MessageMetadata,
+    },
+    Function {
+        function_call: FunctionCall,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -16,6 +27,79 @@ pub enum MessageRole {
     User,
     System,
     Other(String),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum MessageMetadata {
+    File {
+        path: PathBuf,
+        summary: Option<String>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FunctionCall {
+    name: String,
+    arguments: Vec<Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct MessageVector(Vec<Message>);
+
+pub trait ToMessage: std::fmt::Debug + Display + ToString + Send + Sync {
+    fn to_message(&self) -> Message;
+    fn to_message_with_role(&self, role: MessageRole) -> Message {
+        Message::Standard {
+            role,
+            content: self.to_string(),
+        }
+    }
+    fn as_file(&self) -> Option<&File> {
+        None
+    }
+    fn as_io(&self) -> Option<&Io> {
+        None
+    }
+    fn as_string(&self) -> Option<&String> {
+        None
+    }
+}
+
+impl From<&File> for MessageMetadata {
+    fn from(value: &File) -> Self {
+        let path = value.filepath.to_owned().into();
+        let summary = value.summary.to_owned();
+        MessageMetadata::File { path, summary }
+    }
+}
+
+impl TryInto<Box<dyn ToMessage>> for MessageMetadata {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<Box<dyn ToMessage>, Self::Error> {
+        match self {
+            Self::File { path, summary } => {
+                let mut file = File::from(path);
+                file.summary = summary;
+                Ok(Box::new(file))
+            }
+            _ => Err(anyhow::anyhow!("No struct buildable from metadata")),
+        }
+    }
+}
+
+impl TryInto<Box<dyn ToMessage>> for Message {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<Box<dyn ToMessage>, Self::Error> {
+        if let Message::FlatStruct { metadata, .. } = self {
+            if let Ok(dyn_struct) = metadata.try_into() {
+                Ok(dyn_struct)
+            } else {
+                Err(anyhow::anyhow!("Could not build dyn struct from metadata"))
+            }
+        } else {
+            Err(anyhow::anyhow!("Message is not of struct variety"))
+        }
+    }
 }
 
 impl ToString for MessageRole {
@@ -41,65 +125,43 @@ impl From<String> for MessageRole {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct FunctionCall {
-    name: String,
-    arguments: Vec<Value>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-pub struct MessageVector(Vec<Message>);
-
-pub trait ToMessage: std::fmt::Debug + Display + ToString {
-    fn with_default_role(&self) -> Message {
-        Message::Standard {
-            role: Self::role(),
-            content: self.to_string(),
-        }
-    }
-    fn to_message(&self, role: MessageRole) -> Message {
-        Message::Standard {
-            role,
-            content: self.to_string(),
-        }
-    }
-    fn role() -> MessageRole;
-}
-
 impl ToMessage for String {
-    fn role() -> MessageRole {
-        MessageRole::System
+    fn to_message(&self) -> Message {
+        Message::Standard {
+            role: MessageRole::System,
+            content: self.to_string(),
+        }
+    }
+    fn as_string(&self) -> Option<&String> {
+        Some(self)
     }
 }
 
-impl ToMessage for FileChunk {
-    fn role() -> MessageRole {
-        MessageRole::Other("file_chunk_sharer".to_string())
-    }
-}
 impl ToMessage for File {
-    fn role() -> MessageRole {
-        MessageRole::Other("file_sharer".to_string())
+    fn to_message(&self) -> Message {
+        let content = self.content();
+        let metadata = MessageMetadata::from(self);
+        Message::FlatStruct { content, metadata }
+    }
+    fn as_file(&self) -> Option<&File> {
+        Some(self)
     }
 }
-impl ToMessage for Directory {
-    fn role() -> MessageRole {
-        MessageRole::Other("directory_sharer".to_string())
-    }
-}
+
 impl ToMessage for Io {
-    fn role() -> MessageRole {
-        MessageRole::Other("io".to_string())
+    fn to_message(&self) -> Message {
+        Message::Standard {
+            role: MessageRole::Other(String::from("io")),
+            content: self.to_string(),
+        }
+    }
+    fn as_io(&self) -> Option<&Io> {
+        Some(self)
     }
 }
 
 impl Message {
     pub fn new_standard(role: MessageRole, content: &str) -> Self {
-        // Message content should not have excessive whitespace or newlines
-        // let content = content
-        //     .split_whitespace()
-        //     .collect::<Vec<&str>>()
-        //     .join(" ");
         Message::Standard {
             role,
             content: content.to_string(),
@@ -110,6 +172,7 @@ impl Message {
         match self {
             Self::Standard { role, .. } => role.to_owned(),
             Self::Function { .. } => MessageRole::Assistant,
+            Self::FlatStruct { .. } => MessageRole::Other(String::from("struct_sharer")),
         }
     }
 
@@ -132,6 +195,16 @@ impl ToString for MessageVector {
             ));
         });
         output
+    }
+}
+
+impl From<Directory> for MessageVector {
+    fn from(value: Directory) -> Self {
+        let mut vec = MessageVector::init();
+        for file in value.files.into_iter() {
+            vec.push(file.to_message());
+        }
+        vec
     }
 }
 
@@ -167,12 +240,19 @@ impl MessageVector {
     pub fn from_message(message: Message) -> Self {
         MessageVector::from(vec![message])
     }
+    pub fn push(&mut self, message: Message) {
+        self.as_mut().push(message);
+    }
+    pub fn append(&mut self, mut messages: Self) {
+        self.as_mut().append(messages.as_mut());
+    }
     pub fn init() -> Self {
         MessageVector(vec![])
     }
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
     pub fn clone_sans_system_prompt(&self) -> MessageVector {
         MessageVector::from(
             self.as_ref()
@@ -195,14 +275,30 @@ impl MessageVector {
         self.as_mut()
             .retain(|message| message.role() == MessageRole::System);
     }
-    pub fn len_excluding_system_prompt(&self) -> usize {
+    pub fn chat_count(&self) -> usize {
         self.as_ref()
             .iter()
-            .filter(|m| m.role() != MessageRole::System)
+            .filter(|m| m.role() == MessageRole::User || m.role() == MessageRole::Assistant)
             .count()
     }
-    pub fn push(&mut self, message: Message) {
-        self.as_mut().push(message);
+
+    pub fn get_structs(&self) -> Option<Vec<Box<dyn ToMessage>>> {
+        let mut return_vec = Vec::new();
+        for message in self.as_ref().into_iter() {
+            if let Message::FlatStruct { .. } = message {
+                return_vec.push(
+                    message
+                        .to_owned()
+                        .try_into()
+                        .expect("Failed to get box struct from message"),
+                );
+            }
+        }
+        if !return_vec.is_empty() {
+            Some(return_vec)
+        } else {
+            None
+        }
     }
 }
 
@@ -273,6 +369,14 @@ impl Into<Value> for Message {
             Self::Function { function_call } => {
                 let func_call_json: Value = function_call.into();
                 json!({"role": role, "content": null, "function_call": func_call_json})
+            }
+            Self::FlatStruct { content, .. } => {
+                let content = content
+                    .split_whitespace()
+                    .collect::<Vec<&str>>()
+                    .join(" ")
+                    .replace('\n', " ");
+                json!({"role": role, "content": content})
             }
         }
     }

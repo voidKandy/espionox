@@ -1,5 +1,5 @@
 mod builder;
-pub mod cache;
+pub mod caching;
 pub mod long_term;
 pub mod messages;
 
@@ -7,7 +7,7 @@ pub mod messages;
 use crate::features::long_term_memory::DbPool;
 use crate::{agents::spo_agents::SummarizerAgent, errors::error_chain_fmt};
 use builder::MemoryBuilder;
-pub use cache::*;
+pub use caching::*;
 use long_term::*;
 pub use messages::*;
 
@@ -38,7 +38,7 @@ pub enum MemoryVariant {
 #[allow(unused)]
 #[derive(Clone, Debug)]
 pub struct Memory {
-    cache: MemoryCache,
+    cache: MessageVector,
     long_term: LongTermMemory,
     recall_mode: RecallMode,
     caching_mechanism: CachingMechanism,
@@ -55,12 +55,12 @@ impl Memory {
     #[tracing::instrument(name = "Save cache to database")]
     pub async fn save_cache_to_long_term(&self) -> Result<(), anyhow::Error> {
         if let LongTermMemory::Some(ltm) = &self.long_term {
-            let messages = self.cache.messages.clone();
+            let messages = self.cache.clone();
             tracing::info!("{} messages to be saved", messages.len());
             ltm.save_messages_to_database(messages).await;
-            if let Some(flattened_structs) = &self.cache.cached_structs {
-                tracing::info!("{} structs to be saved", flattened_structs.len());
-                ltm.save_cached_structs(flattened_structs.to_vec()).await;
+            if let Some(structs) = self.cache.get_structs() {
+                tracing::info!("{} structs to be saved", structs.len());
+                ltm.save_cached_structs(structs).await;
             }
             return Ok(());
         }
@@ -72,7 +72,7 @@ impl Memory {
     }
 
     pub fn cache(&self) -> &MessageVector {
-        &self.cache.messages
+        &self.cache
     }
 
     pub fn recall_mode(&self) -> &RecallMode {
@@ -84,41 +84,38 @@ impl Memory {
     }
 
     pub fn force_push_message_to_cache(&mut self, message: Message) {
-        self.cache.messages.as_mut().push(message);
+        self.cache.as_mut().push(message);
     }
 
-    pub fn force_push_cached_structs_to_messages(&mut self) {
-        if let Some(structs) = self.cache.cached_structs.to_owned() {
-            for s in structs.iter() {
-                self.force_push_message_to_cache(s.with_default_role())
-            }
-        }
-    }
+    // pub fn push_flattened_struct_to_cache(&mut self, obj: FlattenedStruct) {
+    //     match &mut self.cache.cached_structs {
+    //         Some(structs) => {
+    //             structs.push(obj);
+    //         }
+    //         None => {
+    //             self.cache.cached_structs = Some(vec![obj]);
+    //         }
+    //     }
+    // }
+    //
+    // pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
+    //     self.force_push_message_to_cache(obj.to_message().clone());
+    //     let flat = obj.flatten();
+    //     self.push_flattened_struct_to_cache(flat);
+    // }
 
-    pub fn push_flattened_struct_to_cache(&mut self, obj: FlattenedStruct) {
-        match &mut self.cache.cached_structs {
-            Some(structs) => {
-                structs.push(obj);
-            }
-            None => {
-                self.cache.cached_structs = Some(vec![obj]);
-            }
-        }
-    }
-
-    pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
-        let flat = obj.flatten();
-        self.push_flattened_struct_to_cache(flat);
-    }
-
-    pub async fn push_to_message_cache(&mut self, role: &str, displayable: impl ToMessage) {
+    pub async fn push_to_message_cache(&mut self, role: Option<&str>, displayable: impl ToMessage) {
         if self.cache_size_limit_reached() {
             self.handle_oversized_cache().await;
         }
-        self.cache
-            .messages
-            .as_mut()
-            .push(displayable.to_message(role.to_string().into()));
+        let message = match role {
+            Some(role) => {
+                let role = role.to_string().into();
+                displayable.to_message_with_role(role)
+            }
+            None => displayable.to_message(),
+        };
+        self.cache.as_mut().push(message);
     }
 
     #[cfg(feature = "long_term_memory")]
@@ -138,26 +135,33 @@ impl Memory {
     }
 
     fn cache_size_limit_reached(&self) -> bool {
-        self.cache.messages.len_excluding_system_prompt() >= self.caching_mechanism.limit()
+        self.cache.chat_count() >= self.caching_mechanism.limit()
     }
 
     #[async_recursion::async_recursion]
     async fn handle_oversized_cache(&mut self) {
+        let to_messages_opt = self.cache.get_structs();
         match self.caching_mechanism {
-            CachingMechanism::Forgetful => self.cache.messages.reset_to_system_prompt(),
+            CachingMechanism::Forgetful => self.cache.reset_to_system_prompt(),
             CachingMechanism::SummarizeAtLimit { save_to_lt, .. } => {
                 if save_to_lt {
                     self.save_cache_to_long_term()
                         .await
                         .expect("Failed to save cache to long term when handling oversized cache");
                 }
-                let summary = SummarizerAgent::summarize_memory(
-                    self.cache.messages.clone_sans_system_prompt(),
+                let summary =
+                    SummarizerAgent::summarize_memory(self.cache.clone_sans_system_prompt())
+                        .await
+                        .expect("Failed to get memory summary");
+                self.cache.reset_to_system_prompt();
+                self.force_push_message_to_cache(
+                    summary.to_message_with_role(SummarizerAgent::message_role()),
                 )
-                .await
-                .expect("Failed to get memory summary");
-                self.cache.messages.reset_to_system_prompt();
-                self.force_push_message_to_cache(summary.to_message(MessageRole::System))
+            }
+        }
+        if let Some(to_messages) = to_messages_opt {
+            for to_message in to_messages.into_iter() {
+                self.cache.push(to_message.to_message());
             }
         }
     }

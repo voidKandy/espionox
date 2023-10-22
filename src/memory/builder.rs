@@ -7,8 +7,8 @@ use crate::features::long_term_memory::*;
 
 pub struct MemoryBuilder {
     init_prompt: Option<MessageVector>,
-    cached_structs: Option<Vec<FlattenedStruct>>,
-    env: Option<ConfigEnv>, // Mostly for testing, can't think of a reason a dev would want to
+    env: Option<ConfigEnv>,
+    // env is mostly for testing, can't think of a reason a dev would want to
     // change the environment other than for that
     recall_mode: Option<RecallMode>,
     caching_mechanism: Option<CachingMechanism>,
@@ -19,7 +19,6 @@ impl MemoryBuilder {
     pub fn new() -> Self {
         Self {
             init_prompt: None,
-            cached_structs: None,
             env: None,
             recall_mode: None,
             caching_mechanism: None,
@@ -35,13 +34,6 @@ impl MemoryBuilder {
 
     pub fn recall(mut self, recall: RecallMode) -> Self {
         self.recall_mode = Some(recall);
-        self
-    }
-
-    pub fn with_structs_flattened(mut self, structs: Vec<impl FlattenStruct>) -> Self {
-        let flattened_structs: Vec<FlattenedStruct> =
-            structs.into_iter().map(|s| s.flatten()).collect();
-        self.cached_structs = Some(flattened_structs);
         self
     }
 
@@ -62,9 +54,7 @@ impl MemoryBuilder {
     }
 
     pub fn finished(self) -> Memory {
-        let mut cache: MemoryCache = self.init_prompt.unwrap_or_else(MessageVector::init).into();
-        cache.cached_structs = self.cached_structs;
-
+        let cache = self.init_prompt.unwrap_or(MessageVector::init());
         #[cfg(feature = "long_term_memory")]
         if let Some(_threadname) = self.long_term_thread {
             tracing::info!(

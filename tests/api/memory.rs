@@ -19,14 +19,14 @@ async fn summarize_at_limit_works() {
     for _ in 0..=3 {
         agent
             .memory
-            .push_to_message_cache("user", "Hello".to_string())
+            .push_to_message_cache(Some("user"), "Hello".to_string())
             .await;
         agent
             .memory
-            .push_to_message_cache("assistant", "Hello! how can i help you?".to_string())
+            .push_to_message_cache(Some("assistant"), "Hello! how can i help you?".to_string())
             .await;
     }
-    assert!(limit >= agent.memory.cache().len_excluding_system_prompt());
+    assert!(limit >= agent.memory.cache().chat_count());
 }
 
 #[tokio::test]
@@ -39,14 +39,14 @@ async fn forgetful_works() {
     for _ in 0..=3 {
         agent
             .memory
-            .push_to_message_cache("user", "Hello".to_string())
+            .push_to_message_cache(Some("user"), "Hello".to_string())
             .await;
         agent
             .memory
-            .push_to_message_cache("assistant", "Hello! how can i help you?".to_string())
+            .push_to_message_cache(Some("assistant"), "Hello! how can i help you?".to_string())
             .await;
     }
-    assert!(mech.limit() >= agent.memory.cache().len_excluding_system_prompt());
+    assert!(mech.limit() >= agent.memory.cache().chat_count());
 }
 
 #[tokio::test]
@@ -57,7 +57,7 @@ async fn long_term_memory_integration() {
         .long_term_thread("testing")
         .finished();
     let file = test_file();
-    memory.flatten_struct_to_cache(file);
+    memory.push_to_message_cache(None, file).await;
     match memory.save_cache_to_long_term().await {
         Ok(_) => {
             tracing::info!("Succesfully saved cache to ltm");
