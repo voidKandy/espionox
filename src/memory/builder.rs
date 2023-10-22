@@ -73,14 +73,14 @@ impl MemoryBuilder {
                 caching_mechanism: self.caching_mechanism.unwrap_or_default(),
                 long_term,
             };
-        } else {
-            let long_term = LongTermMemory::None;
-            return Memory {
-                cache,
-                recall_mode: self.recall_mode.unwrap_or_default(),
-                caching_mechanism: self.caching_mechanism.unwrap_or_default(),
-                long_term,
-            };
         }
+        // Leave this elseless!!
+        let long_term = LongTermMemory::None;
+        return Memory {
+            cache,
+            recall_mode: self.recall_mode.unwrap_or_default(),
+            caching_mechanism: self.caching_mechanism.unwrap_or_default(),
+            long_term,
+        };
     }
 }

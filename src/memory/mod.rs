@@ -128,12 +128,14 @@ impl Memory {
         self.cache.chat_count() >= self.caching_mechanism.limit()
     }
 
+    #[allow(unused)]
     #[async_recursion::async_recursion]
     async fn handle_oversized_cache(&mut self) {
         let to_messages_opt = self.cache.get_structs();
         match self.caching_mechanism {
             CachingMechanism::Forgetful => self.cache.reset_to_system_prompt(),
             CachingMechanism::SummarizeAtLimit { save_to_lt, .. } => {
+                #[cfg(feature = "long_term_memory")]
                 if save_to_lt {
                     self.save_cache_to_long_term()
                         .await

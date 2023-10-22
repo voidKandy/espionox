@@ -139,7 +139,13 @@ impl ToMessage for String {
 
 impl ToMessage for File {
     fn to_message(&self) -> Message {
-        let content = self.content();
+        let content = match &self.summary {
+            Some(sum) => sum.to_string(),
+            None => {
+                let first_chunk = &self.chunks[0];
+                format!("The file: {} does not have a summary. Here is the first chunk: {}. Let the user know the file is not summarized if they ask about the file.", self.filepath.display().to_string(), first_chunk)
+            }
+        };
         let metadata = MessageMetadata::from(self);
         Message::FlatStruct { content, metadata }
     }
