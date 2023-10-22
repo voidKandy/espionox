@@ -87,23 +87,6 @@ impl Memory {
         self.cache.as_mut().push(message);
     }
 
-    // pub fn push_flattened_struct_to_cache(&mut self, obj: FlattenedStruct) {
-    //     match &mut self.cache.cached_structs {
-    //         Some(structs) => {
-    //             structs.push(obj);
-    //         }
-    //         None => {
-    //             self.cache.cached_structs = Some(vec![obj]);
-    //         }
-    //     }
-    // }
-    //
-    // pub fn flatten_struct_to_cache(&mut self, obj: impl FlattenStruct) {
-    //     self.force_push_message_to_cache(obj.to_message().clone());
-    //     let flat = obj.flatten();
-    //     self.push_flattened_struct_to_cache(flat);
-    // }
-
     pub async fn push_to_message_cache(&mut self, role: Option<&str>, displayable: impl ToMessage) {
         if self.cache_size_limit_reached() {
             self.handle_oversized_cache().await;
@@ -116,6 +99,13 @@ impl Memory {
             None => displayable.to_message(),
         };
         self.cache.as_mut().push(message);
+    }
+
+    pub async fn append_to_message_cache(&mut self, displayable_vec: impl Into<MessageVector>) {
+        if self.cache_size_limit_reached() {
+            self.handle_oversized_cache().await;
+        }
+        self.cache.append(displayable_vec.into());
     }
 
     #[cfg(feature = "long_term_memory")]
