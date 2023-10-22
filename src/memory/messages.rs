@@ -355,7 +355,11 @@ impl From<Value> for Message {
 
 impl Into<Value> for Message {
     fn into(self) -> Value {
-        let role = self.role().to_string();
+        let role = match self.role() {
+            MessageRole::Other(_) => MessageRole::System.to_string(),
+            other => other.to_string(),
+        };
+
         match self {
             Self::Standard { content, .. } => {
                 // Model should not receive excessive whitespace or newlines
@@ -368,7 +372,7 @@ impl Into<Value> for Message {
             }
             Self::Function { function_call } => {
                 let func_call_json: Value = function_call.into();
-                json!({"role": role, "content": null, "function_call": func_call_json})
+                json!({"role": "function", "content": null, "function_call": func_call_json})
             }
             Self::FlatStruct { content, .. } => {
                 let content = content
