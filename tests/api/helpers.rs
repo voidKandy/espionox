@@ -37,6 +37,7 @@ pub fn test_gpt() -> Gpt {
     Gpt {
         config,
         model_override,
+        ..Default::default()
     }
 }
 

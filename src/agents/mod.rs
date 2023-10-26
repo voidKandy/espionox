@@ -10,23 +10,17 @@ pub use streaming_utils::*;
 
 use crate::{
     language_models::{openai::functions::CustomFunction, LanguageModel},
-    memory::{Memory, MessageRole, MessageVector, ToMessage},
+    memory::{Memory, ToMessage},
 };
 
-// #[cfg(feature = "long_term_memory")]
-// use crate::{
-//     context::integrations::database::{Embedded, EmbeddedCoreStruct},
-//     core::{File, FileChunk},
-//     language_models::embed,
-// };
-
+/// Agent struct for interracting with LLM
 #[derive(Debug, Clone)]
 pub struct Agent {
+    /// Memory handles how agent recalls and caches memory
     pub memory: Memory,
+    /// Language model defines which model to use for the given agent
     pub model: LanguageModel,
 }
-
-// const DEFAULT_INIT_PROMPT: &str = r#"        "#;
 
 impl Default for Agent {
     fn default() -> Self {
@@ -39,11 +33,12 @@ impl Default for Agent {
 }
 
 impl Agent {
+    /// Prompt for a full completion
     #[tracing::instrument(name = "Prompt agent for response")]
     pub async fn prompt(&mut self, input: impl ToMessage) -> Result<String, AgentError> {
         self.memory.push_to_message_cache(Some("user"), input).await;
 
-        let gpt = &self.model.inner_gpt().unwrap();
+        let gpt = self.model.inner_gpt().unwrap();
         let cache = self.memory.cache();
         let response = gpt
             .completion(&cache.into())
@@ -51,6 +46,15 @@ impl Agent {
             .map_err(|err| AgentError::GptError(err))
             .unwrap();
         tracing::info!("Response got from gpt completion: {:?}", response);
+
+        gpt.token_count += response.usage.total_tokens;
+
+        tracing::info!(
+            "{} tokens added to model token count. Total count: {}",
+            response.usage.total_tokens,
+            gpt.token_count
+        );
+
         let parsed_response = response
             .parse()
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
@@ -61,6 +65,7 @@ impl Agent {
         Ok(parsed_response)
     }
 
+    /// Openai function calling completion
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(input, custom_function))]
     pub async fn function_prompt(
         &mut self,
@@ -81,6 +86,8 @@ impl Agent {
             .expect("failed to parse response"))
     }
 
+    /// Get streamed completion, this function returns a reciever which must be tried to recieve
+    /// tokens
     #[tracing::instrument(name = "Prompt agent for stream response")]
     pub async fn stream_prompt(
         &mut self,

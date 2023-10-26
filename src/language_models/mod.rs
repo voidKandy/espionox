@@ -19,12 +19,13 @@ impl From<Gpt> for LanguageModel {
 
 impl LanguageModel {
     /// Probably should create an into impl trait for this once more models are supported
-    pub fn inner_gpt(&self) -> Option<&Gpt> {
+    pub fn inner_gpt(&mut self) -> Option<&mut Gpt> {
         match self {
             Self::Gpt(g) => Some(g),
             _ => None,
         }
     }
+
     pub fn default_gpt() -> Self {
         let gpt = Gpt::default();
         Self::Gpt(gpt)

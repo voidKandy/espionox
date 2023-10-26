@@ -17,6 +17,14 @@ pub use super::errors::GptError;
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
+    pub usage: GptUsage,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct GptUsage {
+    prompt_tokens: i32,
+    completion_tokens: i32,
+    pub total_tokens: i32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -52,6 +60,7 @@ pub struct GptMessage {
 #[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
+    pub token_count: i32,
     pub model_override: Option<GptModel>,
 }
 
@@ -232,9 +241,11 @@ impl Default for Gpt {
     fn default() -> Self {
         let config = GptConfig::init(ConfigEnv::default());
         let model_override = None;
+        let token_count = 0;
         Gpt {
             config,
             model_override,
+            token_count,
         }
     }
 }
@@ -243,9 +254,11 @@ impl Gpt {
     pub fn new(model: GptModel) -> Self {
         let config = GptConfig::init(ConfigEnv::default());
         let model_override = Some(model);
+        let token_count = 0;
         Self {
             config,
             model_override,
+            token_count,
         }
     }
     fn model_string(&self) -> String {
@@ -254,22 +267,23 @@ impl Gpt {
             None => self.config.model.to_string(),
         }
     }
-    pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
-        if err.to_string().contains("missing field `choices`") {
-            let message = format!("Something trivial went wrong please try again");
-            GptResponse {
-                choices: vec![Choice {
-                    message: GptMessage {
-                        role: "system".to_string(),
-                        content: Some(message),
-                        function_call: None,
-                    },
-                }],
-            }
-        } else {
-            panic!("An unexpected error occurred: {}", err)
-        }
-    }
+
+    // pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
+    // if err.to_string().contains("missing field `choices`") {
+    // let message = format!("Something trivial went wrong please try again");
+    // GptResponse {
+    // choices: vec![Choice {
+    // message: GptMessage {
+    // role: "system".to_string(),
+    // content: Some(message),
+    // function_call: None,
+    // },
+    // }],
+    // }
+    // } else {
+    // panic!("An unexpected error occurred: {}", err)
+    // }
+    // }
 
     #[tracing::instrument(name = "Get streamed completion")]
     pub async fn stream_completion(
@@ -317,12 +331,17 @@ impl Gpt {
             &request,
             payload
         );
+
         let response = request.send().await?;
+        tracing::info!("Request sent successfully");
+
         match response.status().as_u16() {
             200 => {
                 let return_val = response.json().await.map_err(|err| {
+                    tracing::warn!("Reponse returned error: {:?}", err);
                     GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
                 });
+                tracing::info!("Reponse returned: {:?}", return_val);
                 return_val
             }
             bad_status => {
