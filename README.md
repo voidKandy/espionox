@@ -10,15 +10,14 @@ There are hundred of Ai agent applications written Typescript and Python. Espion
 ## Getting started 
 To get started add `espionox` to your `Cargo.toml`: 
 ```
-espionox = { git = "https://github.com/voidKandy/espionox" }
+espionox = { git = "https://github.com/voidKandy/espionox", branch = "stable" }
 ```
-espionox is not yet a cargo package, but soon adding it will be as easy as running `cargo add espionox` 
 
-Afer adding espionox to your dependencies, add a `configuration` directory containing a `default.yaml` file to your root.
-`default.yaml:`
+Afer adding espionox to your dependencies, add a `espionox-config` directory containing a `env` directory to your root.
+Add a `default.yaml:` file to `espionox-config/env`: 
 ```
 language_model:
-  model: "gpt-3.5-turbo-0613"
+  default_model: "gpt-3.5-turbo-0613"
   api_key: ""
 
 
@@ -31,7 +30,7 @@ database:
 
 ```
 
-***Only fill out the database section if you plan on using the long term memory feature***
+***Only fill out the database section if you're using the long term memory feature***
 
 ## Using Long term memory 
 Check out the [this example repo](https://github.com/voidKandy/espionox_egui_demo/tree/master) for how to pull from the espionox docker image. Essentially, all you need to do is create an `.env` file with all the info provided in the example's `.env`. Then, create a `docker-compose.yaml` with all the relevant info. Run `docker-compose build` and finally `docker-compose up` to get your database running.
