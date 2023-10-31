@@ -30,8 +30,8 @@ impl LanguageModel {
         let gpt = Gpt::default();
         Self::Gpt(gpt)
     }
-    pub fn new_gpt(model: GptModel) -> Self {
-        let gpt = Gpt::new(model);
+    pub fn new_gpt(model: GptModel, temperature: f32) -> Self {
+        let gpt = Gpt::new(model, temperature);
         Self::Gpt(gpt)
     }
 }

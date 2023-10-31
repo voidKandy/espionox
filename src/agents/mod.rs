@@ -33,7 +33,10 @@ impl Default for Agent {
 }
 
 impl Agent {
-    /// Prompt for a full completion
+    /// This method does 3 things:
+    /// * Uses LanguageModel enum to get a completion response
+    /// * Updates gpt token_count
+    /// * returns response as a string
     #[tracing::instrument(name = "Prompt agent for response")]
     pub async fn prompt(&mut self, input: impl ToMessage) -> Result<String, AgentError> {
         self.memory.push_to_message_cache(Some("user"), input).await;

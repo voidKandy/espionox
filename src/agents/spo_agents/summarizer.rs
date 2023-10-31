@@ -32,7 +32,10 @@ impl SummarizerAgent {
                     .init_prompt(init_prompt)
                     .caching_mechanism(CachingMechanism::Forgetful)
                     .finished();
-                let model = LanguageModel::default_gpt();
+                let model = LanguageModel::new_gpt(
+                    crate::language_models::openai::gpt::GptModel::Gpt3,
+                    0.3,
+                );
                 Agent { memory, model }
             }
             Self::Memory => {
@@ -51,7 +54,10 @@ impl SummarizerAgent {
                     .init_prompt(init_prompt)
                     .caching_mechanism(CachingMechanism::Forgetful)
                     .finished();
-                let model = LanguageModel::default_gpt();
+                let model = LanguageModel::new_gpt(
+                    crate::language_models::openai::gpt::GptModel::Gpt3,
+                    0.3,
+                );
                 Agent { memory, model }
             }
         }

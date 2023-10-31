@@ -61,6 +61,7 @@ pub struct GptMessage {
 pub struct Gpt {
     pub config: GptConfig,
     pub token_count: i32,
+    pub temperature: f32,
     pub model_override: Option<GptModel>,
 }
 
@@ -241,23 +242,26 @@ impl Default for Gpt {
     fn default() -> Self {
         let config = GptConfig::init(ConfigEnv::default());
         let model_override = None;
+        let temperature = 0.7;
         let token_count = 0;
         Gpt {
             config,
             model_override,
+            temperature,
             token_count,
         }
     }
 }
 
 impl Gpt {
-    pub fn new(model: GptModel) -> Self {
+    pub fn new(model: GptModel, temperature: f32) -> Self {
         let config = GptConfig::init(ConfigEnv::default());
         let model_override = Some(model);
         let token_count = 0;
         Self {
             config,
             model_override,
+            temperature,
             token_count,
         }
     }
@@ -268,23 +272,6 @@ impl Gpt {
         }
     }
 
-    // pub fn handle_completion_error(err: Box<dyn Error>) -> GptResponse {
-    // if err.to_string().contains("missing field `choices`") {
-    // let message = format!("Something trivial went wrong please try again");
-    // GptResponse {
-    // choices: vec![Choice {
-    // message: GptMessage {
-    // role: "system".to_string(),
-    // content: Some(message),
-    // function_call: None,
-    // },
-    // }],
-    // }
-    // } else {
-    // panic!("An unexpected error occurred: {}", err)
-    // }
-    // }
-
     #[tracing::instrument(name = "Get streamed completion")]
     pub async fn stream_completion(
         &self,
@@ -293,6 +280,7 @@ impl Gpt {
         let payload = json!({
             "model": self.model_string(),
             "messages": context,
+            "temperature": self.temperature,
             "stream": true,
             "max_tokens": 1000,
             "n": 1,
@@ -317,7 +305,7 @@ impl Gpt {
 
     #[tracing::instrument(name = "Get completion")]
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
-        let payload = json!({"model": self.model_string(), "messages": context, "max_tokens": 1000, "n": 1, "stop": null});
+        let payload = json!({"model": self.model_string(), "messages": context, "temperature": self.temperature, "max_tokens": 1000, "n": 1, "stop": null});
         let request = self
             .config
             .client
