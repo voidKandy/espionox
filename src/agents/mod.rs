@@ -8,6 +8,8 @@ pub use errors::AgentError;
 use serde_json::Value;
 pub use streaming_utils::*;
 
+use super::agents::spo_agents::AgentObserver;
+
 use crate::{
     language_models::{openai::functions::CustomFunction, LanguageModel},
     memory::{Memory, ToMessage},
@@ -20,6 +22,8 @@ pub struct Agent {
     pub memory: Memory,
     /// Language model defines which model to use for the given agent
     pub model: LanguageModel,
+    /// Another agent observes this one to enhance prompting and chain of thought
+    pub observer: Option<AgentObserver>,
 }
 
 impl Default for Agent {
@@ -28,7 +32,11 @@ impl Default for Agent {
             .expect("Failed to get default init prompt");
         let memory = Memory::build().init_prompt(init_prompt).finished();
         let model = LanguageModel::default_gpt();
-        Agent { memory, model }
+        Agent {
+            memory,
+            model,
+            observer: None,
+        }
     }
 }
 
@@ -39,7 +47,21 @@ impl Agent {
     /// * returns response as a string
     #[tracing::instrument(name = "Prompt agent for response")]
     pub async fn prompt(&mut self, input: impl ToMessage) -> Result<String, AgentError> {
-        self.memory.push_to_message_cache(Some("user"), input).await;
+        match &mut self.observer {
+            Some(obs) => {
+                if obs.has_pre_prompt_protocol() {
+                    let new_input = obs
+                        .mutate_input(self.memory.cache(), &input.to_string())
+                        .await;
+                    self.memory
+                        .push_to_message_cache(Some("user"), new_input)
+                        .await;
+                }
+            }
+            None => {
+                self.memory.push_to_message_cache(Some("user"), input).await;
+            }
+        }
 
         let gpt = self.model.inner_gpt().unwrap();
         let cache = self.memory.cache();
@@ -62,9 +84,15 @@ impl Agent {
             .parse()
             .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
 
-        self.memory
-            .push_to_message_cache(Some("assistant"), parsed_response.to_owned())
-            .await;
+        match &self.observer {
+            Some(obs) => if obs.has_post_prompt_protocol() {},
+            None => {
+                self.memory
+                    .push_to_message_cache(Some("assistant"), parsed_response.to_owned())
+                    .await;
+            }
+        }
+
         Ok(parsed_response)
     }
 

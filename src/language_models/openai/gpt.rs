@@ -277,10 +277,11 @@ impl Gpt {
         &self,
         context: &Vec<Value>,
     ) -> Result<CompletionStream, GptError> {
+        let temperature = (self.temperature * 10.0).round() / 10.0;
         let payload = json!({
             "model": self.model_string(),
             "messages": context,
-            "temperature": self.temperature,
+            "temperature": temperature,
             "stream": true,
             "max_tokens": 1000,
             "n": 1,
@@ -305,7 +306,8 @@ impl Gpt {
 
     #[tracing::instrument(name = "Get completion")]
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
-        let payload = json!({"model": self.model_string(), "messages": context, "temperature": self.temperature, "max_tokens": 1000, "n": 1, "stop": null});
+        let temperature = (self.temperature * 10.0).round() / 10.0;
+        let payload = json!({"model": self.model_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
         let request = self
             .config
             .client

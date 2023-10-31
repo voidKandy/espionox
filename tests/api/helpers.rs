@@ -1,6 +1,9 @@
 use espionox::{
-    agents::Agent,
-    configuration::{self, ConfigEnv},
+    agents::{
+        spo_agents::{AgentObserver, ObservationProtocol},
+        Agent,
+    },
+    configuration::ConfigEnv,
     core::File,
     language_models::{
         openai::gpt::{Gpt, GptConfig},
@@ -47,13 +50,37 @@ pub fn test_agent_lt() -> Agent {
         .long_term_thread("TestingThread")
         .finished();
     let model = LanguageModel::from(test_gpt());
-    Agent { memory, model }
+    Agent {
+        memory,
+        model,
+        ..Default::default()
+    }
 }
 
 pub fn test_agent() -> Agent {
     let memory = Memory::build().finished();
     let model = LanguageModel::from(test_gpt());
-    Agent { memory, model }
+    Agent {
+        memory,
+        model,
+        ..Default::default()
+    }
+}
+
+pub fn observed_test_agent() -> Agent {
+    let memory = Memory::build().finished();
+    let model = LanguageModel::from(test_gpt());
+    let mut protocol = ObservationProtocol::new();
+    protocol.input_mutator(
+        espionox::agents::spo_agents::observer::ObservationStep::BeforeAndAfterPrompt,
+    );
+
+    let observer = Some(AgentObserver::new(protocol));
+    Agent {
+        memory,
+        model,
+        observer,
+    }
 }
 
 pub fn test_file() -> File {

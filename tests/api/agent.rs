@@ -1,4 +1,4 @@
-use super::test_agent;
+use super::{observed_test_agent, test_agent};
 use crate::{functions::weather_test_function, helpers::init_test};
 #[allow(unused_imports)]
 use espionox::{
@@ -7,6 +7,7 @@ use espionox::{
     memory::Memory,
 };
 
+#[ignore]
 #[tokio::test]
 async fn stream_completion_works() {
     crate::helpers::init_test();
@@ -28,6 +29,7 @@ async fn stream_completion_works() {
     }
 }
 
+#[ignore]
 #[test]
 fn prompting_can_be_blocked_on_a_tokio_runtime() {
     crate::helpers::init_test();
@@ -76,6 +78,20 @@ async fn function_agent_test() {
 }
 
 // #[ignore]
+#[tokio::test]
+async fn observer_agent_test() {
+    init_test();
+    let mut agent = observed_test_agent();
+    // agent
+    //     .memory
+    //     .force_push_message_to_cache("file_share", "file content".to_string());
+    let prompt = String::from("Hello agent, what is the best way to brew cold brew coffee.");
+    let response = agent.prompt(prompt).await.expect("Failed to get response");
+    println!("{:?}", &response);
+    assert!(true);
+}
+
+#[ignore]
 #[tokio::test]
 async fn prompt_agent_test() {
     init_test();

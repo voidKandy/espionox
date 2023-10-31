@@ -1,7 +1,7 @@
 use crate::{
     agents::{Agent, AgentError},
     language_models::LanguageModel,
-    memory::{CachingMechanism, Memory, Message, MessageRole, MessageVector, ToMessage},
+    memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
 };
 
 // #[derive(Debug)]
@@ -36,7 +36,11 @@ impl SummarizerAgent {
                     crate::language_models::openai::gpt::GptModel::Gpt3,
                     0.3,
                 );
-                Agent { memory, model }
+                Agent {
+                    memory,
+                    model,
+                    ..Default::default()
+                }
             }
             Self::Memory => {
                 let init_prompt = MessageVector::from_message(
@@ -58,18 +62,23 @@ impl SummarizerAgent {
                     crate::language_models::openai::gpt::GptModel::Gpt3,
                     0.3,
                 );
-                Agent { memory, model }
+                Agent {
+                    memory,
+                    model,
+                    ..Default::default()
+                }
             }
         }
     }
+
     #[tracing::instrument(name = "Summarize anything that implements ToMessage")]
     pub async fn summarize(content: impl ToMessage) -> Result<String, AgentError> {
         Self::General.agent().prompt(content).await
     }
+
     #[tracing::instrument(name = "Summarize MessageVector")]
     pub async fn summarize_memory(memory: MessageVector) -> Result<String, AgentError> {
         let mut agent = Self::Memory.agent();
-        tracing::info!("Summarizer initialized");
         let summary = agent
             .prompt(memory.to_string())
             .await

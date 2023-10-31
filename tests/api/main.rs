@@ -7,4 +7,4 @@ pub mod language_models;
 pub mod memory;
 pub mod persistance;
 
-pub use helpers::test_agent;
+pub use helpers::{observed_test_agent, test_agent};

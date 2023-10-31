@@ -2,7 +2,7 @@ use crate::helpers::{init_test, test_env, test_file, test_gpt};
 use espionox::{
     agents::Agent,
     language_models::LanguageModel,
-    memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
+    memory::{CachingMechanism, Memory},
 };
 
 #[tokio::test]
@@ -15,7 +15,11 @@ async fn summarize_at_limit_works() {
     };
     let memory = Memory::build().caching_mechanism(mech).finished();
     let model = LanguageModel::from(test_gpt());
-    let mut agent = Agent { memory, model };
+    let mut agent = Agent {
+        memory,
+        model,
+        ..Default::default()
+    };
     for _ in 0..=3 {
         agent
             .memory
@@ -35,7 +39,11 @@ async fn forgetful_works() {
     let mech = CachingMechanism::Forgetful;
     let memory = Memory::build().caching_mechanism(mech.clone()).finished();
     let model = LanguageModel::from(test_gpt());
-    let mut agent = Agent { memory, model };
+    let mut agent = Agent {
+        memory,
+        model,
+        ..Default::default()
+    };
     for _ in 0..=3 {
         agent
             .memory
