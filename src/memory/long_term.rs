@@ -1,7 +1,7 @@
 #[cfg(feature = "long_term_memory")]
 use crate::features::long_term_memory::*;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum LongTermMemory {
     #[default]
     None,

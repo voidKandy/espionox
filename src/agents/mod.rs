@@ -2,7 +2,7 @@ pub mod errors;
 // pub mod settings;
 pub mod spo_agents;
 pub mod streaming_utils;
-//
+use crate::memory::MessageVector;
 use anyhow::anyhow;
 pub use errors::AgentError;
 use serde_json::Value;
@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Agent struct for interracting with LLM
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     /// Memory handles how agent recalls and caches memory
     pub memory: Memory,
@@ -27,9 +27,10 @@ pub struct Agent {
 }
 
 impl Default for Agent {
+    /// Default Agent has the DEFAULT_INIT_PROMPT defined in prompts.yaml, or an empty MessageVector
     fn default() -> Self {
         let init_prompt = crate::persistance::prompts::get_prompt_by_name("DEFAULT_INIT_PROMPT")
-            .expect("Failed to get default init prompt");
+            .unwrap_or(MessageVector::init());
         let memory = Memory::build().init_prompt(init_prompt).finished();
         let model = LanguageModel::default_gpt();
         Agent {

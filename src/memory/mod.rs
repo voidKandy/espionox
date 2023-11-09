@@ -10,6 +10,7 @@ use builder::MemoryBuilder;
 pub use caching::*;
 use long_term::*;
 pub use messages::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(thiserror::Error)]
 pub enum MemoryError {
@@ -36,7 +37,7 @@ pub enum MemoryVariant {
 }
 
 #[allow(unused)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Memory {
     cache: MessageVector,
     long_term: LongTermMemory,
@@ -44,7 +45,7 @@ pub struct Memory {
     caching_mechanism: CachingMechanism,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum RecallMode {
     #[default]
     Default,

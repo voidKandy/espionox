@@ -15,8 +15,9 @@ use crate::{
 };
 use std::{ops::Deref, sync::Arc};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LtmHandler {
+    #[serde(skip)]
     pool: Arc<DbPool>,
     current_thread: String,
 }

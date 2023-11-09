@@ -6,7 +6,7 @@ use openai::gpt::Gpt;
 
 use self::openai::gpt::GptModel;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum LanguageModel {
     Gpt(Gpt),
 }

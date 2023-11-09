@@ -3,20 +3,21 @@ use crate::{
     language_models::LanguageModel,
     memory::{CachingMechanism, Memory, Message, MessageRole, MessageVector, ToMessage},
 };
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentObserver {
     agent: Box<Agent>,
     pub protocol: ObservationProtocol,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObservationProtocol {
     mutate_agent: Option<ObservationStep>,
     mutate_input: Option<ObservationStep>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ObservationStep {
     BeforePrompt,
     AfterPrompt,

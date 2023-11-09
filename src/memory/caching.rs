@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum CachingMechanism {
     Forgetful,
     SummarizeAtLimit { limit: usize, save_to_lt: bool },
