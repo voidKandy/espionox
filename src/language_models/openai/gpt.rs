@@ -7,7 +7,7 @@ use futures::Stream;
 #[allow(unused)]
 use futures_util::StreamExt;
 use reqwest::Client;
-use serde_derive::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::error::Error;
 
@@ -58,7 +58,7 @@ pub struct GptMessage {
 }
 
 /// Gpt struct contains info needed for completion endpoint
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Gpt {
     pub config: GptConfig,
     pub token_count: i32,
@@ -67,7 +67,7 @@ pub struct Gpt {
 }
 
 /// More variations of these models should be added
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum GptModel {
     #[default]
     Gpt3,
@@ -97,9 +97,10 @@ impl ToString for GptModel {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GptConfig {
     api_key: String,
+    #[serde(skip)]
     client: Client,
     url: String,
     model: GptModel,
