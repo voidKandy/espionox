@@ -37,6 +37,11 @@ pub enum MemoryVariant {
 
 #[allow(unused)]
 #[derive(Clone, Debug)]
+/// Memory contains:
+/// * Cached MessageVector
+/// * LongTermMemory, which is either None, or connected to a DbPool
+/// * Recall Mode, which defines how the agent recalls memories (Messages)
+/// * CachingMechanism, which defines how memories (Messages) are stored
 pub struct Memory {
     cache: MessageVector,
     long_term: LongTermMemory,

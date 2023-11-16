@@ -13,13 +13,13 @@ use std::error::Error;
 
 pub use super::errors::GptError;
 
-// Add tokens and status fields here
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
     pub usage: GptUsage,
 }
 
+#[allow(unused)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct GptUsage {
     prompt_tokens: i32,
@@ -57,6 +57,7 @@ pub struct GptMessage {
     pub function_call: Option<Value>,
 }
 
+/// Gpt struct contains info needed for completion endpoint
 #[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
