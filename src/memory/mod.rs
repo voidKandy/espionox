@@ -11,6 +11,8 @@ pub use caching::*;
 use long_term::*;
 pub use messages::*;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(thiserror::Error)]
 pub enum MemoryError {
     BuildError(String),
@@ -36,7 +38,7 @@ pub enum MemoryVariant {
 }
 
 #[allow(unused)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// Memory contains:
 /// * Cached MessageVector
 /// * LongTermMemory, which is either None, or connected to a DbPool
@@ -49,7 +51,7 @@ pub struct Memory {
     caching_mechanism: CachingMechanism,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum RecallMode {
     #[default]
     Default,
