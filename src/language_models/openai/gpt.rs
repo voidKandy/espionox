@@ -7,57 +7,58 @@ use futures::Stream;
 #[allow(unused)]
 use futures_util::StreamExt;
 use reqwest::Client;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use serde_json::{json, Value};
 use std::error::Error;
 
 pub use super::errors::GptError;
 
-// Add tokens and status fields here
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GptResponse {
     pub choices: Vec<Choice>,
     pub usage: GptUsage,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(unused)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GptUsage {
     prompt_tokens: i32,
     completion_tokens: i32,
     pub total_tokens: i32,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StreamResponse {
     pub choices: Vec<StreamChoice>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StreamChoice {
     pub delta: StreamDelta,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Choice {
     pub message: GptMessage,
 }
 
 pub type CompletionStream = Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send + Unpin>;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GptMessage {
     pub role: String,
     pub content: Option<String>,
     pub function_call: Option<Value>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Gpt struct contains info needed for completion endpoint
+#[derive(Clone, Debug)]
 pub struct Gpt {
     pub config: GptConfig,
     pub token_count: i32,
@@ -66,7 +67,7 @@ pub struct Gpt {
 }
 
 /// More variations of these models should be added
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub enum GptModel {
     #[default]
     Gpt3,
@@ -96,10 +97,9 @@ impl ToString for GptModel {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
 pub struct GptConfig {
     api_key: String,
-    #[serde(skip)]
     client: Client,
     url: String,
     model: GptModel,

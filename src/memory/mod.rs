@@ -10,7 +10,6 @@ use builder::MemoryBuilder;
 pub use caching::*;
 use long_term::*;
 pub use messages::*;
-use serde::{Deserialize, Serialize};
 
 #[derive(thiserror::Error)]
 pub enum MemoryError {
@@ -37,7 +36,12 @@ pub enum MemoryVariant {
 }
 
 #[allow(unused)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+/// Memory contains:
+/// * Cached MessageVector
+/// * LongTermMemory, which is either None, or connected to a DbPool
+/// * Recall Mode, which defines how the agent recalls memories (Messages)
+/// * CachingMechanism, which defines how memories (Messages) are stored
 pub struct Memory {
     cache: MessageVector,
     long_term: LongTermMemory,
@@ -45,7 +49,7 @@ pub struct Memory {
     caching_mechanism: CachingMechanism,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum RecallMode {
     #[default]
     Default,
