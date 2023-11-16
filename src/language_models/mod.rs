@@ -27,6 +27,13 @@ impl LanguageModel {
             _ => None,
         }
     }
+    /// Returns mutable reference to innner GPT
+    pub fn inner_mut_gpt(&mut self) -> Option<&mut Gpt> {
+        match self {
+            Self::Gpt(g) => Some(g),
+            _ => None,
+        }
+    }
     /// Creates LanguageModel with default gpt settings
     pub fn default_gpt() -> Self {
         let gpt = Gpt::default();

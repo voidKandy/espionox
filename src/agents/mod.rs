@@ -64,7 +64,7 @@ impl Agent {
             }
         }
 
-        let gpt = self.model.inner_gpt().unwrap();
+        let gpt = self.model.inner_mut_gpt().unwrap();
         let cache = self.memory.cache();
         let response = gpt
             .completion(&cache.into())
