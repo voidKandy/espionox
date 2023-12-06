@@ -44,7 +44,7 @@ impl ObservationProtocol {
 impl AgentObserver {
     pub fn new(protocol: ObservationProtocol) -> Self {
         Self {
-            agent: Box::new(Self::agent()),
+            agent: Box::new(Self::default_agent()),
             protocol,
         }
     }
@@ -60,7 +60,7 @@ impl AgentObserver {
         self.agent.as_ref()
     }
 
-    fn agent() -> Agent {
+    pub fn default_agent() -> Agent {
         let init_prompt = MessageVector::from_message(
             r#"You are an observation Ai, you will be prompted intermittently to evaluate the relationship between another agent's memory and prompts meant to be inputted into it.
                 - When you generate output, your presence should be invisible. Never mention or reference your existance.
