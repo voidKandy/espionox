@@ -56,6 +56,10 @@ impl AgentObserver {
         }
     }
 
+    pub fn inner_agent(&self) -> &Agent {
+        self.agent.as_ref()
+    }
+
     fn agent() -> Agent {
         let init_prompt = MessageVector::from_message(
             r#"You are an observation Ai, you will be prompted intermittently to evaluate the relationship between another agent's memory and prompts meant to be inputted into it.
