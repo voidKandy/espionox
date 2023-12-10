@@ -24,10 +24,15 @@ pub fn get_prompts_from_file() -> Result<Prompts, anyhow::Error> {
 }
 
 pub fn get_prompt_by_name(name: &str) -> Option<MessageVector> {
-    let prompts = get_prompts_from_file().expect("Failed to get prompts");
-    match prompts.iter().find(|p| p.name == name).cloned() {
-        Some(prompt) => Some(prompt.messages.into()),
-        None => None,
+    match get_prompts_from_file() {
+        Ok(prompts) => match prompts.iter().find(|p| p.name == name).cloned() {
+            Some(prompt) => Some(prompt.messages.into()),
+            None => None,
+        },
+        Err(err) => {
+            tracing::error!("{:?}", err);
+            None
+        }
     }
 }
 
