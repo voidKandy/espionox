@@ -47,6 +47,7 @@ type SettingsYamlMap = BTreeMap<String, String>;
 type GlobalSettingsYamlMap = BTreeMap<String, SettingsYamlMap>;
 
 fn global_yaml_map_from_path(path: PathBuf) -> GlobalSettingsYamlMap {
+    tracing::info!("YAML MAP FROM PATH: {:?}", path);
     let mut file = fs::File::open(path).expect("Failed to read default config path");
     let mut content = String::new();
     file.read_to_string(&mut content)
