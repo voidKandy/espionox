@@ -30,7 +30,7 @@ pub fn get_prompt_by_name(name: &str) -> Option<MessageVector> {
             None => None,
         },
         Err(err) => {
-            tracing::error!("{:?}", err);
+            tracing::error!("Error getting prompts from prompts file: {:?}", err);
             None
         }
     }
