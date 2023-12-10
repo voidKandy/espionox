@@ -10,7 +10,7 @@ There are hundred of Ai agent applications written Typescript and Python. Espion
 ## Getting started 
 To get started add `espionox` to your `Cargo.toml`: 
 ```
-espionox = { git = "https://github.com/voidKandy/espionox", branch = "stable" }
+espionox = { git = "https://github.com/voidKandy/espionox_lib", branch = "stable" }
 ```
 
 Afer adding espionox to your dependencies, add a `espionox-config` directory containing a `env` directory to your root.
