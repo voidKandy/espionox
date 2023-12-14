@@ -33,6 +33,22 @@ impl ObservationProtocol {
         self.mutate_input = Some(step);
     }
 
+    pub fn agent_mutation_step(&self) -> Option<&ObservationStep> {
+        if let Some(step) = &self.mutate_agent {
+            Some(&step)
+        } else {
+            None
+        }
+    }
+
+    pub fn input_mutation_step(&self) -> Option<&ObservationStep> {
+        if let Some(step) = &self.mutate_input {
+            Some(&step)
+        } else {
+            None
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             mutate_agent: None,

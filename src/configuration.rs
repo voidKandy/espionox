@@ -47,6 +47,7 @@ type SettingsYamlMap = BTreeMap<String, String>;
 type GlobalSettingsYamlMap = BTreeMap<String, SettingsYamlMap>;
 
 fn global_yaml_map_from_path(path: PathBuf) -> GlobalSettingsYamlMap {
+    tracing::info!("YAML MAP FROM PATH: {:?}", path);
     let mut file = fs::File::open(path).expect("Failed to read default config path");
     let mut content = String::new();
     file.read_to_string(&mut content)
@@ -238,7 +239,9 @@ impl ConfigEnv {
 
     pub fn config_dir_path() -> PathBuf {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-        base_path.join("espionox_config")
+        let base_path = base_path.join("espionox_config");
+        tracing::info!("Got base configuration path: {:?}", base_path);
+        base_path
     }
 
     pub fn config_file_path(&self) -> PathBuf {
