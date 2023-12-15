@@ -67,7 +67,7 @@ pub struct Gpt {
 }
 
 /// More variations of these models should be added
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum GptModel {
     #[default]
     Gpt3,
