@@ -1,19 +1,19 @@
 [submodule "lib"]
 	path = lib
-	url = https://github.com/voidKandy/espx-lib
+	url = https://github.com/voidKandy/espx/espx-lib
 
 [submodule "egui"]
 	path = egui
-	url = https://github.com/voidKandy/espx-egui
+	url = https://github.com/voidKandy/espx/espx-egui
 
 [submodule "image"]
 	path = image
-	url = https://github.com/voidKandy/espx-image
+	url = https://github.com/voidKandy/espx/espx-image
 
 [submodule "copilot"]
 	path = copilot 
-	url = https://github.com/voidKandy/esx-copilot
+	url = https://github.com/voidKandy/espx/espx-copilot
 
 [submodule "htmx"]
     path = htmx 
-	url = https://github.com/voidKandy/espx-htmx
+	url = https://github.com/voidKandy/espx/espx-htmx
