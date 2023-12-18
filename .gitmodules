@@ -1,12 +1,19 @@
 [submodule "lib"]
 	path = lib
-	url = https://github.com/voidKandy/espionox_lib
+	url = https://github.com/voidKandy/espx-lib
 
-[submodule "egui_demo"]
-	path = egui_demo
-	url = https://github.com/voidKandy/espionox_egui_demo
+[submodule "egui"]
+	path = egui
+	url = https://github.com/voidKandy/espx-egui
 
-[submodule "espionox-image"]
-	path = espionox-image
-	url = https://github.com/voidKandy/espionox-image
+[submodule "image"]
+	path = image
+	url = https://github.com/voidKandy/espx-image
 
+[submodule "copilot"]
+	path = copilot 
+	url = https://github.com/voidKandy/esx-copilot
+
+[submodule "htmx"]
+    path = "espx" 
+	url = https://github.com/voidKandy/espx-htmx
