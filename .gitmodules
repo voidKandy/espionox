@@ -15,5 +15,5 @@
 	url = https://github.com/voidKandy/esx-copilot
 
 [submodule "htmx"]
-    path = "espx" 
+    path = htmx 
 	url = https://github.com/voidKandy/espx-htmx
