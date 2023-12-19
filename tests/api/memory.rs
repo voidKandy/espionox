@@ -57,6 +57,7 @@ async fn forgetful_works() {
     assert!(mech.limit() >= agent.memory.cache().chat_count());
 }
 
+#[ignore = "requires live database"]
 #[tokio::test]
 async fn long_term_memory_integration() {
     init_test();
