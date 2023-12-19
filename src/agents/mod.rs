@@ -1,17 +1,17 @@
 pub mod errors;
-// pub mod settings;
 pub mod spo_agents;
-pub mod streaming_utils;
 use crate::memory::MessageVector;
 use anyhow::anyhow;
 pub use errors::AgentError;
 use serde_json::Value;
-pub use streaming_utils::*;
 
 use super::agents::spo_agents::AgentObserver;
 
 use crate::{
-    language_models::{openai::functions::CustomFunction, LanguageModel},
+    language_models::{
+        openai::{functions::CustomFunction, gpt::streaming_utils::*},
+        LanguageModel,
+    },
     memory::{Memory, ToMessage},
 };
 
@@ -135,7 +135,7 @@ impl Agent {
         CompletionStreamingThread::spawn_poll_stream_for_tokens(response_stream, tx);
         Ok(CompletionReceiverHandler::from(rx))
     }
-    //
+
     //     #[cfg(feature = "long_term_memory")]
     //     pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
     //         match &self.memory.long_term {

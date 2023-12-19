@@ -1,5 +1,4 @@
-use super::{observed_test_agent, test_agent};
-use crate::{functions::weather_test_function, helpers::init_test};
+use crate::{functions::weather_test_function, helpers::*};
 #[allow(unused_imports)]
 use espionox::{
     agents::Agent,
@@ -7,7 +6,7 @@ use espionox::{
     memory::Memory,
 };
 
-#[ignore]
+// #[ignore]
 #[tokio::test]
 async fn stream_completion_works() {
     crate::helpers::init_test();
@@ -19,14 +18,16 @@ async fn stream_completion_works() {
         .await
         .expect("Failed to get stream receiver");
 
-    let timeout_duration = std::time::Duration::from_millis(250);
-
+    let timeout_duration = std::time::Duration::from_millis(350);
+    let mut full_response = String::new();
     while let Ok(Some(result)) = tokio::time::timeout(timeout_duration, receiver.receive())
         .await
         .unwrap()
     {
         tracing::info!("{}", result);
+        full_response.push_str(&result);
     }
+    tracing::info!("{}", full_response);
 }
 
 #[ignore]
