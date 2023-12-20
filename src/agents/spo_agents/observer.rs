@@ -13,8 +13,8 @@ pub struct AgentObserver {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObservationProtocol {
-    mutate_agent: Option<ObservationStep>,
-    mutate_input: Option<ObservationStep>,
+    pub mutate_agent: Option<ObservationStep>,
+    pub mutate_input: Option<ObservationStep>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -167,6 +167,7 @@ impl ToMessage for Io {
 }
 
 impl Message {
+    /// Best way to initialize a standard message
     pub fn new_standard(role: MessageRole, content: &str) -> Self {
         Message::Standard {
             role,
