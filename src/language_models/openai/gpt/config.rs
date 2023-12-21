@@ -64,7 +64,7 @@ impl TryFrom<String> for GptModel {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             "gpt-3.5-turbo-1106" => Ok(Self::Gpt3),
-            "gpt-4-1106" => Ok(Self::Gpt4),
+            "gpt-4" => Ok(Self::Gpt4),
             _ => Err(GptError::Undefined(anyhow!(
                 "{} does not have a corresponding GPT variant",
                 value
@@ -77,7 +77,7 @@ impl ToString for GptModel {
     fn to_string(&self) -> String {
         String::from(match self {
             Self::Gpt3 => "gpt-3.5-turbo-1106",
-            Self::Gpt4 => "gpt-4-1106",
+            Self::Gpt4 => "gpt-4",
         })
     }
 }
