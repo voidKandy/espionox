@@ -1,6 +1,6 @@
 use crate::{
     agents::Agent,
-    language_models::LanguageModel,
+    language_models::{LanguageModel, openai::gpt::{Gpt, GptModel}},
     memory::{CachingMechanism, Memory, Message, MessageRole, MessageVector, ToMessage},
 };
 use serde::{Deserialize, Serialize};
@@ -90,8 +90,7 @@ impl AgentObserver {
                 save_to_lt: false,
             })
             .finished();
-        let model =
-            LanguageModel::new_gpt(crate::language_models::openai::gpt::GptModel::Gpt3, 0.6);
+        let model = LanguageModel::from(Gpt::new(GptModel::Gpt3, 0.5, None));
         Agent {
             memory,
             model,

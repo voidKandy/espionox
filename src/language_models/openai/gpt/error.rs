@@ -5,6 +5,7 @@ pub enum GptError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
     Completion(#[from] reqwest::Error),
+    NoApiKey,
     Recoverable(String),
 }
 

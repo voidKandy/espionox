@@ -1,6 +1,10 @@
+use super::{super::functions::Function, models::*, streaming_utils::*, GptError};
+use anyhow::anyhow;
+use bytes::Bytes;
 use reqwest_streams::JsonStreamResponse;
+use serde_json::{json, Value};
 
-use super::*;
+const OPENAI_COMPLETION_URL: &str = "https://api.openai.com/v1/chat/completions";
 
 impl Gpt {
     #[tracing::instrument(name = "Get streamed completion")]
@@ -10,7 +14,7 @@ impl Gpt {
     ) -> Result<CompletionStream, GptError> {
         let temperature = (self.temperature * 10.0).round() / 10.0;
         let payload = json!({
-            "model": self.model_string(),
+            "model": self.model.to_string(),
             "messages": context,
             "temperature": temperature,
             "stream": true,
@@ -20,58 +24,43 @@ impl Gpt {
         });
         tracing::info!("PAYLOAD: {:?}", &payload);
 
-        let response_stream = self
-            .config
-            .client
-            .post(&self.config.url.clone())
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|err| GptError::Completion(err))?
-            .json_array_stream::<StreamResponse>(1024);
+        match &self.api_key {
+            Some(key) => {
+                let response_stream = self
+                    .client
+                    .post(OPENAI_COMPLETION_URL)
+                    .header("Authorization", format!("Bearer {}", key))
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|err| GptError::Completion(err))?
+                    .json_array_stream::<StreamResponse>(1024);
 
-        Ok(Box::new(response_stream))
+                Ok(Box::new(response_stream))
+            }
+            None => Err(GptError::NoApiKey),
+        }
     }
 
     #[tracing::instrument(name = "Get completion")]
     pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
         let temperature = (self.temperature * 10.0).round() / 10.0;
-        let payload = json!({"model": self.model_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
-        let request = self
-            .config
-            .client
-            .post(&self.config.url.clone())
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .header("Content-Type", "application/json")
-            .json(&payload);
-
-        tracing::info!(
-            "Request to be sent to openai endpoint: {:?}\nWith payload: {:?}",
-            &request,
-            payload
-        );
-
-        let response = request.send().await?;
-        tracing::info!("Request sent successfully");
-
-        match response.status().as_u16() {
-            200 => {
-                let return_val = response.json().await.map_err(|err| {
-                    tracing::warn!("Reponse returned error: {:?}", err);
-                    GptError::Undefined(anyhow!("Error getting response Json: {err:?}"))
-                });
-                tracing::info!("Reponse returned: {:?}", return_val);
-                return_val
+        let payload = json!({"model": self.model.to_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
+        match &self.api_key {
+            Some(key) => {
+                let response = self
+                    .client
+                    .post(OPENAI_COMPLETION_URL)
+                    .header("Authorization", format!("Bearer {}", key))
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await?;
+                let gpt_response = response.json().await?;
+                Ok(gpt_response)
             }
-            bad_status => {
-                tracing::warn!("{} status in response:\n{:?}", bad_status, response);
-                Err(GptError::Undefined(anyhow!(
-                    "Bad status returned: {}",
-                    bad_status,
-                )))
-            }
+            None => Err(GptError::NoApiKey),
         }
     }
 
@@ -82,37 +71,41 @@ impl Gpt {
         function: &Function,
     ) -> Result<GptResponse, GptError> {
         let payload = json!({
-            "model": self.model_string(),
+            "model": self.model.to_string(),
             "messages": context,
             "functions": [function.json],
             "function_call": {"name": function.name}
         });
         tracing::info!("Full completion payload: {:?}", payload);
-        let response = self
-            .config
-            .client
-            .post(&self.config.url.clone())
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-        let gpt_response = response.json().await?;
-        Ok(gpt_response)
+        match &self.api_key {
+            Some(key) => {
+                let response = self
+                    .client
+                    .post(OPENAI_COMPLETION_URL)
+                    .header("Authorization", format!("Bearer {}", key))
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await?;
+                let gpt_response = response.json().await?;
+                Ok(gpt_response)
+            }
+            None => Err(GptError::NoApiKey),
+        }
     }
 }
 
 impl GptResponse {
     #[tracing::instrument(name = "Parse gpt response into string")]
-    pub fn parse(&self) -> Result<String, Box<dyn Error>> {
+    pub fn parse(&self) -> Result<String, anyhow::Error> {
         match self.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
-            None => Err("Unable to parse completion response".into()),
+            None => Err(anyhow!("Unable to parse completion response")),
         }
     }
 
     #[tracing::instrument]
-    pub fn parse_fn(&self) -> Result<Value, Box<dyn Error>> {
+    pub fn parse_fn(&self) -> Result<Value, anyhow::Error> {
         match self
             .choices
             .to_owned()
@@ -145,7 +138,7 @@ impl GptResponse {
                 tracing::info!("Args output: {:?}", args_output);
                 Ok(args_output)
             }
-            None => Err("Unable to parse completion response".into()),
+            None => Err(anyhow!("Unable to parse completion response")),
         }
     }
 }
@@ -198,7 +191,7 @@ impl StreamResponse {
     }
 
     #[tracing::instrument(name = "Parse stream response for string")]
-    pub fn parse(&self) -> Result<String, Box<dyn Error>> {
+    pub fn parse(&self) -> Result<String, anyhow::Error> {
         tracing::info!(
             "self.choices[0].delta.content: {}",
             self.choices[0]
@@ -212,7 +205,7 @@ impl StreamResponse {
                 .trim_start_matches('"')
                 .trim_end_matches('"')
                 .to_string()),
-            None => Err("Unable to parse stream completion response".into()),
+            None => Err(anyhow!("Unable to parse stream completion response")),
         }
     }
 }

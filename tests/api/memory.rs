@@ -1,4 +1,4 @@
-use crate::helpers::{init_test, test_env, test_file, test_gpt};
+use crate::helpers::{init_test, test_gpt};
 use espionox::{
     agents::Agent,
     language_models::LanguageModel,
@@ -57,6 +57,7 @@ async fn forgetful_works() {
     assert!(mech.limit() >= agent.memory.cache().chat_count());
 }
 
+#[cfg(feature = "long_term_memory")]
 #[ignore = "requires live database"]
 #[tokio::test]
 async fn long_term_memory_integration() {

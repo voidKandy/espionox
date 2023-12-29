@@ -39,10 +39,4 @@ impl LanguageModel {
         let gpt = Gpt::default();
         Self::Gpt(gpt)
     }
-
-    /// Creates LanguageModel given gpt model override and temperature
-    pub fn new_gpt(model: GptModel, temperature: f32) -> Self {
-        let gpt = Gpt::new(model, temperature);
-        Self::Gpt(gpt)
-    }
 }

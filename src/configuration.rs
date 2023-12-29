@@ -18,7 +18,7 @@ impl Default for ConfigEnv {
 }
 
 #[derive(Clone, Debug)]
-pub struct GlobalSettings {
+pub(crate) struct GlobalSettings {
     pub language_model: LanguageModelSettings,
     pub database: Option<DatabaseSettings>,
 }
@@ -29,13 +29,13 @@ struct GlobalSettingsBuilder {
 }
 
 #[derive(Clone, Debug)]
-pub struct LanguageModelSettings {
+pub(crate) struct LanguageModelSettings {
     pub default_model: GptModel,
-    pub api_key: String,
+    pub api_key: Option<String>,
 }
 
 #[derive(Clone, Debug)]
-pub struct DatabaseSettings {
+pub(crate) struct DatabaseSettings {
     pub port: u16,
     pub username: String,
     pub password: String,
@@ -43,17 +43,47 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
+impl Default for LanguageModelSettings {
+    fn default() -> Self {
+        let default_model = GptModel::Gpt3;
+        let api_key = None;
+        LanguageModelSettings {
+            default_model,
+            api_key,
+        }
+    }
+}
+
+impl Default for GlobalSettings {
+    fn default() -> Self {
+        Self {
+            language_model: LanguageModelSettings::default(),
+            database: None,
+        }
+    }
+}
+
 type SettingsYamlMap = BTreeMap<String, String>;
 type GlobalSettingsYamlMap = BTreeMap<String, SettingsYamlMap>;
 
-fn global_yaml_map_from_path(path: PathBuf) -> GlobalSettingsYamlMap {
+fn global_yaml_map_from_path(path: PathBuf) -> Option<GlobalSettingsYamlMap> {
     tracing::info!("YAML MAP FROM PATH: {:?}", path);
-    let mut file = fs::File::open(path).expect("Failed to read default config path");
-    let mut content = String::new();
-    file.read_to_string(&mut content)
-        .expect("Failed to read file");
-    let yaml_map: GlobalSettingsYamlMap = serde_yaml::from_str(&content).unwrap();
-    yaml_map
+    match fs::File::open(path) {
+        Ok(mut file) => {
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .expect("Failed to read file");
+            let yaml_map: GlobalSettingsYamlMap = serde_yaml::from_str(&content).unwrap();
+            Some(yaml_map)
+        }
+        Err(err) => {
+            tracing::error!(
+                "Error when getting GlobalSettings from YAML file: {:?}",
+                err
+            );
+            None
+        }
+    }
 }
 
 trait OverwriteWith<T> {
@@ -68,7 +98,7 @@ impl OverwriteWith<SettingsYamlMap> for LanguageModelSettings {
                     self.default_model = val.try_into().unwrap();
                 }
                 "api_key" => {
-                    self.api_key = val;
+                    self.api_key = Some(val);
                 }
                 _ => {}
             }
@@ -147,7 +177,7 @@ impl TryFrom<&SettingsYamlMap> for LanguageModelSettings {
         };
         Ok(LanguageModelSettings {
             default_model,
-            api_key: api_key.ok_or_else(|| anyhow::anyhow!("Missing api key"))?,
+            api_key,
         })
     }
 }
@@ -256,8 +286,8 @@ impl ConfigEnv {
         )
     }
 
-    #[tracing::instrument(name = "Get settings from environment")]
-    pub fn global_settings(&self) -> Result<GlobalSettings, anyhow::Error> {
+    #[tracing::instrument(name = "Get settings from environment" skip(self))]
+    pub(crate) fn global_settings(&self) -> Result<GlobalSettings, anyhow::Error> {
         let default_config_path = Self::default().config_file_path();
         let default_config_override: Option<PathBuf> = match self.config_file_name.as_str() {
             "default" => {
@@ -270,18 +300,27 @@ impl ConfigEnv {
             }
         };
 
-        let df_map = global_yaml_map_from_path(default_config_path);
-        let mut df_settings: GlobalSettings = GlobalSettingsBuilder::try_from(df_map)
-            .unwrap()
-            .try_into()
-            .unwrap();
-        if let Some(path) = default_config_override {
-            let override_map = global_yaml_map_from_path(path);
-            df_settings.overwrite_with(override_map);
+        match global_yaml_map_from_path(default_config_path) {
+            Some(df_map) => {
+                let mut df_settings: GlobalSettings = GlobalSettingsBuilder::try_from(df_map)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+                if let Some(path) = default_config_override {
+                    if let Some(override_map) = global_yaml_map_from_path(path) {
+                        df_settings.overwrite_with(override_map);
+                    }
+                }
+                tracing::info!("Got default global settings: {:?}", df_settings);
+                Ok(df_settings)
+            }
+            None => {
+                tracing::warn!(
+                    "Unable to get settings from YAML file, falling back to library defaults."
+                );
+                Ok(GlobalSettings::default())
+            }
         }
-
-        tracing::info!("Got default global settings: {:?}", df_settings);
-        Ok(df_settings)
     }
 }
 

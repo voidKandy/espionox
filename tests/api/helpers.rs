@@ -5,10 +5,7 @@ use espionox::{
     },
     configuration::ConfigEnv,
     core::File,
-    language_models::{
-        openai::gpt::{Gpt, GptConfig},
-        LanguageModel,
-    },
+    language_models::{openai::gpt::Gpt, LanguageModel},
     memory::Memory,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -30,20 +27,19 @@ pub fn init_test() {
     Lazy::force(&TRACING);
 }
 
-pub fn test_env() -> ConfigEnv {
-    ConfigEnv::new("testing")
-}
+// pub fn test_env() -> ConfigEnv {
+//     ConfigEnv::new("testing")
+// }
 
 pub fn test_gpt() -> Gpt {
-    let config = GptConfig::init(test_env());
-    let model_override = None;
-    Gpt {
-        config,
-        model_override,
-        ..Default::default()
-    }
+    // let config = GptConfig::from(test_env());
+    let api_key = "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".to_string();
+    let mut gpt = Gpt::default();
+    gpt.api_key = Some(api_key);
+    gpt
 }
 
+#[cfg(feature = "long_term_memory")]
 pub fn test_agent_lt() -> Agent {
     let memory = Memory::build()
         .env(test_env())
@@ -83,7 +79,7 @@ pub fn observed_test_agent() -> Agent {
     }
 }
 
-pub fn test_file() -> File {
-    let filepath = test_env().config_file_path();
-    File::from(filepath)
-}
+// pub fn test_file() -> File {
+//     let filepath = test_env().config_file_path();
+//     File::from(filepath)
+// }

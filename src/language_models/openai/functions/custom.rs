@@ -1,4 +1,4 @@
-use super::config::{Function, FunctionArgument, Parameters, Property};
+use super::models::{Function, FunctionArgument, Parameters, Property};
 
 #[derive(Debug)]
 pub struct CustomFunction {

@@ -1,5 +1,5 @@
-pub mod config;
 pub mod custom;
+pub mod models;
 
-pub use self::config::{Function, Property, PropertyInfo};
+pub use self::models::{Function, Property, PropertyInfo};
 pub use custom::CustomFunction;

@@ -1,11 +1,11 @@
 use crate::{
     agents::{Agent, AgentError},
-    language_models::LanguageModel,
+    language_models::{
+        openai::gpt::{Gpt, GptModel},
+        LanguageModel,
+    },
     memory::{CachingMechanism, Memory, MessageRole, MessageVector, ToMessage},
 };
-
-// #[derive(Debug)]
-// pub struct SummarizerAgent(Agent);
 
 #[derive(Debug)]
 pub enum SummarizerAgent {
@@ -32,10 +32,7 @@ impl SummarizerAgent {
                     .init_prompt(init_prompt)
                     .caching_mechanism(CachingMechanism::Forgetful)
                     .finished();
-                let model = LanguageModel::new_gpt(
-                    crate::language_models::openai::gpt::GptModel::Gpt3,
-                    0.3,
-                );
+                let model = LanguageModel::from(Gpt::new(GptModel::Gpt3, 0.3, None));
                 Agent {
                     memory,
                     model,
@@ -58,10 +55,7 @@ impl SummarizerAgent {
                     .init_prompt(init_prompt)
                     .caching_mechanism(CachingMechanism::Forgetful)
                     .finished();
-                let model = LanguageModel::new_gpt(
-                    crate::language_models::openai::gpt::GptModel::Gpt3,
-                    0.3,
-                );
+                let model = LanguageModel::from(Gpt::new(GptModel::Gpt3, 0.3, None));
                 Agent {
                     memory,
                     model,
