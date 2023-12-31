@@ -1,11 +1,9 @@
 pub mod huggingface;
 pub mod openai;
+pub use huggingface::embed;
 
-pub use huggingface::sentence_embeddings::*;
 use openai::gpt::Gpt;
 use serde::{Deserialize, Serialize};
-
-use self::openai::gpt::GptModel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LanguageModel {

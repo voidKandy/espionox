@@ -16,19 +16,11 @@ impl Display for Directory {
             for dir in self.children.iter() {
                 let mut files_payload = vec![];
                 dir.files.iter().for_each(|f| {
-                    files_payload.push(match &f.summary {
-                        None => format!(
-                            "FilePath: {}, Content: {}",
-                            &f.filepath.display(),
-                            &f.content()
-                        ),
-                        Some(summary) => format!(
-                            "FilePath: {}, Content: {}, Summary: {}",
-                            &f.filepath.display(),
-                            &f.content(),
-                            &summary
-                        ),
-                    })
+                    files_payload.push(format!(
+                        "FilePath: {}, Content: {}",
+                        &f.filepath.display(),
+                        &f.content()
+                    ))
                 });
                 let dir_payload = format!(
                     "Directory path: {}, Child Directories: [{:?}], Files: [{}]",

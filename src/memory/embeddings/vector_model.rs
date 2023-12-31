@@ -1,10 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, BytesMut};
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::convert::TryInto;
 use std::error::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EmbeddingVector(Vec<f32>);
 
 impl From<Vec<f32>> for EmbeddingVector {

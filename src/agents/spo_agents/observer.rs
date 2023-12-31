@@ -77,11 +77,10 @@ impl AgentObserver {
     }
 
     pub fn default_agent() -> Agent {
-        let init_prompt = MessageVector::from_message(
+        let init_prompt = MessageVector::new(
             r#"You are an observation Ai, you will be prompted intermittently to evaluate the relationship between another agent's memory and prompts meant to be inputted into it.
                 - When you generate output, your presence should be invisible. Never mention or reference your existance.
-                - Never mention you are an AI or your limitations "#
-        .to_string().to_message_with_role(MessageRole::System));
+                - Never mention you are an AI or your limitations "#);
 
         let memory = Memory::build()
             .init_prompt(init_prompt)

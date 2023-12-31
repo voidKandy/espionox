@@ -1,9 +1,10 @@
 use crate::{functions::weather_test_function, helpers::*};
+use espionox::memory::message::MessageRole;
 #[allow(unused_imports)]
 use espionox::{
     agents::Agent,
     language_models::openai::functions::{CustomFunction, Property, PropertyInfo},
-    memory::Memory,
+    memory::{Memory, Message},
 };
 
 // #[ignore]
@@ -11,8 +12,10 @@ use espionox::{
 async fn stream_completion_works() {
     crate::helpers::init_test();
     let mut agent = test_agent();
-    let prompt =
-        String::from("Hello chat agent, please respond with a long sentence on any subject");
+    let prompt = Message::new_standard(
+        MessageRole::User,
+        "Hello chat agent, please respond with a long sentence on any subject",
+    );
     let mut receiver = agent
         .stream_prompt(prompt)
         .await
@@ -36,9 +39,10 @@ fn prompting_can_be_blocked_on_a_tokio_runtime() {
     crate::helpers::init_test();
     let test = std::thread::spawn(|| {
         let mut agent = test_agent();
+        let prompt = Message::new_standard(MessageRole::User, "Hello");
         let response = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(agent.prompt(String::from("Hello")));
+            .block_on(agent.prompt(prompt));
         tracing::info!("Got response from blocked prompt: {:?}", response);
         assert!(response.is_ok());
     })
@@ -51,11 +55,12 @@ fn prompting_can_be_blocked_on_a_tokio_runtime() {
 async fn function_agent_test() {
     init_test();
     let mut agent = test_agent();
+    let prompt = Message::new_standard(
+        MessageRole::User,
+        "What's the weather like in Detroit michigan in celcius?",
+    );
     let response_json = agent
-        .function_prompt(
-            weather_test_function(),
-            "What's the weather like in Detroit michigan in celcius?".to_string(),
-        )
+        .function_prompt(weather_test_function(), prompt)
         .await
         .expect("Failed to get function response");
     tracing::info!("Response json: {:?}", response_json);
@@ -79,29 +84,15 @@ async fn function_agent_test() {
 }
 
 // #[ignore]
-#[tokio::test]
-async fn observer_agent_test() {
-    init_test();
-    let mut agent = observed_test_agent();
-    // agent
-    //     .memory
-    //     .force_push_message_to_cache("file_share", "file content".to_string());
-    let prompt = String::from("Hello agent, what is the best way to brew cold brew coffee.");
-    let response = agent.prompt(prompt).await.expect("Failed to get response");
-    println!("{:?}", &response);
-    assert!(true);
-}
-
-#[ignore]
-#[tokio::test]
-async fn prompt_agent_test() {
-    init_test();
-    let mut agent = test_agent();
-    // agent
-    //     .memory
-    //     .force_push_message_to_cache("file_share", "file content".to_string());
-    let prompt = String::from("Hello chat agent");
-    let response = agent.prompt(prompt).await.expect("Failed to get response");
-    println!("{:?}", &response);
-    assert!(true);
-}
+// #[tokio::test]
+// async fn observer_agent_test() {
+//     init_test();
+//     let mut agent = observed_test_agent();
+//     // agent
+//     //     .memory
+//     //     .force_push_message_to_cache("file_share", "file content".to_string());
+//     let prompt = String::from("Hello agent, what is the best way to brew cold brew coffee.");
+//     let response = agent.prompt(prompt).await.expect("Failed to get response");
+//     println!("{:?}", &response);
+//     assert!(true);
+// }

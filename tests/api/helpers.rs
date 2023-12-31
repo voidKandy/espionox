@@ -1,13 +1,7 @@
 use espionox::{
-    agents::{
-        spo_agents::{AgentObserver, ObservationProtocol},
-        Agent,
-    },
-    configuration::ConfigEnv,
-    core::File,
     language_models::{openai::gpt::Gpt, LanguageModel},
-    memory::Memory,
     telemetry::{get_subscriber, init_subscriber},
+    Agent,
 };
 use once_cell::sync::Lazy;
 
@@ -32,8 +26,9 @@ pub fn init_test() {
 // }
 
 pub fn test_gpt() -> Gpt {
+    dotenv::dotenv().ok();
     // let config = GptConfig::from(test_env());
-    let api_key = "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".to_string();
+    let api_key = std::env::var("TESTING_API_KEY").unwrap();
     let mut gpt = Gpt::default();
     gpt.api_key = Some(api_key);
     gpt
@@ -54,28 +49,10 @@ pub fn test_agent_lt() -> Agent {
 }
 
 pub fn test_agent() -> Agent {
-    let memory = Memory::build().finished();
     let model = LanguageModel::from(test_gpt());
     Agent {
-        memory,
         model,
         ..Default::default()
-    }
-}
-
-pub fn observed_test_agent() -> Agent {
-    let memory = Memory::build().finished();
-    let model = LanguageModel::from(test_gpt());
-    let mut protocol = ObservationProtocol::new();
-    protocol.input_mutator(
-        espionox::agents::spo_agents::observer::ObservationStep::BeforeAndAfterPrompt,
-    );
-
-    let observer = Some(AgentObserver::new(protocol));
-    Agent {
-        memory,
-        model,
-        observer,
     }
 }
 

@@ -7,3 +7,5 @@ pub mod language_models;
 pub mod memory;
 pub mod persistance;
 pub mod telemetry;
+
+pub use agents::Agent;

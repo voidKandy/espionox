@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [features]
 default = [
-# "long_term_memory"
+ # "long_term_memory"
 ]
 
 long_term_memory = ["dep:sqlx", "dep:pgvector"]
@@ -45,3 +45,6 @@ thiserror = "1.0.48"
 serde_yaml = "0.9.25"
 async-recursion = "1.0.5"
 reqwest-streams = { version = "0.3.0", features=["json"] }
+
+[dev-dependencies]
+dotenv = "0.15.0"

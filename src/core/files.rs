@@ -3,13 +3,10 @@ use std::path::PathBuf;
 use std::{fmt::Display, path::Path};
 use tracing::{self, info};
 
-use crate::agents::spo_agents::SummarizerAgent;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub filepath: Box<Path>,
     pub chunks: Vec<FileChunk>,
-    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,19 +18,11 @@ pub struct FileChunk {
 
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = match &self.summary {
-            None => format!(
-                "FilePath: {}, Content: {}",
-                &self.filepath.display(),
-                &self.content()
-            ),
-            Some(summary) => format!(
-                "FilePath: {}, Content: {}, Summary: {}",
-                &self.filepath.display(),
-                &self.content(),
-                &summary
-            ),
-        };
+        let string = format!(
+            "FilePath: {}, Content: {}",
+            &self.filepath.display(),
+            &self.content()
+        );
         write!(f, "{}", string)
     }
 }
@@ -56,8 +45,6 @@ impl From<&str> for File {
         File {
             filepath,
             chunks: vec![],
-            summary: None,
-            // summary_embedding: Vec::new(),
         }
         .chunkify()
     }
@@ -68,8 +55,6 @@ impl From<PathBuf> for File {
         File {
             filepath: path.into(),
             chunks: vec![],
-            summary: None,
-            // summary_embedding: Vec::new(),
         }
         .chunkify()
     }
@@ -102,12 +87,5 @@ impl File {
         let mut content: Vec<&str> = Vec::new();
         self.chunks.iter().for_each(|c| content.push(&c.content));
         content.join("\n")
-    }
-
-    pub async fn get_summary(&mut self) {
-        let summary = SummarizerAgent::summarize(self.to_owned())
-            .await
-            .expect("Failed to get summary");
-        self.summary = Some(summary);
     }
 }
