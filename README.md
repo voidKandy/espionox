@@ -1,4 +1,4 @@
-# Simplifying Ai Agents in Rust 🦀
+# Simplifying Ai Agents in Rust 🕵🏼
 There are hundred of Ai agent applications written Typescript and Python. Espionox is an attempt to make building Ai applications in Rust just as approachable.
 
 ## Overview
