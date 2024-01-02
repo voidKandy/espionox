@@ -1,98 +1,104 @@
-use super::{super::functions::Function, models::*, streaming_utils::*, GptError};
+use super::{
+    super::{super::LanguageModel, functions::Function},
+    models::*,
+    streaming_utils::*,
+};
+use crate::environment::errors::GptError;
 use anyhow::anyhow;
 use bytes::Bytes;
+use reqwest::Client;
 use reqwest_streams::JsonStreamResponse;
 use serde_json::{json, Value};
+use std::future::Future;
+use std::pin::Pin;
 
-const OPENAI_COMPLETION_URL: &str = "https://api.openai.com/v1/chat/completions";
+pub fn completion_fn_wrapper<'c>(
+    client: &'c Client,
+    api_key: &'c str,
+    context: &'c Vec<Value>,
+    model: &'c LanguageModel,
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+    Box::pin(completion(client, api_key, context, model))
+}
 
-impl Gpt {
-    #[tracing::instrument(name = "Get streamed completion")]
-    pub async fn stream_completion(
-        &self,
-        context: &Vec<Value>,
-    ) -> Result<CompletionStream, GptError> {
-        let temperature = (self.temperature * 10.0).round() / 10.0;
-        let payload = json!({
-            "model": self.model.to_string(),
-            "messages": context,
-            "temperature": temperature,
-            "stream": true,
-            "max_tokens": 1000,
-            "n": 1,
-            "stop": null,
-        });
-        tracing::info!("PAYLOAD: {:?}", &payload);
+#[tracing::instrument(name = "Get completion")]
+async fn completion(
+    client: &Client,
+    api_key: &str,
+    context: &Vec<Value>,
+    model: &LanguageModel,
+) -> Result<GptResponse, GptError> {
+    let gpt = model.inner_gpt().unwrap();
+    let temperature = (gpt.temperature * 10.0).round() / 10.0;
+    let payload = json!({"model": gpt.model.to_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
+    let response = client
+        .post(model.completion_url())
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .send()
+        .await?;
+    let gpt_response = response.json().await?;
+    Ok(gpt_response)
+}
 
-        match &self.api_key {
-            Some(key) => {
-                let response_stream = self
-                    .client
-                    .post(OPENAI_COMPLETION_URL)
-                    .header("Authorization", format!("Bearer {}", key))
-                    .header("Content-Type", "application/json")
-                    .json(&payload)
-                    .send()
-                    .await
-                    .map_err(|err| GptError::Completion(err))?
-                    .json_array_stream::<StreamResponse>(1024);
+#[tracing::instrument(name = "Get streamed completion")]
+pub async fn stream_completion(
+    client: &Client,
+    api_key: &str,
+    context: &Vec<Value>,
+    model: &LanguageModel,
+) -> Result<CompletionStream, GptError> {
+    let gpt = model.inner_gpt().unwrap();
+    let temperature = (gpt.temperature * 10.0).round() / 10.0;
+    let payload = json!({
+        "model": gpt.model.to_string(),
+        "messages": context,
+        "temperature": temperature,
+        "stream": true,
+        "max_tokens": 1000,
+        "n": 1,
+        "stop": null,
+    });
+    tracing::info!("PAYLOAD: {:?}", &payload);
 
-                Ok(Box::new(response_stream))
-            }
-            None => Err(GptError::NoApiKey),
-        }
-    }
+    let response_stream = client
+        .post(model.completion_url())
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .send()
+        .await?
+        .json_array_stream::<StreamResponse>(1024);
 
-    #[tracing::instrument(name = "Get completion")]
-    pub async fn completion(&self, context: &Vec<Value>) -> Result<GptResponse, GptError> {
-        let temperature = (self.temperature * 10.0).round() / 10.0;
-        let payload = json!({"model": self.model.to_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
-        match &self.api_key {
-            Some(key) => {
-                let response = self
-                    .client
-                    .post(OPENAI_COMPLETION_URL)
-                    .header("Authorization", format!("Bearer {}", key))
-                    .header("Content-Type", "application/json")
-                    .json(&payload)
-                    .send()
-                    .await?;
-                let gpt_response = response.json().await?;
-                Ok(gpt_response)
-            }
-            None => Err(GptError::NoApiKey),
-        }
-    }
+    Ok(Box::new(response_stream))
+}
 
-    #[tracing::instrument(name = "Get function completion" skip(context, function))]
-    pub async fn function_completion(
-        &self,
-        context: &Vec<Value>,
-        function: &Function,
-    ) -> Result<GptResponse, GptError> {
-        let payload = json!({
-            "model": self.model.to_string(),
-            "messages": context,
-            "functions": [function.json],
-            "function_call": {"name": function.name}
-        });
-        tracing::info!("Full completion payload: {:?}", payload);
-        match &self.api_key {
-            Some(key) => {
-                let response = self
-                    .client
-                    .post(OPENAI_COMPLETION_URL)
-                    .header("Authorization", format!("Bearer {}", key))
-                    .header("Content-Type", "application/json")
-                    .json(&payload)
-                    .send()
-                    .await?;
-                let gpt_response = response.json().await?;
-                Ok(gpt_response)
-            }
-            None => Err(GptError::NoApiKey),
-        }
-    }
+#[tracing::instrument(name = "Get function completion" skip(context, function))]
+pub async fn function_completion(
+    client: &Client,
+    api_key: &str,
+    context: &Vec<Value>,
+    model: &LanguageModel,
+    function: &Function,
+) -> Result<GptResponse, GptError> {
+    let gpt = model.inner_gpt().unwrap();
+    let payload = json!({
+        "model": gpt.model.to_string(),
+        "messages": context,
+        "functions": [function.json],
+        "function_call": {"name": function.name}
+    });
+    tracing::info!("Full completion payload: {:?}", payload);
+    let response = client
+        .post(model.completion_url())
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .send()
+        .await?;
+    let gpt_response = response.json().await?;
+    Ok(gpt_response)
 }
 
 impl GptResponse {
@@ -179,10 +185,7 @@ impl StreamResponse {
                 }
                 Err(err) => {
                     if err.to_string().contains("expected value") {
-                        return Err(GptError::Recoverable(format!(
-                            "Possibly recoverable error: {:?}",
-                            err
-                        )));
+                        return Err(GptError::Recoverable);
                     }
                 }
             }

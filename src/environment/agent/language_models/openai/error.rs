@@ -4,9 +4,9 @@ use crate::errors::error_chain_fmt;
 pub enum GptError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    Completion(#[from] reqwest::Error),
+    NetRequest(#[from] reqwest::Error),
+    Recoverable,
     NoApiKey,
-    Recoverable(String),
 }
 
 impl std::fmt::Debug for GptError {

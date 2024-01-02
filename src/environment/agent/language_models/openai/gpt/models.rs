@@ -1,6 +1,6 @@
-use crate::configuration::ConfigEnv;
+use crate::configuration::EnvConfig;
+use crate::environment::errors::GptError;
 
-use super::error::GptError;
 use anyhow::anyhow;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -9,24 +9,12 @@ use serde_json::Value;
 const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-1106";
 const GPT4_MODEL_STR: &str = "gpt-4";
 
-// #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-// pub struct GptConfig {
-//     pub(super) api_key: String,
-//     #[serde(skip)]
-//     pub(super) client: Client,
-//     pub(super) url: String,
-//     pub(super) model: GptModel,
-// }
-
 /// Gpt struct contains info needed for completion endpoint
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Gpt {
-    pub api_key: Option<String>,
     pub model: GptModel,
     pub token_count: i32,
     pub temperature: f32,
-    #[serde(skip)]
-    pub(crate) client: Client,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -89,10 +77,10 @@ impl ToString for GptModel {
 /// Sensible defaults for Gpt:
 /// * Temperature of 0.7
 /// * Gpt3 Model
-/// * Api key from default ConfigEnv, or empty
+/// * Api key from default EnvConfig, or empty
 impl Default for Gpt {
     fn default() -> Self {
-        let env = ConfigEnv::default();
+        let env = EnvConfig::default();
         let api_key = match env.global_settings() {
             Ok(settings) => settings.language_model.api_key,
             Err(_) => {
@@ -103,13 +91,10 @@ impl Default for Gpt {
         let model = GptModel::default();
         let temperature = 0.7;
         let token_count = 0;
-        let client = Client::new();
         Gpt {
             model,
             temperature,
             token_count,
-            api_key,
-            client,
         }
     }
 }
@@ -127,7 +112,6 @@ impl Gpt {
                 }
             }
             Some(key) => Self {
-                api_key: Some(key.to_string()),
                 model,
                 temperature,
                 ..Default::default()

@@ -2,14 +2,14 @@
 use serde_yaml;
 use std::{collections::BTreeMap, fs, io::Read, path::PathBuf};
 
-use crate::language_models::openai::gpt::GptModel;
+use crate::environment::agent::language_models::openai::gpt::GptModel;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ConfigEnv {
+pub struct EnvConfig {
     config_file_name: String,
 }
 
-impl Default for ConfigEnv {
+impl Default for EnvConfig {
     fn default() -> Self {
         Self {
             config_file_name: "default".to_string(),
@@ -260,7 +260,7 @@ impl GlobalSettings {
     }
 }
 
-impl ConfigEnv {
+impl EnvConfig {
     pub fn new(filename: &str) -> Self {
         Self {
             config_file_name: filename.to_string(),

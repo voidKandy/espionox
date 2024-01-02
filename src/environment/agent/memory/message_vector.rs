@@ -1,7 +1,6 @@
-use super::message::*;
-use crate::core::*;
+use super::messages::*;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MessageVector(Vec<Message>);
@@ -40,8 +39,8 @@ impl ToString for MessageVector {
         self.as_ref().into_iter().for_each(|mess| {
             output.push_str(&format!(
                 "Role: [{}] Content: [{}] ",
-                mess.role().to_string(),
-                mess.content().unwrap()
+                mess.role.to_string(),
+                mess.content
             ));
         });
         output
@@ -51,7 +50,7 @@ impl ToString for MessageVector {
 impl MessageVector {
     /// Create a new MessageVector given the content of a system prompt
     pub fn new(content: &str) -> Self {
-        let message = Message::new_standard(MessageRole::System, content);
+        let message = Message::new(MessageRole::System, content);
         MessageVector::from(vec![message])
     }
     /// Push a message to the end of MessageVector
@@ -76,7 +75,7 @@ impl MessageVector {
         MessageVector::from(
             self.as_ref()
                 .iter()
-                .filter(|message| message.role() != MessageRole::System)
+                .filter(|message| message.role != MessageRole::System)
                 .cloned()
                 .collect::<Vec<Message>>(),
         )
@@ -87,7 +86,7 @@ impl MessageVector {
         MessageVector::from(
             self.as_ref()
                 .iter()
-                .filter(|message| message.role() == MessageRole::System)
+                .filter(|message| message.role == MessageRole::System)
                 .cloned()
                 .collect::<Vec<Message>>(),
         )
@@ -96,14 +95,14 @@ impl MessageVector {
     /// Remove any messages without system role
     pub fn reset_to_system_prompt(&mut self) {
         self.as_mut()
-            .retain(|message| message.role() == MessageRole::System);
+            .retain(|message| message.role == MessageRole::System);
     }
 
     /// Count the amount of User/Assistant messages
     pub fn chat_count(&self) -> usize {
         self.as_ref()
             .iter()
-            .filter(|m| m.role() == MessageRole::User || m.role() == MessageRole::Assistant)
+            .filter(|m| m.role == MessageRole::User || m.role == MessageRole::Assistant)
             .count()
     }
 

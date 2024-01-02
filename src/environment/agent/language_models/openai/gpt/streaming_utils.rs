@@ -1,4 +1,4 @@
-use super::GptError;
+use crate::environment::errors::GptError;
 use crate::errors::error_chain_fmt;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -28,7 +28,7 @@ pub struct StreamDelta {
 pub enum StreamError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    GptError(#[from] super::GptError),
+    GptError(#[from] GptError),
     RetryError,
 }
 
@@ -102,7 +102,7 @@ impl CompletionStreamingThread {
                     },
                     Err(err) => {
                         let error = match err {
-                            GptError::Recoverable(_) => StreamError::RetryError,
+                            GptError::Recoverable => StreamError::RetryError,
                             _ => err.into(),
                         };
 

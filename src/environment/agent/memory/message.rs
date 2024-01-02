@@ -1,21 +1,21 @@
 use super::embeddings::EmbeddingVector;
-use crate::language_models::{embed, openai::gpt::GptMessage};
+use crate::agents::language_models::{embed, openai::gpt::GptMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum Message {
-    Standard {
-        id: String,
-        role: MessageRole,
-        content: String,
-        metadata: MessageMetadata,
-    },
-    Function {
-        function_call: FunctionCall,
-    },
+pub struct Message {
+    pub id: String,
+    pub role: MessageRole,
+    pub content: String,
+    pub metadata: MessageMetadata,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FunctionMessage {
+    pub function_call: FunctionCall,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -71,39 +71,18 @@ impl From<String> for MessageRole {
 
 impl Message {
     /// Best way to initialize a standard message
-    pub fn new_standard(role: MessageRole, content: &str) -> Self {
+    pub fn new(role: MessageRole, content: &str) -> Self {
         Message::Standard {
             id: Uuid::new_v4().to_string(),
             role,
             content: content.to_string(),
-            metadata: MessageMetadata::empty(),
-        }
-    }
-
-    pub fn role(&self) -> MessageRole {
-        match self {
-            Self::Standard { role, .. } => role.to_owned(),
-            Self::Function { .. } => MessageRole::Assistant,
-        }
-    }
-
-    pub fn content(&self) -> Option<String> {
-        match self {
-            Self::Standard { content, .. } => Some(content.to_owned()),
-            _ => None,
-        }
-    }
-
-    pub fn metadata(&self) -> Option<MessageMetadata> {
-        match self {
-            Self::Standard { metadata, .. } => Some(metadata.clone()),
-            _ => None,
+            metadata: MessageMetadata::default(),
         }
     }
 }
 
-impl MessageMetadata {
-    pub fn empty() -> Self {
+impl Default for MessageMetadata {
+    fn default() -> Self {
         Self {
             content_embedding: None,
             infos: vec![],
@@ -158,7 +137,7 @@ impl From<GptMessage> for Message {
                     id: Uuid::new_v4().to_string(),
                     role: value.role.into(),
                     content,
-                    metadata: MessageMetadata::empty(),
+                    metadata: MessageMetadata::default(),
                 }
             }
         }
@@ -180,7 +159,7 @@ impl From<Value> for Message {
             id: Uuid::new_v4().to_string(),
             role,
             content,
-            metadata: MessageMetadata::empty(),
+            metadata: MessageMetadata::default(),
         }
     }
 }
