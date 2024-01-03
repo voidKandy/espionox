@@ -16,13 +16,10 @@ use self::language_models::openai::gpt::GptResponse;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     /// Unique Identifier
-    pub id: String,
     /// Memory contains cache and ltm
     pub cache: MessageVector,
     /// Language model defines which model to use for the given agent
     pub model: LanguageModel,
-    // #[serde(skip)]
-    // pub sender: Option<EnvMessageSender>,
 }
 
 /// Handle for making requests to agents within Environment
@@ -47,23 +44,14 @@ impl Default for Agent {
     fn default() -> Self {
         let cache = crate::persistance::prompts::get_prompt_by_name("DEFAULT_INIT_PROMPT")
             .unwrap_or(MessageVector::init());
+        tracing::info!("Default Agent initialized with cache: {:?}", cache);
         let model = LanguageModel::default_gpt();
-        Agent {
-            id: uuid::Uuid::new_v4().to_string(),
-            cache,
-            model,
-            // sender: None,
-        }
+        Agent { cache, model }
     }
 }
 
 impl Agent {
-    pub fn new(id: Option<&str>, init_prompt: &str, model: LanguageModel) -> Self {
-        let id = match id {
-            Some(id) => id.to_string(),
-            None => uuid::Uuid::new_v4().to_string(),
-        };
-
+    pub fn new(init_prompt: &str, model: LanguageModel) -> Self {
         let cache = MessageVector::new(init_prompt);
         Agent {
             cache,
@@ -98,7 +86,6 @@ impl AgentHandle {
     /// Requests Env to get a response
     #[tracing::instrument(name = "Send request to prompt agent to env")]
     pub async fn request_completion(&mut self, message: Message) -> Result<(), AgentError> {
-        // self.cache.as_mut().push(message);
         let env_req = EnvRequest::PromptAgent {
             agent_id: self.id.to_owned(),
             message,

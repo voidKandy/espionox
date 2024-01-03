@@ -1,9 +1,6 @@
 use crate::{helpers, init_test};
 use espionox::{
-    environment::agent::{
-        language_models::LanguageModel,
-        memory::{messages::MessageRole, Message},
-    },
+    environment::agent::memory::{messages::MessageRole, Message},
     Agent,
 };
 use tokio;
@@ -11,28 +8,24 @@ use tokio;
 #[tokio::test]
 async fn insert_agent_works() {
     let agent = Agent::default();
-    let id = agent.id.clone();
     let mut environment = helpers::test_env();
-    environment.insert_agent(agent).await;
-    assert!(environment.get_agent_handle(&id).await.is_some());
+    let handle = environment.insert_agent(None, agent).await;
+    assert!(handle.is_ok());
 }
 
 #[tokio::test]
 async fn prompt_agent_works() {
     init_test();
     let agent = Agent::default();
-    let id = agent.id.clone();
     let mut environment = helpers::test_env();
-    environment.insert_agent(agent).await;
-    environment.spawn().await.expect("Failed to spawn");
     let mut handle = environment
-        .get_agent_handle(&id)
+        .insert_agent(Some("jerry"), agent)
         .await
-        .expect("Failed to get handle?");
-    let message = Message::new(
-        espionox::environment::agent::memory::messages::MessageRole::User,
-        "Hello!",
-    );
+        .unwrap();
+
+    environment.spawn().await.expect("Failed to spawn");
+
+    let message = Message::new(MessageRole::User, "Hello!");
     handle.request_completion(message).await.unwrap();
 
     environment.finalize_dispatch().await.unwrap();
@@ -44,3 +37,4 @@ async fn prompt_agent_works() {
 
     assert_eq!(message.role, MessageRole::Assistant);
 }
+

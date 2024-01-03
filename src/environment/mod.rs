@@ -163,17 +163,18 @@ impl Dispatch {
     #[tracing::instrument(name = "update agent cache")]
     async fn push_to_agent_cache(
         agent: &mut Agent,
+        id: &str,
         message: Message,
         sender: &EnvMessageSender,
     ) -> Result<(), EnvError> {
-        let agent_id = &agent.id;
+        // let agent_id = &agent.id;
         agent.cache.push(message.clone());
         sender
             .try_lock()
             .expect("Failed to lock sender")
             .send(
                 EnvResponse::ChangedCache {
-                    agent_id: agent_id.clone(),
+                    agent_id: id.to_string(),
                     message,
                 }
                 .into(),
@@ -196,7 +197,7 @@ impl Dispatch {
                 .map_err(|_| EnvError::Send),
             EnvRequest::PromptAgent { agent_id, message } => {
                 if let Some(agent) = self.get_agent_by_id(&agent_id) {
-                    Self::push_to_agent_cache(agent, message, &sender_clone)
+                    Self::push_to_agent_cache(agent, &agent_id, message, &sender_clone)
                         .await
                         .expect("Failed to push to agent cache");
                     let completion_fn = agent.model.io_completion_fn();
@@ -211,7 +212,7 @@ impl Dispatch {
                             "Got completion message in response: {:?}, Pushing to agent cache",
                             message
                         );
-                        Self::push_to_agent_cache(agent, message, &sender_clone)
+                        Self::push_to_agent_cache(agent, &agent_id, message, &sender_clone)
                             .await
                             .expect("Failed to push to agent cache");
                         Ok(())
@@ -237,7 +238,7 @@ impl Environment {
             .await
             .send(EnvRequest::Finish.into())
             .await
-            .map_err(|_| EnvError::Send);
+            .map_err(|_| EnvError::Send)?;
         self.handle
             .take()
             .expect("Tried to finalize dispatch without an active handle")
@@ -263,20 +264,30 @@ impl Environment {
     /// Using the ID of an agent, get a it's handle
     pub async fn get_agent_handle(&self, id: &str) -> Option<AgentHandle> {
         let dispatch = self.dispatch.read().await;
-        if let Some(agent) = dispatch.agents.get(id) {
+        if let Some(_) = dispatch.agents.get(id) {
             let sender = Arc::clone(&dispatch.channel.sender);
-            let id = agent.id.as_str();
             let handle = AgentHandle::from((id, sender));
             return Some(handle);
         }
         None
     }
 
-    /// Create new agent & insert
-    pub async fn insert_agent(&mut self, agent: Agent) {
+    /// Inserts agent into dispatch hashmap, returning a handle to the agent
+    #[tracing::instrument(name = "Insert agent into dispatch")]
+    pub async fn insert_agent(
+        &mut self,
+        id: Option<&str>,
+        agent: Agent,
+    ) -> Result<AgentHandle, EnvError> {
         let mut dispatch = self.dispatch.write().await;
-        let id = agent.id.clone();
-        dispatch.agents.insert(id, agent);
+        let id = match id {
+            Some(id) => id.to_string(),
+            None => uuid::Uuid::new_v4().to_string(),
+        };
+        dispatch.agents.insert(id.clone(), agent);
+        drop(dispatch);
+        let handle = self.get_agent_handle(&id).await.unwrap();
+        Ok(handle)
     }
 
     /// New environment from id & api_key, if id is None it will be a Uuid V4

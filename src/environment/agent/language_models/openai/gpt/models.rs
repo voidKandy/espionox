@@ -1,8 +1,6 @@
-use crate::configuration::EnvConfig;
 use crate::environment::errors::GptError;
 
 use anyhow::anyhow;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -77,17 +75,8 @@ impl ToString for GptModel {
 /// Sensible defaults for Gpt:
 /// * Temperature of 0.7
 /// * Gpt3 Model
-/// * Api key from default EnvConfig, or empty
 impl Default for Gpt {
     fn default() -> Self {
-        let env = EnvConfig::default();
-        let api_key = match env.global_settings() {
-            Ok(settings) => settings.language_model.api_key,
-            Err(_) => {
-                tracing::warn!("API KEY not given, Completions will be unavailable");
-                None
-            }
-        };
         let model = GptModel::default();
         let temperature = 0.7;
         let token_count = 0;
@@ -101,21 +90,11 @@ impl Default for Gpt {
 
 impl Gpt {
     /// Create a GPT from a model, temperature, and api_key
-    pub fn new(model: GptModel, temperature: f32, api_key: Option<&str>) -> Self {
-        match api_key {
-            None => {
-                tracing::warn!("API KEY not given, if there is nothing in config environment completions will be unavailable");
-                Self {
-                    model,
-                    temperature,
-                    ..Default::default()
-                }
-            }
-            Some(key) => Self {
-                model,
-                temperature,
-                ..Default::default()
-            },
+    pub fn new(model: GptModel, temperature: f32) -> Self {
+        Self {
+            model,
+            temperature,
+            ..Default::default()
         }
     }
 }
