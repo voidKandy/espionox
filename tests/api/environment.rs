@@ -1,6 +1,9 @@
 use crate::{helpers, init_test};
 use espionox::{
-    environment::agent::{language_models::LanguageModel, memory::Message},
+    environment::agent::{
+        language_models::LanguageModel,
+        memory::{messages::MessageRole, Message},
+    },
     Agent,
 };
 use tokio;
@@ -21,7 +24,7 @@ async fn prompt_agent_works() {
     let id = agent.id.clone();
     let mut environment = helpers::test_env();
     environment.insert_agent(agent).await;
-    environment.run().await;
+    environment.spawn().await.expect("Failed to spawn");
     let mut handle = environment
         .get_agent_handle(&id)
         .await
@@ -31,8 +34,13 @@ async fn prompt_agent_works() {
         "Hello!",
     );
     handle.request_completion(message).await.unwrap();
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    let stack = environment.get_event_stack().await;
+
+    environment.finalize_dispatch().await.unwrap();
+    let stack = environment.get_responses_stack().await;
     println!("Stack: {:?}", stack);
-    assert!(false);
+    let message = match stack.into_iter().next().unwrap() {
+        espionox::environment::EnvResponse::ChangedCache { message, .. } => message,
+    };
+
+    assert_eq!(message.role, MessageRole::Assistant);
 }

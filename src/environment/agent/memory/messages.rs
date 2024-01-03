@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::fmt;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Message {
     pub id: String,
     pub role: MessageRole,
@@ -13,7 +13,14 @@ pub struct Message {
     pub metadata: MessageMetadata,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+impl PartialEq for Message {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.role == other.role && self.content == other.content
+    }
+}
+impl Eq for Message {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum MessageRole {
     Assistant,
     User,

@@ -9,6 +9,8 @@ pub enum EnvError {
     Undefined(#[from] anyhow::Error),
     Agent(#[from] AgentError),
     Gpt(#[from] GptError),
+    Join(#[from] tokio::task::JoinError),
+    Timeout(#[from] tokio::time::error::Elapsed),
     Request(String),
     Send,
 }

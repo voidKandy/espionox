@@ -37,6 +37,7 @@ pub type AgentHashMap = HashMap<String, Agent>;
 #[derive(Debug)]
 pub struct Environment {
     pub id: String,
+    pub sender: EnvMessageSender,
     pub dispatch: Arc<RwLock<Dispatch>>,
     pub handle: Option<EnvThreadHandle>,
 }
@@ -49,18 +50,20 @@ pub struct Dispatch {
     api_key: Option<String>,
     channel: EnvChannel,
     agents: AgentHashMap,
-    response_stack: VecDeque<EnvResponse>,
+    responses: VecDeque<EnvResponse>,
 }
 
 #[derive(Debug)]
 pub enum EnvMessage {
     Request(EnvRequest),
     Response(EnvResponse),
+    Finish,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EnvRequest {
     PromptAgent { agent_id: String, message: Message },
+    Finish,
 }
 
 #[derive(Debug, Clone)]
@@ -98,50 +101,66 @@ impl
 }
 
 impl EnvThreadHandle {
+    /// Join and resolve the current thread
+    /// Env will need to be 'rerun' after calling this method
+    pub async fn join(self) -> Result<(), EnvError> {
+        self.0.await??;
+        Ok(())
+    }
+
     #[tracing::instrument(name = "Spawn EnvThreadHandle")]
-    async fn spawn(dispatch: Arc<RwLock<Dispatch>>) -> Self {
+    async fn spawn(dispatch: Arc<RwLock<Dispatch>>) -> Result<Self, EnvError> {
         let handle: JoinHandle<Result<(), EnvError>> = tokio::spawn(async move {
-            let dispatch = dispatch.write().await;
+            tracing::info!("Inside handle");
+            let dispatch =
+                tokio::time::timeout(std::time::Duration::from_millis(300), dispatch.write())
+                    .await?;
             tracing::info!("Dispatch state: {:?}", dispatch);
-            EnvThreadHandle::main_loop(dispatch).await?;
-            Ok(())
+            EnvThreadHandle::main_loop(dispatch).await
         });
-        Self(handle)
+        tracing::info!("Returning: {:?}", handle);
+        Ok(Self(handle))
     }
 
     #[tracing::instrument(name = "Dispatch main loop")]
     pub async fn main_loop(mut dispatch: RwLockWriteGuard<'_, Dispatch>) -> Result<(), EnvError> {
         let receiver = Arc::clone(&dispatch.channel.receiver);
-        loop {
-            if let Some(message) = receiver
-                .try_lock()
-                .expect("Failed to lock recvr")
-                .recv()
-                .await
-            {
-                match message {
-                    EnvMessage::Request(req) => {
-                        tracing::info!("Dispatch received request: {:?}", req);
-                        dispatch.handle_request(req).await?;
-                    }
-                    EnvMessage::Response(res) => {
-                        tracing::info!("Dispatch received response: {:?}", res);
-                        dispatch.handle_response(res);
-                    }
+        while let Some(message) = receiver
+            .try_lock()
+            .expect("Failed to lock recvr")
+            .recv()
+            .await
+        {
+            match message {
+                EnvMessage::Request(req) => {
+                    tracing::info!("Dispatch received request: {:?}", req);
+                    // if req == EnvRequest::Finish {
+                    //     break;
+                    // }
+                    // dispatch.requests.push_front(req);
+                    dispatch.handle_request(req).await?;
                 }
+                EnvMessage::Response(res) => {
+                    tracing::info!("Dispatch received response: {:?}", res);
+                    dispatch.responses.push_front(res)
+                }
+                EnvMessage::Finish => return Ok(()),
             }
         }
+        // dispatch.finalize_request_stack().await?;
+        Ok(())
     }
 }
 
 impl Dispatch {
-    fn get_agent_by_id(&mut self, id: &str) -> Option<&mut Agent> {
+    pub fn get_agent_by_id(&mut self, id: &str) -> Option<&mut Agent> {
         if let Some(agent) = self.agents.get_mut(id) {
             return Some(agent);
         }
         None
     }
 
+    #[tracing::instrument(name = "update agent cache")]
     async fn push_to_agent_cache(
         agent: &mut Agent,
         message: Message,
@@ -164,10 +183,17 @@ impl Dispatch {
         Ok(())
     }
 
+    #[tracing::instrument(name = "Handle dispatch request")]
     async fn handle_request(&mut self, req: EnvRequest) -> Result<(), EnvError> {
         let sender_clone = Arc::clone(&self.channel.sender);
         let api_key = &self.api_key.clone();
         match req {
+            EnvRequest::Finish => sender_clone
+                .lock()
+                .await
+                .send(EnvMessage::Finish)
+                .await
+                .map_err(|_| EnvError::Send),
             EnvRequest::PromptAgent { agent_id, message } => {
                 if let Some(agent) = self.get_agent_by_id(&agent_id) {
                     Self::push_to_agent_cache(agent, message, &sender_clone)
@@ -180,7 +206,11 @@ impl Dispatch {
                         let response = completion_fn(&client, &key, payload, &agent.model).await?;
                         let res_str = agent.handle_completion_response(response)?;
                         let message =
-                            Message::new(agent::memory::messages::MessageRole::User, &res_str);
+                            Message::new(agent::memory::messages::MessageRole::Assistant, &res_str);
+                        tracing::info!(
+                            "Got completion message in response: {:?}, Pushing to agent cache",
+                            message
+                        );
                         Self::push_to_agent_cache(agent, message, &sender_clone)
                             .await
                             .expect("Failed to push to agent cache");
@@ -195,12 +225,41 @@ impl Dispatch {
         }
     }
 
-    fn handle_response(&mut self, res: EnvResponse) {
-        self.response_stack.push_front(res)
-    }
+    #[tracing::instrument(name = "Push response to dispatch stack")]
+    fn handle_response(&mut self, res: EnvResponse) {}
 }
 
 impl Environment {
+    #[tracing::instrument(name = "Send Finish message to dispatch")]
+    pub async fn finalize_dispatch(&mut self) -> Result<(), EnvError> {
+        self.sender
+            .lock()
+            .await
+            .send(EnvRequest::Finish.into())
+            .await
+            .map_err(|_| EnvError::Send);
+        self.handle
+            .take()
+            .expect("Tried to finalize dispatch without an active handle")
+            .join()
+            .await?;
+        Ok(())
+    }
+
+    /// Spawns env thread handle
+    #[tracing::instrument(name = "Spawn environment thread")]
+    pub async fn spawn(&mut self) -> Result<(), EnvError> {
+        let dispatch_clone = Arc::clone(&self.dispatch);
+        let handle = EnvThreadHandle::spawn(dispatch_clone).await?;
+        tracing::info!("Handle spawned, adding to environment");
+        self.handle = Some(handle);
+        Ok(())
+    }
+
+    pub async fn get_responses_stack(&self) -> VecDeque<EnvResponse> {
+        self.dispatch.read().await.responses.clone()
+    }
+
     /// Using the ID of an agent, get a it's handle
     pub async fn get_agent_handle(&self, id: &str) -> Option<AgentHandle> {
         let dispatch = self.dispatch.read().await;
@@ -230,31 +289,21 @@ impl Environment {
         let (s, r) = tokio::sync::mpsc::channel(1000);
         let sender = Arc::new(Mutex::new(s));
         let receiver = Arc::new(Mutex::new(r));
-        let channel = EnvChannel::from((sender, receiver));
+        let channel = EnvChannel::from((Arc::clone(&sender), receiver));
 
         let dispatch = Dispatch {
             channel,
             api_key: api_key.map(|k| k.to_string()),
             agents: HashMap::new(),
-            response_stack: VecDeque::new(),
+            responses: VecDeque::new(),
         };
         let dispatch = Arc::new(RwLock::new(dispatch));
 
         Self {
             id,
+            sender,
             dispatch,
             handle: None,
         }
-    }
-
-    /// Spawns env thread handle
-    pub async fn run(&mut self) {
-        let dispatch_clone = Arc::clone(&self.dispatch);
-        let handle = EnvThreadHandle::spawn(dispatch_clone).await;
-        self.handle = Some(handle);
-    }
-
-    pub async fn get_event_stack(&self) -> VecDeque<EnvResponse> {
-        self.dispatch.read().await.response_stack.clone()
     }
 }
