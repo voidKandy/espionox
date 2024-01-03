@@ -1,6 +1,10 @@
 # Simplifying Ai Agents in Rust 🕵🏼
 There are hundred of Ai agent applications written Typescript and Python. Espionox is an attempt to make building Ai applications in Rust just as approachable.
 
+## Why would I use Espionox?
+* Making an LLM application in Rust 
+* Experimenting with with complex 'prompt flows' such as Chain/Tree of thought
+
 ## Overview
 The backbone of `espionox` is the `Agent` struct, which contains:
    * Model 
