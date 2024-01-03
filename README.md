@@ -9,7 +9,6 @@ There are hundred of Ai agent applications written Typescript and Python. Espion
 The backbone of `espionox` is the `Agent` struct, which contains:
    * Model 
    * Memory 
-   * Observer 
 ### Model
 Currently only Gpt3.5 and 4 are supported, open source model integration is a planned future feature.
 ### Memory
