@@ -12,7 +12,7 @@ use crate::environment::agent::{
 };
 use std::collections::HashMap;
 
-use super::errors::DispatchError;
+use super::{agent::language_models::openai::functions::Function, errors::DispatchError};
 
 pub type AgentHashMap = HashMap<String, Agent>;
 
@@ -100,12 +100,22 @@ impl Dispatch {
                 agent_id,
                 message,
                 ticket,
-            } => self.prompt_agent(ticket, message, &agent_id).await,
+            } => self.prompt_agent(ticket, &agent_id, message).await,
             EnvRequest::StreamPromptAgent {
                 agent_id,
                 message,
                 ticket,
-            } => self.stream_prompt_agent(ticket, message, &agent_id).await,
+            } => self.stream_prompt_agent(ticket, &agent_id, message).await,
+            EnvRequest::FunctionPromptAgent {
+                ticket,
+                agent_id,
+                function,
+                message,
+            } => {
+                self.function_prompt_agent(ticket, &agent_id, message, function)
+                    .await
+            }
+
             EnvRequest::UpdateCache { agent_id, message } => {
                 let sender = Arc::clone(&self.channel.sender);
                 let agent = self.get_agent_by_id(&agent_id)?;
@@ -131,8 +141,8 @@ impl Dispatch {
     async fn prompt_agent(
         &mut self,
         ticket: Uuid,
-        message: Message,
         agent_id: &str,
+        message: Message,
     ) -> Result<(), DispatchError> {
         let sender_clone: EnvMessageSender = Arc::clone(&self.channel.sender);
         let api_key = &self.api_key.clone().ok_or(DispatchError::NoApiKey)?;
@@ -156,7 +166,7 @@ impl Dispatch {
         Self::push_to_agent_cache(agent, &agent_id, &message, &sender_clone)
             .await
             .expect("Failed to push to agent cache");
-        let assistant_message_response = EnvNotification::GotAssistantMessageResponse {
+        let assistant_message_response = EnvNotification::GotMessageResponse {
             ticket,
             agent_id: agent_id.to_string(),
             message,
@@ -174,8 +184,8 @@ impl Dispatch {
     async fn stream_prompt_agent(
         &mut self,
         ticket: Uuid,
-        message: Message,
         agent_id: &str,
+        message: Message,
     ) -> Result<(), DispatchError> {
         let sender_clone: EnvMessageSender = Arc::clone(&self.channel.sender);
         let api_key = &self.api_key.clone().ok_or(DispatchError::NoApiKey)?;
@@ -207,6 +217,49 @@ impl Dispatch {
             .await
             .map_err(|_| DispatchError::Send)?;
         Ok(())
+    }
+
+    async fn function_prompt_agent(
+        &mut self,
+        ticket: Uuid,
+        agent_id: &str,
+        message: Message,
+        function: Function,
+    ) -> Result<(), DispatchError> {
+        let sender_clone: EnvMessageSender = Arc::clone(&self.channel.sender);
+        let api_key = &self.api_key.clone().ok_or(DispatchError::NoApiKey)?;
+        let agent = self.get_agent_by_id(&agent_id)?;
+
+        Self::push_to_agent_cache(agent, &agent_id, &message, &sender_clone)
+            .await
+            .expect("Failed to push to agent cache");
+
+        let completion_fn = agent.model.function_completion_fn();
+        let payload = &(&agent.cache).into();
+        let client = Client::new();
+        let response = completion_fn(&client, api_key, payload, &agent.model, &function).await?;
+        let json = response.parse_fn()?;
+
+        let message = Message::new(MessageRole::Assistant, &json.to_string());
+        tracing::info!(
+            "Got completion message in response: {:?}, Pushing to agent cache",
+            message
+        );
+        Self::push_to_agent_cache(agent, &agent_id, &message, &sender_clone)
+            .await
+            .expect("Failed to push to agent cache");
+        let assistant_message_response = EnvNotification::GotFunctionResponse {
+            ticket,
+            agent_id: agent_id.to_string(),
+            json,
+        };
+        self.channel
+            .sender
+            .lock()
+            .await
+            .send(assistant_message_response.into())
+            .await
+            .map_err(|_| DispatchError::Send)
     }
 }
 

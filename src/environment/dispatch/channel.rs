@@ -1,6 +1,11 @@
 use crate::environment::{
-    agent::language_models::openai::gpt::streaming_utils::StreamedCompletionHandler, Message,
+    agent::language_models::openai::{
+        functions::{CustomFunction, Function},
+        gpt::streaming_utils::StreamedCompletionHandler,
+    },
+    Message,
 };
+use serde_json::Value;
 use std::sync::{Arc, RwLock};
 use tokio::sync::{
     mpsc::{Receiver, Sender},
@@ -36,6 +41,12 @@ pub enum EnvRequest {
         agent_id: String,
         message: Message,
     },
+    FunctionPromptAgent {
+        ticket: Uuid,
+        agent_id: String,
+        function: Function,
+        message: Message,
+    },
     UpdateCache {
         agent_id: String,
         message: Message,
@@ -49,10 +60,15 @@ pub enum EnvNotification {
         agent_id: String,
         message: Message,
     },
-    GotAssistantMessageResponse {
+    GotMessageResponse {
         ticket: Uuid,
         agent_id: String,
         message: Message,
+    },
+    GotFunctionResponse {
+        ticket: Uuid,
+        agent_id: String,
+        json: Value,
     },
     GotStreamHandle {
         ticket: Uuid,
@@ -94,14 +110,16 @@ impl EnvNotification {
         match self {
             Self::ChangedCache { agent_id, .. } => Some(agent_id),
             Self::GotStreamHandle { agent_id, .. } => Some(agent_id),
-            Self::GotAssistantMessageResponse { agent_id, .. } => Some(agent_id),
+            Self::GotMessageResponse { agent_id, .. } => Some(agent_id),
+            Self::GotFunctionResponse { agent_id, .. } => Some(agent_id),
         }
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
         match self {
             Self::ChangedCache { .. } => None,
             Self::GotStreamHandle { ticket, .. } => Some(*ticket),
-            Self::GotAssistantMessageResponse { ticket, .. } => Some(*ticket),
+            Self::GotMessageResponse { ticket, .. } => Some(*ticket),
+            Self::GotFunctionResponse { ticket, .. } => Some(*ticket),
         }
     }
 }

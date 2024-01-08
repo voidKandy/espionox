@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::environment::{EnvMessageSender, EnvRequest};
 
-use self::language_models::openai::gpt::GptResponse;
+use self::language_models::openai::{functions::CustomFunction, gpt::GptResponse};
 
 /// Agent struct for interracting with LLM
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -125,26 +125,42 @@ impl AgentHandle {
         Ok(ticket)
     }
 
-    // Openai function calling completion
-    // #[tracing::instrument(name = "Function prompt GPT API for response" skip(message, custom_function))]
-    // pub async fn function_prompt(
-    //     &mut self,
-    //     custom_function: CustomFunction,
-    //     message: Message,
-    // ) -> Result<Value, AgentError> {
-    //     self.cache.as_mut().push(message);
-    //     let func = custom_function.function();
-    //     let gpt = &self.model.inner_gpt().unwrap();
-    //     let json_payload: Vec<Value> = (&self.cache).into();
-    //     let function_response = gpt
-    //         .function_completion(&json_payload, &func)
-    //         .await
-    //         .map_err(|err| AgentError::GptError(err))?;
-    //     tracing::info!("Function response: {:?}", function_response);
-    //     Ok(function_response
-    //         .parse_fn()
-    //         .expect("failed to parse response"))
-    // }
+    #[tracing::instrument(name = "Function prompt GPT API for response" skip(message, custom_function))]
+    pub async fn request_function_prompt(
+        &mut self,
+        custom_function: CustomFunction,
+        message: Message,
+    ) -> Result<Uuid, AgentError> {
+        let ticket = Uuid::new_v4();
+        let function = custom_function.function();
+        let env_req = EnvRequest::FunctionPromptAgent {
+            ticket,
+            agent_id: self.id.to_owned(),
+            function,
+            message,
+        };
+        self.sender
+            .try_lock()
+            .expect("Failed to lock agent sender")
+            .send(env_req.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        tracing::info!("Requested a stream completion from the env");
+        Ok(ticket)
+
+        /////
+        // self.cache.as_mut().push(message);
+        // let gpt = &self.model.inner_gpt().unwrap();
+        // let json_payload: Vec<Value> = (&self.cache).into();
+        // let function_response = gpt
+        //     .function_completion(&json_payload, &func)
+        //     .await
+        //     .map_err(|err| AgentError::GptError(err))?;
+        // tracing::info!("Function response: {:?}", function_response);
+        // Ok(function_response
+        //     .parse_fn()
+        //     .expect("failed to parse response"))
+    }
 
     // Get streamed completion, this function returns a reciever which must be tried to recieve
     // tokens

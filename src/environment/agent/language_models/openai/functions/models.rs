@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
     pub name: String,
     pub json: Value,
@@ -11,13 +11,13 @@ pub struct Parameters {
     json: Value,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Property {
     pub name: String,
     json: Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FunctionArgument {
     Required(Property),
     Optional(Property),

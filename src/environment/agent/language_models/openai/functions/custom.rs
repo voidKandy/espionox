@@ -1,6 +1,6 @@
 use super::models::{Function, FunctionArgument, Parameters, Property};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CustomFunction {
     name: String,
     description: String,
