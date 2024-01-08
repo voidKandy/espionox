@@ -33,7 +33,6 @@ pub trait ToMessageVector {
 impl ToMessage for String {
     async fn to_message(&self) -> Result<Message, MemoryError> {
         let message = Message {
-            id: Uuid::new_v4().to_string(),
             role: self.role(),
             content: self.to_string(),
             metadata: self.get_metadata().await?,
@@ -50,7 +49,6 @@ impl ToMessage for FileChunk {
         let content = &self.content;
         let content = content.to_string();
         let message = Message {
-            id: Uuid::new_v4().to_string(),
             role: self.role(),
             content,
             metadata: self.get_metadata().await?,
@@ -82,7 +80,6 @@ impl ToMessage for FileChunk {
 impl ToMessage for Io {
     async fn to_message(&self) -> Result<Message, MemoryError> {
         let message = Message {
-            id: Uuid::new_v4().to_string(),
             role: self.role(),
             content: self.to_string(),
             metadata: self.get_metadata().await?,
@@ -99,7 +96,6 @@ impl ToMessage for File {
     async fn to_message(&self) -> Result<Message, MemoryError> {
         // let content = summarize_code_content(&self.content()).await?;
         let message = Message {
-            id: Uuid::new_v4().to_string(),
             role: self.role(),
             content: "hardcoded content".to_string(),
             metadata: self.get_metadata().await?,

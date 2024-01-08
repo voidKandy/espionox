@@ -7,7 +7,6 @@ use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Message {
-    pub id: String,
     pub role: MessageRole,
     pub content: String,
     pub metadata: MessageMetadata,
@@ -15,7 +14,7 @@ pub struct Message {
 
 impl PartialEq for Message {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.role == other.role && self.content == other.content
+        self.role == other.role && self.content == other.content
     }
 }
 impl Eq for Message {}
@@ -80,7 +79,6 @@ impl Message {
     /// Best way to initialize a standard message
     pub fn new(role: MessageRole, content: &str) -> Self {
         Message {
-            id: Uuid::new_v4().to_string(),
             role,
             content: content.to_string(),
             metadata: MessageMetadata::default(),
@@ -148,7 +146,6 @@ impl From<GptMessage> for Message {
     fn from(value: GptMessage) -> Self {
         let content = value.content.expect("Value has no content");
         Message {
-            id: Uuid::new_v4().to_string(),
             role: value.role.into(),
             content,
             metadata: MessageMetadata::default(),
@@ -168,7 +165,6 @@ impl From<Value> for Message {
             .expect("Couldn't get content")
             .to_string();
         Message {
-            id: Uuid::new_v4().to_string(),
             role,
             content,
             metadata: MessageMetadata::default(),

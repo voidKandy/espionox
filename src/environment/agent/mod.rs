@@ -2,6 +2,7 @@ pub mod language_models;
 pub mod memory;
 pub mod utils;
 use memory::{Message, MessageVector};
+use uuid::Uuid;
 
 pub use super::errors::AgentError;
 use anyhow::anyhow;
@@ -83,10 +84,12 @@ impl Agent {
 }
 
 impl AgentHandle {
-    /// Requests Env to get a response
-    #[tracing::instrument(name = "Send request to prompt agent to env")]
-    pub async fn request_completion(&mut self, message: Message) -> Result<(), AgentError> {
+    /// Requests env for response, returns ticket number
+    #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
+    pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {
+        let ticket = Uuid::new_v4();
         let env_req = EnvRequest::PromptAgent {
+            ticket,
             agent_id: self.id.to_owned(),
             message,
         };
@@ -96,8 +99,30 @@ impl AgentHandle {
             .send(env_req.into())
             .await
             .map_err(|_| AgentError::EnvSend)?;
-        tracing::info!("Requested a completion from the env");
-        Ok(())
+        tracing::info!("Requested an oi completion from the env");
+        Ok(ticket)
+    }
+
+    /// Requests env for streamed response, returns ticket number
+    #[tracing::instrument(name = "Send request for a stream handle to env", skip(self))]
+    pub async fn request_stream_completion(
+        &mut self,
+        message: Message,
+    ) -> Result<Uuid, AgentError> {
+        let ticket = Uuid::new_v4();
+        let env_req = EnvRequest::StreamPromptAgent {
+            ticket,
+            agent_id: self.id.to_owned(),
+            message,
+        };
+        self.sender
+            .try_lock()
+            .expect("Failed to lock agent sender")
+            .send(env_req.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        tracing::info!("Requested a stream completion from the env");
+        Ok(ticket)
     }
 
     // Openai function calling completion

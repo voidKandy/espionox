@@ -9,20 +9,41 @@ use bytes::Bytes;
 use reqwest::Client;
 use reqwest_streams::JsonStreamResponse;
 use serde_json::{json, Value};
-use std::future::Future;
 use std::pin::Pin;
+use std::{future::Future, time::Duration};
 
-pub fn completion_fn_wrapper<'c>(
+pub fn io_completion_fn_wrapper<'c>(
     client: &'c Client,
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
 ) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
-    Box::pin(completion(client, api_key, context, model))
+    Box::pin(io_completion(client, api_key, context, model))
 }
 
-#[tracing::instrument(name = "Get completion")]
-async fn completion(
+pub fn stream_completion_fn_wrapper<'c>(
+    client: &'c Client,
+    api_key: &'c str,
+    context: &'c Vec<Value>,
+    model: &'c LanguageModel,
+) -> Pin<Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + 'c>> {
+    Box::pin(stream_completion(client, api_key, context, model))
+}
+
+pub fn function_completion_fn_wrapper<'c>(
+    client: &'c Client,
+    api_key: &'c str,
+    context: &'c Vec<Value>,
+    model: &'c LanguageModel,
+    function: &'c Function,
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+    Box::pin(function_completion(
+        client, api_key, context, model, function,
+    ))
+}
+
+#[tracing::instrument(name = "Get completion", skip(client, api_key, model))]
+async fn io_completion(
     client: &Client,
     api_key: &str,
     context: &Vec<Value>,
@@ -42,7 +63,7 @@ async fn completion(
     Ok(gpt_response)
 }
 
-#[tracing::instrument(name = "Get streamed completion")]
+#[tracing::instrument(name = "Get streamed completion", skip(client, api_key, model))]
 pub async fn stream_completion(
     client: &Client,
     api_key: &str,
@@ -60,17 +81,21 @@ pub async fn stream_completion(
         "n": 1,
         "stop": null,
     });
-    tracing::info!("PAYLOAD: {:?}", &payload);
+    tracing::info!("Json payload: {:?}", &payload);
 
-    let response_stream = client
+    let request = client
         .post(model.completion_url())
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
-        .json(&payload)
+        .json(&payload);
+    tracing::info!("Request: {:?}", &request);
+
+    let response_stream = request
         .send()
         .await?
         .json_array_stream::<StreamResponse>(1024);
 
+    tracing::info!("Got response stream, returning");
     Ok(Box::new(response_stream))
 }
 

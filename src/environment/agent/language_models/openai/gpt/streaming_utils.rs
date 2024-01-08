@@ -1,4 +1,10 @@
-use crate::environment::errors::GptError;
+use std::sync::{Arc, Mutex};
+
+use crate::environment::dispatch::{EnvMessageSender, EnvRequest};
+use crate::environment::{
+    agent::memory::{messages::MessageRole, Message},
+    errors::GptError,
+};
 use crate::errors::error_chain_fmt;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -45,79 +51,123 @@ impl std::fmt::Display for StreamError {
 }
 
 pub type CompletionStreamReceiver =
-    tokio::sync::mpsc::Receiver<Result<Option<String>, StreamError>>;
-pub type CompletionStreamSender = tokio::sync::mpsc::Sender<Result<Option<String>, StreamError>>;
+    tokio::sync::mpsc::Receiver<Result<CompletionStreamStatus, StreamError>>;
+pub type CompletionStreamSender =
+    tokio::sync::mpsc::Sender<Result<CompletionStreamStatus, StreamError>>;
 
-pub struct CompletionReceiverHandler(CompletionStreamReceiver);
-
-impl From<CompletionStreamReceiver> for CompletionReceiverHandler {
-    fn from(value: CompletionStreamReceiver) -> Self {
-        Self(value)
-    }
+#[derive(Debug)]
+pub struct StreamedCompletionHandler {
+    run_thread: Arc<Mutex<bool>>,
+    receiver: CompletionStreamReceiver,
 }
 
-pub struct CompletionStreamingThread(tokio::task::JoinHandle<Result<(), StreamError>>);
-
-impl From<tokio::task::JoinHandle<Result<(), StreamError>>> for CompletionStreamingThread {
-    fn from(value: tokio::task::JoinHandle<Result<(), StreamError>>) -> Self {
-        Self(value)
-    }
+pub enum CompletionStreamStatus {
+    Working(String),
+    Finished,
 }
 
-impl AsRef<tokio::task::JoinHandle<Result<(), StreamError>>> for CompletionStreamingThread {
-    fn as_ref(&self) -> &tokio::task::JoinHandle<Result<(), StreamError>> {
-        &self.0
-    }
-}
-
-impl CompletionReceiverHandler {
-    pub async fn receive(&mut self) -> Result<Option<String>, StreamError> {
-        match self.0.recv().await {
-            Some(Ok(option)) => Ok(option),
-            Some(Err(err)) => Err(err),
-            None => Ok(None),
+impl From<CompletionStreamReceiver> for StreamedCompletionHandler {
+    fn from(receiver: CompletionStreamReceiver) -> Self {
+        let run_thread = Arc::new(Mutex::new(false));
+        Self {
+            run_thread,
+            receiver,
         }
     }
 }
 
-impl CompletionStreamingThread {
-    pub fn spawn_poll_stream_for_tokens(
+#[derive(Debug)]
+pub struct CompletionStreamingThread;
+
+impl StreamedCompletionHandler {
+    #[tracing::instrument("Spawn completion stream thread", skip(self, stream, tx))]
+    pub fn spawn(
+        &mut self,
         mut stream: CompletionStream,
         tx: CompletionStreamSender,
-    ) -> Self {
+    ) -> Result<(), StreamError> {
         let timeout = tokio::time::Duration::from_millis(100);
-        let handle = tokio::spawn(async move {
-            loop {
-                match Self::poll_stream_for_tokens(&mut stream).await {
-                    Ok(option) => match option {
-                        Some(token) => {
-                            tracing::info!("Token got: {}", token);
-                            if let Err(_) = tx.send_timeout(Ok(Some(token)), timeout).await {
+        let should_run = Arc::clone(&self.run_thread);
+        let _: tokio::task::JoinHandle<Result<(), StreamError>> = tokio::spawn(async move {
+            if *should_run.lock().unwrap() {
+                loop {
+                    tracing::info!("Completion stream thread running");
+                    match CompletionStreamingThread::poll_stream_for_tokens(&mut stream).await {
+                        Ok(status) => match status {
+                            Some(ref token) => {
+                                tracing::info!("Token got: {}", token);
+                                if let Err(_) = tx
+                                    .send_timeout(
+                                        Ok(CompletionStreamStatus::Working(token.to_string())),
+                                        timeout,
+                                    )
+                                    .await
+                                {
+                                    break;
+                                }
+                            }
+                            None => {
+                                break;
+                            }
+                        },
+                        Err(err) => {
+                            let error = match err {
+                                GptError::Recoverable => StreamError::RetryError,
+                                _ => err.into(),
+                            };
+
+                            if let Err(_) = tx.send_timeout(Err(error), timeout).await {
                                 break;
                             }
                         }
-                        None => {
-                            break;
-                        }
-                    },
-                    Err(err) => {
-                        let error = match err {
-                            GptError::Recoverable => StreamError::RetryError,
-                            _ => err.into(),
-                        };
-
-                        if let Err(_) = tx.send_timeout(Err(error), timeout).await {
-                            break;
-                        }
-                    }
-                };
+                    };
+                }
+            } else {
             }
             Ok(())
         });
 
-        Self::from(handle)
+        Ok(())
     }
 
+    /// Returns tokens until finished, when finished, sends an update cache request with the full
+    /// message. Best used in a while loop
+    #[tracing::instrument("Receive tokens from completion stream", skip(self, sender))]
+    pub async fn receive(
+        &mut self,
+        agent_id: &str,
+        sender: EnvMessageSender,
+    ) -> Result<CompletionStreamStatus, StreamError> {
+        self.run_thread = Arc::new(Mutex::new(true));
+        let mut message_content = String::new();
+        if let Some(result) = self.receiver.recv().await {
+            match result? {
+                CompletionStreamStatus::Working(token) => {
+                    message_content.push_str(&token);
+                    return Ok(CompletionStreamStatus::Working(token.to_string()));
+                }
+                CompletionStreamStatus::Finished => {
+                    let message = Message::new(MessageRole::Assistant, &message_content);
+                    sender
+                        .lock()
+                        .await
+                        .send(
+                            EnvRequest::UpdateCache {
+                                agent_id: agent_id.to_string(),
+                                message,
+                            }
+                            .into(),
+                        )
+                        .await
+                        .map_err(|err| StreamError::Undefined(err.into()))?
+                }
+            }
+        }
+        Ok(CompletionStreamStatus::Finished)
+    }
+}
+
+impl CompletionStreamingThread {
     #[tracing::instrument(name = "Get token from stream" skip(stream))]
     async fn poll_stream_for_tokens(
         stream: &mut CompletionStream,

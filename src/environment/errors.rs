@@ -1,5 +1,5 @@
 pub use super::agent::language_models::GptError;
-use super::EnvMessage;
+use super::{agent::language_models::openai::gpt::streaming_utils::StreamError, EnvMessage};
 use crate::errors::error_chain_fmt;
 use tokio::sync::mpsc::error::SendError;
 
@@ -7,11 +7,21 @@ use tokio::sync::mpsc::error::SendError;
 pub enum EnvError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    Agent(#[from] AgentError),
-    Gpt(#[from] GptError),
+    Dispatch(#[from] DispatchError),
     Join(#[from] tokio::task::JoinError),
     Timeout(#[from] tokio::time::error::Elapsed),
     Request(String),
+    Send,
+}
+#[derive(thiserror::Error)]
+pub enum DispatchError {
+    Undefined(#[from] anyhow::Error),
+    Gpt(#[from] GptError),
+    Agent(#[from] AgentError),
+    Stream(#[from] StreamError),
+    Timeout(#[from] tokio::time::error::Elapsed),
+    NoApiKey,
+    AgentIsNone,
     Send,
 }
 
@@ -37,6 +47,18 @@ impl std::fmt::Debug for EnvError {
 }
 
 impl std::fmt::Display for EnvError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::fmt::Debug for DispatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl std::fmt::Display for DispatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
