@@ -73,7 +73,7 @@ pub enum EnvNotification {
     GotStreamHandle {
         ticket: Uuid,
         agent_id: String,
-        handler: StreamedCompletionHandler,
+        handler: Arc<Mutex<StreamedCompletionHandler>>,
     },
 }
 

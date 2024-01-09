@@ -89,11 +89,16 @@ pub async fn stream_completion(
         .header("Content-Type", "application/json")
         .json(&payload);
     tracing::info!("Request: {:?}", &request);
-
-    let response_stream = request
-        .send()
-        .await?
-        .json_array_stream::<StreamResponse>(1024);
+    let response_stream = tokio::time::timeout(Duration::from_secs(10), async {
+        request
+            .send()
+            .await
+            .map_err(|err| GptError::NetRequest(err))
+            .unwrap()
+            .json_array_stream::<StreamResponse>(1024)
+    })
+    .await
+    .map_err(|_| GptError::Undefined(anyhow!("Response stream request timed out")))?;
 
     tracing::info!("Got response stream, returning");
     Ok(Box::new(response_stream))
@@ -219,21 +224,15 @@ impl StreamResponse {
     }
 
     #[tracing::instrument(name = "Parse stream response for string")]
-    pub fn parse(&self) -> Result<String, anyhow::Error> {
-        tracing::info!(
-            "self.choices[0].delta.content: {}",
-            self.choices[0]
-                .delta
-                .content
-                .to_owned()
-                .expect("Failed to get delta content")
-        );
+    pub fn parse(&self) -> Option<String> {
         match self.choices[0].delta.content.to_owned() {
-            Some(response) => Ok(response
-                .trim_start_matches('"')
-                .trim_end_matches('"')
-                .to_string()),
-            None => Err(anyhow!("Unable to parse stream completion response")),
+            Some(response) => Some(
+                response
+                    .trim_start_matches('"')
+                    .trim_end_matches('"')
+                    .to_string(),
+            ),
+            None => None,
         }
     }
 }

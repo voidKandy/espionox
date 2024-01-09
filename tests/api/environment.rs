@@ -36,7 +36,7 @@ async fn io_prompt_agent_works() {
     let message = Message::new(MessageRole::User, "Hello!");
     let ticket = handle.request_io_completion(message).await.unwrap();
 
-    environment.finalize_dispatch().await.unwrap();
+    // environment.finalize_dispatch().await.unwrap();
     let noti: EnvNotification = environment.wait_for_notification(&ticket).await.unwrap();
     println!("Got noti: {:?}", noti);
     let message = match noti {
@@ -64,28 +64,28 @@ async fn stream_prompt_agent_works() {
         .request_stream_completion(message.clone())
         .await
         .unwrap();
+    tracing::error!("TEST GOT TICKET: {}", ticket);
     let noti: EnvNotification = environment.wait_for_notification(ticket).await.unwrap();
-    let mut handler = match noti {
+    tracing::error!("TEST GOT NOTI: {:?}", noti);
+    let handler = match noti {
         EnvNotification::GotStreamHandle { handler, .. } => handler,
         _ => panic!("WRONG"),
     };
 
+    let mut handler = handler.lock().await;
+
     let mut whole_message = String::new();
-    while let Ok(status) = handler
+    while let Some(CompletionStreamStatus::Working(token)) = handler
         .receive(&handle.id, environment.clone_sender())
         .await
     {
-        match status {
-            CompletionStreamStatus::Working(token) => {
-                whole_message.push_str(&token);
-                println!("{}", token);
-            }
-            CompletionStreamStatus::Finished => {
-                break;
-            }
-        };
+        tracing::info!("TEST LOOPING");
+        whole_message.push_str(&token);
+        println!("{}", token);
     }
+    tracing::info!("TEST GOT WHOLE MESSAGE: {}", whole_message);
 
+    environment.finalize_dispatch().await.unwrap();
     let mut stack = environment
         .take_notifications()
         .await
@@ -99,8 +99,8 @@ async fn stream_prompt_agent_works() {
         EnvNotification::ChangedCache { message, .. } => &message.content,
         _ => panic!("WRONG"),
     };
-    environment.finalize_dispatch().await.unwrap();
 
+    // environment.finalize_dispatch().await.unwrap();
     assert_eq!(&whole_message, cache_update);
 }
 

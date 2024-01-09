@@ -1,5 +1,6 @@
 mod channel;
 pub use channel::*;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::Agent;
@@ -36,7 +37,7 @@ pub struct Dispatch {
     pub(super) api_key: Option<String>,
     pub(super) channel: EnvChannel,
     pub(super) agents: AgentHashMap,
-    pub(super) notifications: Option<NotificationStack>,
+    // pub(super) notifications: Option<NotificationStack>,
 }
 
 impl Dispatch {
@@ -52,7 +53,7 @@ impl Dispatch {
             api_key,
             channel,
             agents: HashMap::new(),
-            notifications: None,
+            // notifications: None,
         }
     }
 
@@ -80,21 +81,9 @@ impl Dispatch {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Push notifications to dispatch stack")]
-    pub(crate) fn push_to_notifications(&mut self, noti: EnvNotification) {
-        tracing::info!("Pushing {:?} to dispatch noti stack", noti);
-        match self.notifications.as_mut() {
-            Some(stack) => stack.0.push_front(noti),
-            None => {
-                let mut vec = VecDeque::new();
-                vec.push_front(noti);
-                self.notifications = Some(vec.into());
-            }
-        }
-    }
     #[tracing::instrument(name = "Handle dispatch request")]
     pub(super) async fn handle_request(&mut self, req: EnvRequest) -> Result<(), DispatchError> {
-        match req {
+        let response = match req {
             EnvRequest::Finish => self.finish().await,
             EnvRequest::PromptAgent {
                 agent_id,
@@ -121,7 +110,9 @@ impl Dispatch {
                 let agent = self.get_agent_by_id(&agent_id)?;
                 Self::push_to_agent_cache(agent, &agent_id, &message, &sender).await
             }
-        }
+        };
+        tracing::info!("Got response from dispatch request: {:?}", response);
+        Ok(response?)
     }
 
     #[tracing::instrument(name = "Push response to dispatch stack")]
@@ -199,11 +190,13 @@ impl Dispatch {
         let payload = &(&agent.cache).into();
         let client = Client::new();
         let response = completion_fn(&client, api_key, payload, &agent.model).await?;
+        tracing::info!("Got response from stream completion function");
 
         let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
             tokio::sync::mpsc::channel(50);
-        let mut handler = StreamedCompletionHandler::from(rx);
-        handler.spawn(response, tx)?;
+        let handler = Arc::new(Mutex::new(StreamedCompletionHandler::from((
+            response, tx, rx,
+        ))));
         let notification = EnvNotification::GotStreamHandle {
             ticket,
             agent_id: agent_id.to_string(),
