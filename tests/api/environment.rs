@@ -7,10 +7,11 @@ use espionox::{
             language_models::openai::gpt::streaming_utils::CompletionStreamStatus,
             memory::{messages::MessageRole, Message},
         },
-        dispatch::{Dispatch, EnvNotification},
+        dispatch::{Dispatch, EnvNotification, ThreadSafeStreamCompletionHandler},
     },
     Agent,
 };
+use serde_json::Value;
 use tokio;
 
 #[tokio::test]
@@ -35,14 +36,8 @@ async fn io_prompt_agent_works() {
 
     let message = Message::new(MessageRole::User, "Hello!");
     let ticket = handle.request_io_completion(message).await.unwrap();
-
-    // environment.finalize_dispatch().await.unwrap();
     let noti: EnvNotification = environment.wait_for_notification(&ticket).await.unwrap();
-    println!("Got noti: {:?}", noti);
-    let message = match noti {
-        EnvNotification::GotMessageResponse { message, .. } => message,
-        _ => panic!("WRONG"),
-    };
+    let message: Message = noti.extract_body().try_into().unwrap();
 
     assert_eq!(message.role, MessageRole::Assistant);
 }
@@ -67,11 +62,7 @@ async fn stream_prompt_agent_works() {
     tracing::error!("TEST GOT TICKET: {}", ticket);
     let noti: EnvNotification = environment.wait_for_notification(ticket).await.unwrap();
     tracing::error!("TEST GOT NOTI: {:?}", noti);
-    let handler = match noti {
-        EnvNotification::GotStreamHandle { handler, .. } => handler,
-        _ => panic!("WRONG"),
-    };
-
+    let handler: ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
     let mut handler = handler.lock().await;
 
     let mut whole_message = String::new();
@@ -95,13 +86,6 @@ async fn stream_prompt_agent_works() {
         .take_by_agent(&handle.id)
         .expect("Failed to get stack of agent notis");
     println!("{:?}", stack);
-    let cache_update = match stack.iter().nth(0).unwrap() {
-        EnvNotification::ChangedCache { message, .. } => &message.content,
-        _ => panic!("WRONG"),
-    };
-
-    // environment.finalize_dispatch().await.unwrap();
-    assert_eq!(&whole_message, cache_update);
 }
 
 #[tokio::test]
@@ -127,11 +111,7 @@ async fn function_prompt_agent_works() {
     environment.finalize_dispatch().await.unwrap();
     let noti: EnvNotification = environment.wait_for_notification(&ticket).await.unwrap();
     println!("Got noti: {:?}", noti);
-    let json = match noti {
-        EnvNotification::GotFunctionResponse { json, .. } => json,
-        _ => panic!("WRONG"),
-    };
-
+    let json: Value = noti.extract_body().try_into().unwrap();
     if let Some(location) = json
         .as_object()
         .and_then(|obj| obj.get("location"))

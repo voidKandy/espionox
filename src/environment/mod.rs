@@ -14,8 +14,23 @@ use uuid::Uuid;
 
 use self::{
     agent::{memory::Message, AgentHandle},
-    errors::EnvError,
+    errors::{DispatchError, EnvError}
 };
+
+#[derive(Debug)]
+pub struct NotificationStack(pub VecDeque<EnvNotification>);
+
+impl From<VecDeque<EnvNotification>> for NotificationStack {
+    fn from(value: VecDeque<EnvNotification>) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<VecDeque<EnvNotification>> for NotificationStack {
+    fn into(self) -> VecDeque<EnvNotification> {
+        self.0
+    }
+}
 
 #[derive(Debug)]
 pub struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
@@ -37,22 +52,6 @@ impl EnvThreadHandle {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Spawn EnvThreadHandle")]
-    async fn spawn_thread(dispatch: Arc<RwLock<Dispatch>>, noti_stack: Arc<RwLock<Option<NotificationStack>>>) -> Result<Self, EnvError> {
-        let handle: JoinHandle<Result<(), EnvError>> = tokio::spawn(async move {
-            tracing::info!("Inside handle");
-            let dispatch =
-                tokio::time::timeout(std::time::Duration::from_millis(300), dispatch.write())
-                    .await?;
-            tracing::info!("Dispatch state: {:?}", dispatch);
-            EnvThreadHandle::main_loop(dispatch, noti_stack).await
-        });
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        Ok(Self(handle))
-    }
-
-
-
     #[tracing::instrument(name = "Push notification to stack")]
     pub(crate) async fn push_to_notifications(noti_stack: Arc<RwLock<Option<NotificationStack>>>, noti: EnvNotification)  {
         tracing::info!("Pushing {:?} to noti stack", noti);
@@ -60,7 +59,6 @@ impl EnvThreadHandle {
         noti_write.get_or_insert_with(|| VecDeque::new().into()).0.push_front(noti);
         tracing::info!("Stack after push: {:?}", noti_write);
     }
-
 
     #[tracing::instrument(name = "Dispatch main loop", skip(dispatch))]
     pub async fn main_loop(mut dispatch: RwLockWriteGuard<'_, Dispatch>, noti_stack: Arc<RwLock<Option<NotificationStack>>>) -> Result<(), EnvError> {
@@ -79,6 +77,7 @@ impl EnvThreadHandle {
                     }
                     EnvMessage::Response(noti) => {
                         tracing::info!("Dispatch received notification: {:?}", noti);
+                        dispatch.handle_notification(&noti).await?;
                         Self::push_to_notifications(Arc::clone(&noti_stack),noti).await;
                     }
                     EnvMessage::Finish => break,
@@ -100,9 +99,18 @@ impl Environment {
     pub async fn spawn(&mut self) -> Result<(), EnvError> {
         let dispatch_clone = Arc::clone(&self.dispatch);
         let noti_stack_clone = Arc::clone(&self.notifications);
-        let handle = EnvThreadHandle::spawn_thread(dispatch_clone, noti_stack_clone).await?;
+
+        let handle: JoinHandle<Result<(), EnvError>> = tokio::spawn(async move {
+            tracing::info!("Inside handle");
+            let dispatch =
+                tokio::time::timeout(std::time::Duration::from_millis(300), dispatch_clone.write())
+                    .await?;
+            tracing::info!("Dispatch state: {:?}", dispatch);
+            EnvThreadHandle::main_loop(dispatch, noti_stack_clone).await
+        });
+
         tracing::info!("Handle spawned, adding to environment");
-        self.handle = Some(handle);
+        self.handle = Some(EnvThreadHandle(handle));
         Ok(())
     }
 
@@ -221,6 +229,36 @@ impl Environment {
             dispatch,
             notifications,
             handle: None,
+        }
+    }
+}
+
+
+
+impl NotificationStack {
+    /// Removes notifications with given agent id from stack and returns them as VecDeque
+    pub fn take_by_agent(&mut self, agent_id: &str) -> Option<VecDeque<EnvNotification>> {
+        let (matching, remaining): (VecDeque<EnvNotification>, VecDeque<EnvNotification>) = self
+            .0
+            .drain(..)
+            .partition(|noti| noti.agent_id() == Some(agent_id));
+        *self = Self::from(remaining);
+        if matching.len() != 0 {
+            return Some(matching.into());
+        }
+        None
+    }
+
+    /// Removes the notification with the given ticket number from the stack
+    pub fn take_by_ticket(&mut self, ticket: Uuid) -> Option<EnvNotification> {
+        if let Some(index) = self
+            .0
+            .iter_mut()
+            .position(|noti| noti.ticket_number() == Some(ticket))
+        {
+            self.0.remove(index)
+        } else {
+            None
         }
     }
 }

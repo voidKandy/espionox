@@ -7,7 +7,6 @@ use uuid::Uuid;
 pub use super::errors::AgentError;
 use anyhow::anyhow;
 use language_models::LanguageModel;
-use serde_json::Value;
 
 use crate::environment::{EnvMessageSender, EnvRequest};
 
@@ -84,22 +83,33 @@ impl Agent {
 }
 
 impl AgentHandle {
-    /// Requests env for response, returns ticket number
+    /// Requests a cache update and a completion for agent, returns ticket number
     #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
     pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {
         let ticket = Uuid::new_v4();
-        let env_req = EnvRequest::PromptAgent {
-            ticket,
-            agent_id: self.id.to_owned(),
+        let cache_change = EnvRequest::PushToCache {
+            agent_id: self.id.clone(),
             message,
         };
         self.sender
             .try_lock()
             .expect("Failed to lock agent sender")
-            .send(env_req.into())
+            .send(cache_change.into())
             .await
             .map_err(|_| AgentError::EnvSend)?;
-        tracing::info!("Requested an oi completion from the env");
+        tracing::info!("Requested a cache change");
+
+        let completion = EnvRequest::GetCompletion {
+            ticket,
+            agent_id: self.id.clone(),
+        };
+        self.sender
+            .try_lock()
+            .expect("Failed to lock agent sender")
+            .send(completion.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        tracing::info!("Requested completion");
         Ok(ticket)
     }
 
@@ -110,18 +120,29 @@ impl AgentHandle {
         message: Message,
     ) -> Result<Uuid, AgentError> {
         let ticket = Uuid::new_v4();
-        let env_req = EnvRequest::StreamPromptAgent {
-            ticket,
-            agent_id: self.id.to_owned(),
+        let cache_change = EnvRequest::PushToCache {
+            agent_id: self.id.clone(),
             message,
         };
         self.sender
             .try_lock()
             .expect("Failed to lock agent sender")
-            .send(env_req.into())
+            .send(cache_change.into())
             .await
             .map_err(|_| AgentError::EnvSend)?;
+
+        let stream_req = EnvRequest::GetCompletionStreamHandle {
+            ticket,
+            agent_id: self.id.clone(),
+        };
+
         tracing::info!("Requested a stream completion from the env");
+        self.sender
+            .try_lock()
+            .expect("Failed to lock agent sender")
+            .send(stream_req.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
         Ok(ticket)
     }
 
@@ -132,54 +153,31 @@ impl AgentHandle {
         message: Message,
     ) -> Result<Uuid, AgentError> {
         let ticket = Uuid::new_v4();
-        let function = custom_function.function();
-        let env_req = EnvRequest::FunctionPromptAgent {
-            ticket,
-            agent_id: self.id.to_owned(),
-            function,
+        let cache_change = EnvRequest::PushToCache {
+            agent_id: self.id.clone(),
             message,
         };
         self.sender
             .try_lock()
             .expect("Failed to lock agent sender")
-            .send(env_req.into())
+            .send(cache_change.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        let function = custom_function.function();
+        let func_req = EnvRequest::GetFunctionCompletion {
+            ticket,
+            agent_id: self.id.clone(),
+            function,
+        };
+        self.sender
+            .try_lock()
+            .expect("Failed to lock agent sender")
+            .send(func_req.into())
             .await
             .map_err(|_| AgentError::EnvSend)?;
         tracing::info!("Requested a stream completion from the env");
         Ok(ticket)
-
-        /////
-        // self.cache.as_mut().push(message);
-        // let gpt = &self.model.inner_gpt().unwrap();
-        // let json_payload: Vec<Value> = (&self.cache).into();
-        // let function_response = gpt
-        //     .function_completion(&json_payload, &func)
-        //     .await
-        //     .map_err(|err| AgentError::GptError(err))?;
-        // tracing::info!("Function response: {:?}", function_response);
-        // Ok(function_response
-        //     .parse_fn()
-        //     .expect("failed to parse response"))
     }
-
-    // Get streamed completion, this function returns a reciever which must be tried to recieve
-    // tokens
-    // #[tracing::instrument(name = "Prompt agent for stream response")]
-    // pub async fn stream_prompt(
-    //     &mut self,
-    //     message: Message,
-    // ) -> Result<CompletionReceiverHandler, AgentError> {
-    //     self.cache.as_mut().push(message);
-    //     let gpt = &self.model.inner_gpt().unwrap();
-    //     let json_payload: Vec<Value> = (&self.cache).into();
-    //     let response_stream = gpt.stream_completion(&json_payload).await?;
-    //
-    //     let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
-    //         tokio::sync::mpsc::channel(50);
-    //     CompletionStreamingThread::spawn_poll_stream_for_tokens(response_stream, tx);
-    //     Ok(CompletionReceiverHandler::from(rx))
-    // }
-
     //     #[cfg(feature = "long_term_memory")]
     //     pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
     //         match &self.memory.long_term {

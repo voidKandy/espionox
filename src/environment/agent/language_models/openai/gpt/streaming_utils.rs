@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::environment::dispatch::{EnvMessageSender, EnvRequest};
@@ -11,7 +10,7 @@ use anyhow::anyhow;
 use futures::Stream;
 use futures_util::StreamExt;
 use reqwest_streams::error::StreamBodyError;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub type CompletionStream =
     Box<dyn Stream<Item = Result<StreamResponse, StreamBodyError>> + Send + Unpin>;
@@ -137,7 +136,7 @@ impl StreamedCompletionHandler {
                         .lock()
                         .await
                         .send(
-                            EnvRequest::UpdateCache {
+                            EnvRequest::PushToCache {
                                 agent_id: agent_id.to_string(),
                                 message,
                             }
