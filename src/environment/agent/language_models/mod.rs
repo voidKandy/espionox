@@ -24,10 +24,23 @@ impl From<Gpt> for LanguageModel {
 }
 
 impl LanguageModel {
-    pub fn completion_url(&self) -> &str {
+    // Probably should create an into impl trait for this once more models are supported
+    /// return a reference to the inner Gpt model struct
+    pub fn inner_gpt(&self) -> Option<&Gpt> {
         match self {
-            Self::OpenAi(_) => "https://api.openai.com/v1/chat/completions",
+            Self::OpenAi(g) => Some(g),
         }
+    }
+    /// Returns mutable reference to innner GPT
+    pub fn inner_mut_gpt(&mut self) -> Option<&mut Gpt> {
+        match self {
+            Self::OpenAi(g) => Some(g),
+        }
+    }
+    /// Creates LanguageModel with default gpt settings
+    pub fn default_gpt() -> Self {
+        let gpt = Gpt::default();
+        Self::OpenAi(gpt)
     }
 
     pub fn io_completion_fn<'c>(
@@ -42,7 +55,7 @@ impl LanguageModel {
         openai::gpt::completions::io_completion_fn_wrapper
     }
 
-    pub fn stream_completion_fn<'c>(
+    pub(crate) fn stream_completion_fn<'c>(
         &self,
     ) -> fn(
         &'c Client,
@@ -55,7 +68,7 @@ impl LanguageModel {
         openai::gpt::completions::stream_completion_fn_wrapper
     }
 
-    pub fn function_completion_fn<'c>(
+    pub(crate) fn function_completion_fn<'c>(
         &self,
     ) -> fn(
         &'c Client,
@@ -68,24 +81,9 @@ impl LanguageModel {
         openai::gpt::completions::function_completion_fn_wrapper
     }
 
-    // Probably should create an into impl trait for this once more models are supported
-    /// return a reference to the inner Gpt model struct
-    pub fn inner_gpt(&self) -> Option<&Gpt> {
+    pub(crate) fn completion_url(&self) -> &str {
         match self {
-            Self::OpenAi(g) => Some(g),
-            _ => None,
+            Self::OpenAi(_) => "https://api.openai.com/v1/chat/completions",
         }
-    }
-    /// Returns mutable reference to innner GPT
-    pub fn inner_mut_gpt(&mut self) -> Option<&mut Gpt> {
-        match self {
-            Self::OpenAi(g) => Some(g),
-            _ => None,
-        }
-    }
-    /// Creates LanguageModel with default gpt settings
-    pub fn default_gpt() -> Self {
-        let gpt = Gpt::default();
-        Self::OpenAi(gpt)
     }
 }

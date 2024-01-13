@@ -33,23 +33,18 @@ impl From<(usize, &str, &str)> for SummarizeAtLimit {
 
 impl EnvListener for SummarizeAtLimit {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
-        match env_message {
-            EnvMessage::Response(noti) => match noti {
-                EnvNotification::CacheUpdate { agent_id, cache } => {
-                    if cache.len() >= self.limit && agent_id == &self.watched_agent_id {
-                        Some(env_message)
-                    } else {
-                        None
-                    }
+        if let EnvMessage::Response(noti) = env_message {
+            if let EnvNotification::CacheUpdate { agent_id, cache } = noti {
+                if cache.len() >= self.limit && agent_id == &self.watched_agent_id {
+                    return Some(env_message);
                 }
-                _ => None,
-            },
-            _ => None,
+            }
         }
+        None
     }
 
     fn method<'l>(
-        &'l self,
+        &'l mut self,
         trigger_message: &'l EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> Pin<Box<dyn Future<Output = Result<(), DispatchError>> + Send + Sync + 'l>> {

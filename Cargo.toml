@@ -13,9 +13,11 @@ path = "examples/summarize_at_limit.rs"
 
 [features]
 default = [
- # "long_term_memory"
+  # "long_term_memory",
+ "filesys"
 ]
 long_term_memory = ["dep:sqlx", "dep:pgvector"]
+filesys = []
 
 
 [dependencies]

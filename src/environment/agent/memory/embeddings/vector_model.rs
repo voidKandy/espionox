@@ -20,6 +20,7 @@ impl Into<Vec<f32>> for EmbeddingVector {
     }
 }
 
+#[allow(unused)]
 impl EmbeddingVector {
     pub fn to_vec(&self) -> Vec<f32> {
         self.0.clone()

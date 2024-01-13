@@ -1,9 +1,8 @@
-use super::embeddings::EmbeddingVector;
+use super::{embeddings::EmbeddingVector, MessageVector};
 use crate::environment::agent::language_models::{embed, openai::gpt::GptMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
-use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Message {
@@ -18,6 +17,32 @@ impl PartialEq for Message {
     }
 }
 impl Eq for Message {}
+
+pub trait ToMessage: std::fmt::Debug + ToString + Send + Sync {
+    fn to_message(&self) -> Message;
+    fn get_metadata(&self) -> MessageMetadata {
+        MessageMetadata::default()
+    }
+    fn role(&self) -> MessageRole;
+}
+
+pub trait ToMessageVector {
+    fn to_message_vector(&self) -> MessageVector;
+}
+
+impl ToMessage for String {
+    fn to_message(&self) -> Message {
+        let message = Message {
+            role: self.role(),
+            content: self.to_string(),
+            metadata: self.get_metadata(),
+        };
+        message
+    }
+    fn role(&self) -> MessageRole {
+        MessageRole::System
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum MessageRole {
@@ -179,7 +204,6 @@ impl Into<Value> for Message {
             other => other.to_string(),
         };
 
-        // Model should not receive excessive whitespace or newlines
         let content = self
             .content
             .split_whitespace()
@@ -187,10 +211,6 @@ impl Into<Value> for Message {
             .join(" ")
             .replace('\n', " ");
         json!({"role": role, "content": content})
-        // Self::Function { function_call } => {
-        //     let func_call_json: Value = function_call.into();
-        //     json!({"role": "function", "content": null, "function_call": func_call_json})
-        // }
     }
 }
 

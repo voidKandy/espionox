@@ -1,3 +1,4 @@
+use crate::environment::agent::{language_models::embed, memory::*};
 use std::fs;
 use std::path::PathBuf;
 use std::{fmt::Display, path::Path};
@@ -57,6 +58,74 @@ impl From<PathBuf> for File {
             chunks: vec![],
         }
         .chunkify()
+    }
+}
+
+impl ToMessage for File {
+    fn to_message(&self) -> Message {
+        // let content = summarize_code_content(&self.content());
+        let message = Message {
+            role: self.role(),
+            content: "hardcoded content".to_string(),
+            metadata: self.get_metadata(),
+        };
+        message
+    }
+
+    fn role(&self) -> MessageRole {
+        MessageRole::System
+    }
+
+    fn get_metadata(&self) -> MessageMetadata {
+        let content_embedding = embed(&self.content()).ok().map(|emb| emb.into());
+        let meta = MessageMetadata {
+            content_embedding,
+            infos: vec![],
+        };
+        meta
+    }
+}
+
+impl ToMessageVector for File {
+    fn to_message_vector(&self) -> MessageVector {
+        let mut mvec = MessageVector::init();
+        for chunk in self.chunks.iter() {
+            mvec.push(chunk.to_message());
+        }
+        mvec
+    }
+}
+
+impl ToMessage for FileChunk {
+    fn to_message(&self) -> Message {
+        let content = &self.content;
+        let content = content.to_string();
+        let message = Message {
+            role: self.role(),
+            content,
+            metadata: self.get_metadata(),
+        };
+        message
+    }
+
+    fn role(&self) -> MessageRole {
+        MessageRole::System
+    }
+
+    fn get_metadata(&self) -> MessageMetadata {
+        let content_embedding = embed(&self.content).ok().map(|emb| emb.into());
+        // let chunk_summary = summarize_code_content(&self.content);
+        let chunk_parent_info = MetadataInfo::new(
+            "parent_filepath",
+            &self.parent_filepath.display().to_string(),
+            false,
+        );
+        let chunk_summary_info = MetadataInfo::new("summary", "summary hardcoded", true);
+        let meta = MessageMetadata {
+            content_embedding,
+            infos: vec![chunk_parent_info, chunk_summary_info],
+        };
+        meta
     }
 }
 

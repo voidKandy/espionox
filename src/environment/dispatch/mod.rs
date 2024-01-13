@@ -70,25 +70,6 @@ impl Dispatch {
         }
     }
 
-    // pub(crate) async fn run_listeners(
-    //     &mut self,
-    //     message: &EnvMessage,
-    // ) -> Result<(), DispatchError> {
-    //     let listeners = &mut self.listeners;
-    //
-    //     for l in listeners
-    //         .iter_mut()
-    //         .filter(|l| l.trigger(&message).is_some())
-    //     {
-    //         tracing::info!("Applying listener: {:?}", l);
-    //         // Use the borrowed values inside the loop
-    //         if let Some(trigger) = l.trigger(&message) {
-    //             l.method(trigger, self).await?;
-    //         }
-    //     }
-    //     Ok(())
-    // }
-
     #[tracing::instrument(name = "Push message to agent cache")]
     async fn push_to_agent_cache(
         agent: &mut Agent,

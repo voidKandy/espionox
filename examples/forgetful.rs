@@ -42,7 +42,7 @@ impl EnvListener for Forgetful {
     }
 
     fn method<'l>(
-        &'l self,
+        &'l mut self,
         _trigger_message: &'l EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> Pin<Box<dyn Future<Output = Result<(), DispatchError>> + Send + Sync + 'l>> {

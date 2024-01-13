@@ -1,4 +1,5 @@
 use super::File;
+use crate::environment::agent::memory::{MessageVector, ToMessageVector};
 use std::path::{Path, PathBuf};
 use std::{fmt::Display, fs};
 
@@ -65,6 +66,16 @@ impl From<PathBuf> for Directory {
             children,
             files,
         }
+    }
+}
+
+impl ToMessageVector for Directory {
+    fn to_message_vector(&self) -> MessageVector {
+        let mut mvec = MessageVector::init();
+        for file in self.files.iter() {
+            mvec.append(file.to_message_vector());
+        }
+        mvec
     }
 }
 

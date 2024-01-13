@@ -1,7 +1,6 @@
+use super::agent::language_models::openai::gpt::streaming_utils::StreamError;
 pub use super::agent::language_models::GptError;
-use super::{agent::language_models::openai::gpt::streaming_utils::StreamError, EnvMessage};
 use crate::errors::error_chain_fmt;
-use tokio::sync::mpsc::error::SendError;
 
 #[derive(thiserror::Error)]
 pub enum EnvError {

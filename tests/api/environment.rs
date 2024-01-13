@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{functions::weather_test_function, helpers, init_test};
 use espionox::{
     environment::{
@@ -7,10 +5,7 @@ use espionox::{
             language_models::openai::gpt::streaming_utils::CompletionStreamStatus,
             memory::{messages::MessageRole, Message},
         },
-        dispatch::{
-            Dispatch, EnvNotification, EnvRequest, NotificationBody, SummarizeAtLimit,
-            ThreadSafeStreamCompletionHandler,
-        },
+        dispatch::{EnvNotification, ThreadSafeStreamCompletionHandler},
         NotificationStack,
     },
     Agent,
@@ -45,7 +40,7 @@ async fn io_prompt_agent_works() {
         .wait_for_notification(&ticket)
         .await
         .unwrap();
-    let message: Message = noti.extract_body().try_into().unwrap();
+    let message: &Message = noti.extract_body().try_into().unwrap();
 
     assert_eq!(message.role, MessageRole::Assistant);
 }
@@ -74,7 +69,7 @@ async fn stream_prompt_agent_works() {
         .await
         .unwrap();
     tracing::error!("TEST GOT NOTI: {:?}", noti);
-    let handler: ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
+    let handler: &ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
     let mut handler = handler.lock().await;
 
     let mut whole_message = String::new();
@@ -123,7 +118,7 @@ async fn function_prompt_agent_works() {
         .await
         .unwrap();
     println!("Got noti: {:?}", noti);
-    let json: Value = noti.extract_body().try_into().unwrap();
+    let json: &Value = noti.extract_body().try_into().unwrap();
     if let Some(location) = json
         .as_object()
         .and_then(|obj| obj.get("location"))

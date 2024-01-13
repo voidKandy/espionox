@@ -1,6 +1,7 @@
 pub mod language_models;
 pub mod memory;
 pub mod utils;
+use dotenv::dotenv;
 use memory::{Message, MessageVector};
 use uuid::Uuid;
 
@@ -42,8 +43,14 @@ impl From<(&str, EnvMessageSender)> for AgentHandle {
 
 impl Default for Agent {
     fn default() -> Self {
-        let cache = crate::persistance::prompts::get_prompt_by_name("DEFAULT_INIT_PROMPT")
-            .unwrap_or(MessageVector::init());
+        dotenv().ok();
+
+        let prompt = std::env::var("DEFAULT_INIT_PROMPT");
+        let cache = match prompt.ok() {
+            Some(p) => MessageVector::new(&p),
+            None => MessageVector::init(),
+        };
+
         tracing::info!("Default Agent initialized with cache: {:?}", cache);
         let model = LanguageModel::default_gpt();
         Agent { cache, model }
@@ -51,6 +58,7 @@ impl Default for Agent {
 }
 
 impl Agent {
+    /// Helper function for creating an Agent given system prompt content and model
     pub fn new(init_prompt: &str, model: LanguageModel) -> Self {
         let cache = MessageVector::new(init_prompt);
         Agent {

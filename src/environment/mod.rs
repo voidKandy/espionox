@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use self::{
     agent::{memory::Message, AgentHandle},
-    errors::{DispatchError, EnvError},
+    errors::EnvError,
 };
 
 #[derive(Debug)]
@@ -71,7 +71,8 @@ impl EnvThreadHandle {
                 .recv()
                 .await
             {
-                Self::run_listeners(&message, Arc::clone(&listeners), &mut dispatch).await?;
+                let message =
+                    dispatch::run_listeners(message, Arc::clone(&listeners), &mut dispatch).await?;
                 match message {
                     EnvMessage::Request(req) => {
                         tracing::info!("Dispatch received request: {:?}", req);
@@ -95,24 +96,6 @@ impl EnvThreadHandle {
                     dispatch.handle_request(req).await?;
                 }
             }
-        }
-        Ok(())
-    }
-
-    async fn run_listeners(
-        message: &EnvMessage,
-        listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
-        mut dispatch: &mut RwLockWriteGuard<'_, Dispatch>,
-    ) -> Result<(), DispatchError> {
-        let listeners_read = listeners.read().await;
-        let active_listeners = listeners_read.iter().fold(vec![], |mut active, l| {
-            if l.trigger(&message).is_some() {
-                active.push(l)
-            }
-            active
-        });
-        for l in active_listeners.iter() {
-            l.method(&message, &mut dispatch).await?;
         }
         Ok(())
     }
