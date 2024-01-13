@@ -22,7 +22,6 @@ pub fn init_test() {
 
 pub fn test_env() -> Environment {
     dotenv::dotenv().ok();
-    // let config = GptConfig::from(test_env());
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     Environment::new(Some("testing"), Some(&api_key))
 }
