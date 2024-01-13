@@ -1,7 +1,8 @@
 mod channel;
+mod listeners;
 pub use channel::*;
+pub use listeners::*;
 use tokio::sync::Mutex;
-use uuid::Uuid;
 
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
@@ -10,6 +11,7 @@ use crate::{
     environment::agent::{
         language_models::openai::gpt::streaming_utils::*,
         memory::{messages::MessageRole, Message, MessageVector},
+        AgentHandle,
     },
     Agent,
 };
@@ -22,10 +24,11 @@ pub type AgentHashMap = HashMap<String, Agent>;
 #[derive(Debug)]
 pub struct Dispatch {
     api_key: Option<String>,
+    pub client: Client,
+    pub(super) requests: VecDeque<EnvRequest>,
+    // pub(super) listeners: Vec<Box<dyn EnvListener>>,
     pub(super) channel: EnvChannel,
-    pub(super) client: Client,
     pub(super) agents: AgentHashMap,
-    // pub(super) notifications: Option<NotificationStack>,
 }
 
 impl Dispatch {
@@ -47,14 +50,44 @@ impl Dispatch {
         self.api_key.clone().ok_or(DispatchError::NoApiKey)
     }
 
+    /// Using the ID of an agent, get a it's handle
+    pub async fn get_agent_handle(&self, id: &str) -> Result<AgentHandle, DispatchError> {
+        if let Some(_) = self.agents.get(id) {
+            let sender = Arc::clone(&self.channel.sender);
+            let handle = AgentHandle::from((id, sender));
+            return Ok(handle);
+        }
+        Err(DispatchError::AgentIsNone)
+    }
+
     pub(crate) fn new(channel: EnvChannel, api_key: Option<String>) -> Self {
         Self {
             api_key,
+            requests: VecDeque::new(),
             channel,
             client: Client::new(),
             agents: HashMap::new(),
         }
     }
+
+    // pub(crate) async fn run_listeners(
+    //     &mut self,
+    //     message: &EnvMessage,
+    // ) -> Result<(), DispatchError> {
+    //     let listeners = &mut self.listeners;
+    //
+    //     for l in listeners
+    //         .iter_mut()
+    //         .filter(|l| l.trigger(&message).is_some())
+    //     {
+    //         tracing::info!("Applying listener: {:?}", l);
+    //         // Use the borrowed values inside the loop
+    //         if let Some(trigger) = l.trigger(&message) {
+    //             l.method(trigger, self).await?;
+    //         }
+    //     }
+    //     Ok(())
+    // }
 
     #[tracing::instrument(name = "Push message to agent cache")]
     async fn push_to_agent_cache(

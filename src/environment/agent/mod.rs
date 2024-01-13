@@ -92,8 +92,8 @@ impl AgentHandle {
             message,
         };
         self.sender
-            .try_lock()
-            .expect("Failed to lock agent sender")
+            .lock()
+            .await
             .send(cache_change.into())
             .await
             .map_err(|_| AgentError::EnvSend)?;

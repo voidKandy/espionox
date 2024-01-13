@@ -6,16 +6,19 @@ edition = "2021"
 [lib]
 path = "src/lib.rs"
 
+[[example]]
+name = "summarize_at_limit"
+path = "examples/summarize_at_limit.rs"
+
 
 [features]
 default = [
  # "long_term_memory"
 ]
-
 long_term_memory = ["dep:sqlx", "dep:pgvector"]
 
-[dependencies]
 
+[dependencies]
 sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional = true }
 pgvector = { version = "0.2.2", features = ["sqlx", "postgres"], optional = true }
 
@@ -47,5 +50,3 @@ async-recursion = "1.0.5"
 reqwest-streams = { version = "0.3.0", features=["json"] }
 dotenv = "0.15.0"
 
-[dev-dependencies]
-dotenv = "0.15.0"

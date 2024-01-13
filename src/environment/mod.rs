@@ -3,7 +3,6 @@ pub mod dispatch;
 pub mod errors;
 
 use crate::Agent;
-use anyhow::anyhow;
 use dispatch::*;
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 use tokio::{
@@ -14,24 +13,29 @@ use uuid::Uuid;
 
 use self::{
     agent::{memory::Message, AgentHandle},
-    errors::{DispatchError, EnvError}
+    errors::{DispatchError, EnvError},
 };
 
 #[derive(Debug)]
-pub struct NotificationStack(pub VecDeque<EnvNotification>);
+pub struct NotificationStack(pub Arc<RwLock<VecDeque<EnvNotification>>>);
 
-impl From<VecDeque<EnvNotification>> for NotificationStack {
-    fn from(value: VecDeque<EnvNotification>) -> Self {
+impl Clone for NotificationStack {
+    fn clone(&self) -> Self {
+        Arc::clone(&self.0).into()
+    }
+}
+
+impl From<Arc<RwLock<VecDeque<EnvNotification>>>> for NotificationStack {
+    fn from(value: Arc<RwLock<VecDeque<EnvNotification>>>) -> Self {
         Self(value)
     }
 }
 
-impl Into<VecDeque<EnvNotification>> for NotificationStack {
-    fn into(self) -> VecDeque<EnvNotification> {
+impl Into<Arc<RwLock<VecDeque<EnvNotification>>>> for NotificationStack {
+    fn into(self) -> Arc<RwLock<VecDeque<EnvNotification>>> {
         self.0
     }
 }
-
 #[derive(Debug)]
 pub struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
 
@@ -39,7 +43,8 @@ pub struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
 pub struct Environment {
     pub id: String,
     pub dispatch: Arc<RwLock<Dispatch>>,
-    pub notifications: Arc<RwLock<Option<NotificationStack>>>,
+    pub notifications: NotificationStack,
+    listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
     sender: EnvMessageSender,
     handle: Option<EnvThreadHandle>,
 }
@@ -52,16 +57,12 @@ impl EnvThreadHandle {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Push notification to stack")]
-    pub(crate) async fn push_to_notifications(noti_stack: Arc<RwLock<Option<NotificationStack>>>, noti: EnvNotification)  {
-        tracing::info!("Pushing {:?} to noti stack", noti);
-        let mut noti_write = noti_stack.write().await ;
-        noti_write.get_or_insert_with(|| VecDeque::new().into()).0.push_front(noti);
-        tracing::info!("Stack after push: {:?}", noti_write);
-    }
-
     #[tracing::instrument(name = "Dispatch main loop", skip(dispatch))]
-    pub async fn main_loop(mut dispatch: RwLockWriteGuard<'_, Dispatch>, noti_stack: Arc<RwLock<Option<NotificationStack>>>) -> Result<(), EnvError> {
+    pub async fn main_loop(
+        mut dispatch: RwLockWriteGuard<'_, Dispatch>,
+        noti_stack: NotificationStack,
+        listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
+    ) -> Result<(), EnvError> {
         let receiver: EnvMessageReceiver = Arc::clone(&dispatch.channel.receiver);
         loop {
             if let Some(message) = receiver
@@ -70,19 +71,48 @@ impl EnvThreadHandle {
                 .recv()
                 .await
             {
+                Self::run_listeners(&message, Arc::clone(&listeners), &mut dispatch).await?;
                 match message {
                     EnvMessage::Request(req) => {
                         tracing::info!("Dispatch received request: {:?}", req);
-                        dispatch.handle_request(req).await?;
+                        dispatch.requests.push_front(req);
                     }
                     EnvMessage::Response(noti) => {
                         tracing::info!("Dispatch received notification: {:?}", noti);
                         dispatch.handle_notification(&noti).await?;
-                        Self::push_to_notifications(Arc::clone(&noti_stack),noti).await;
+                        noti_stack.push(noti).await;
                     }
                     EnvMessage::Finish => break,
                 }
             }
+            if let Some(req) = dispatch.requests.pop_back() {
+                if req == EnvRequest::Finish && dispatch.requests.len() > 0 {
+                    tracing::info!(
+                        "Finish request in stack, but stack has requests. Pushing it back"
+                    );
+                    dispatch.requests.push_front(req)
+                } else {
+                    dispatch.handle_request(req).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn run_listeners(
+        message: &EnvMessage,
+        listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
+        mut dispatch: &mut RwLockWriteGuard<'_, Dispatch>,
+    ) -> Result<(), DispatchError> {
+        let listeners_read = listeners.read().await;
+        let active_listeners = listeners_read.iter().fold(vec![], |mut active, l| {
+            if l.trigger(&message).is_some() {
+                active.push(l)
+            }
+            active
+        });
+        for l in active_listeners.iter() {
+            l.method(&message, &mut dispatch).await?;
         }
         Ok(())
     }
@@ -93,20 +123,22 @@ impl Environment {
         Arc::clone(&self.sender)
     }
 
-
     /// Spawns env thread handle and waits until thread is ready
     #[tracing::instrument(name = "Spawn environment thread", skip(self))]
     pub async fn spawn(&mut self) -> Result<(), EnvError> {
         let dispatch_clone = Arc::clone(&self.dispatch);
-        let noti_stack_clone = Arc::clone(&self.notifications);
+        let noti_stack_clone = Arc::clone(&self.notifications.0).into();
+        let listeners_clone = Arc::clone(&self.listeners).into();
 
         let handle: JoinHandle<Result<(), EnvError>> = tokio::spawn(async move {
             tracing::info!("Inside handle");
-            let dispatch =
-                tokio::time::timeout(std::time::Duration::from_millis(300), dispatch_clone.write())
-                    .await?;
+            let dispatch = tokio::time::timeout(
+                std::time::Duration::from_millis(300),
+                dispatch_clone.write(),
+            )
+            .await?;
             tracing::info!("Dispatch state: {:?}", dispatch);
-            EnvThreadHandle::main_loop(dispatch, noti_stack_clone).await
+            EnvThreadHandle::main_loop(dispatch, noti_stack_clone, listeners_clone).await
         });
 
         tracing::info!("Handle spawned, adding to environment");
@@ -114,51 +146,8 @@ impl Environment {
         Ok(())
     }
 
-    pub async fn take_notifications(&mut self) -> Result<NotificationStack, EnvError> {
-           self 
-            .notifications.write().await
-            .take()
-            .ok_or(EnvError::Undefined(anyhow!("No notifications")))
-    }
-
-    /// Waits for a single notification with given ticket number to appear on dispatch stack, removes it and returns it
-    #[tracing::instrument(name = "Wait for notification")]
-    pub async fn wait_for_notification(&self, ticket: &Uuid) -> Result<EnvNotification, EnvError> {
-        tokio::time::timeout(Duration::from_secs(20), async {
-            loop {
-                let notis_read = 
-                    // tokio::time::timeout(
-                    // std::time::Duration::from_millis(1000),
-                    self.notifications.read()
-                    // ,
-                // )
-                .await;
-                tracing::info!("Got notis read lock");
-                if notis_read.is_none() {
-                    tracing::info!("No notifications, waiting");
-                    tokio::time::sleep(Duration::from_millis(1000)).await;
-                    drop(notis_read);
-                } else {
-                    break;
-                }
-            }
-            loop {
-                tracing::info!("Notifications is Some, acquiring write lock");
-                let mut notis_write = tokio::time::timeout(
-                    std::time::Duration::from_millis(1000),
-                    self.notifications.write(),
-                )
-                .await?;
-                tracing::info!("Got notis write lock");
-                let notis = notis_write.as_mut().unwrap();
-                tracing::info!("Notification stack: {:?}", notis);
-                if let Some(found_noti) = notis.take_by_ticket(*ticket) {
-                    tracing::info!("Found matching notification: {:?}", found_noti);
-                    return Ok(found_noti);
-                }
-            }
-        })
-        .await?
+    pub async fn add_listener(&mut self, listener: impl EnvListener) {
+        self.listeners.write().await.push(Box::new(listener))
     }
 
     /// Send finish request to dispatch and join thread handle
@@ -177,16 +166,6 @@ impl Environment {
             .await?;
         Ok(())
     }
-    /// Using the ID of an agent, get a it's handle
-    pub async fn get_agent_handle(&self, id: &str) -> Option<AgentHandle> {
-        let dispatch = self.dispatch.read().await;
-        if let Some(_) = dispatch.agents.get(id) {
-            let sender = Arc::clone(&dispatch.channel.sender);
-            let handle = AgentHandle::from((id, sender));
-            return Some(handle);
-        }
-        None
-    }
 
     /// Inserts agent into dispatch agent hashmap, returning a handle to the agent
     #[tracing::instrument(name = "Insert agent into dispatch")]
@@ -201,8 +180,8 @@ impl Environment {
             None => uuid::Uuid::new_v4().to_string(),
         };
         dispatch.agents.insert(id.clone(), agent);
+        let handle = dispatch.get_agent_handle(&id).await.unwrap();
         drop(dispatch);
-        let handle = self.get_agent_handle(&id).await.unwrap();
         Ok(handle)
     }
 
@@ -221,28 +200,46 @@ impl Environment {
         let dispatch = Dispatch::new(channel, api_key.map(|k| k.to_string()));
         let dispatch = Arc::new(RwLock::new(dispatch));
 
-        let notifications = Arc::new(RwLock::new(None));
+        let notifications = Arc::new(RwLock::new(VecDeque::new())).into();
+        let listeners = Arc::new(RwLock::new(vec![]));
 
         Self {
             id,
             sender,
             dispatch,
+            listeners,
             notifications,
             handle: None,
         }
     }
 }
 
-
-
 impl NotificationStack {
+    /// Pushes given notification to the front
+    pub async fn push(&self, noti: EnvNotification) {
+        let mut write = self.0.write().await;
+        match noti {
+            EnvNotification::CacheUpdate { ref agent_id, .. } => {
+                let outer_id = agent_id;
+                write.retain(|noti| match noti {
+                    EnvNotification::CacheUpdate { agent_id, .. } => &agent_id != &outer_id,
+                    _ => true,
+                });
+            }
+            _ => {}
+        }
+        write.push_front(noti);
+    }
+
     /// Removes notifications with given agent id from stack and returns them as VecDeque
-    pub fn take_by_agent(&mut self, agent_id: &str) -> Option<VecDeque<EnvNotification>> {
-        let (matching, remaining): (VecDeque<EnvNotification>, VecDeque<EnvNotification>) = self
-            .0
+    pub fn take_by_agent(
+        vec: &mut VecDeque<EnvNotification>,
+        agent_id: &str,
+    ) -> Option<VecDeque<EnvNotification>> {
+        let (matching, remaining): (VecDeque<EnvNotification>, VecDeque<EnvNotification>) = vec
             .drain(..)
             .partition(|noti| noti.agent_id() == Some(agent_id));
-        *self = Self::from(remaining);
+        *vec = remaining;
         if matching.len() != 0 {
             return Some(matching.into());
         }
@@ -250,15 +247,47 @@ impl NotificationStack {
     }
 
     /// Removes the notification with the given ticket number from the stack
-    pub fn take_by_ticket(&mut self, ticket: Uuid) -> Option<EnvNotification> {
-        if let Some(index) = self
-            .0
+    pub fn take_by_ticket(
+        vec: &mut VecDeque<EnvNotification>,
+        ticket: Uuid,
+    ) -> Option<EnvNotification> {
+        if let Some(index) = vec
             .iter_mut()
             .position(|noti| noti.ticket_number() == Some(ticket))
         {
-            self.0.remove(index)
+            vec.remove(index)
         } else {
             None
         }
+    }
+
+    /// Waits for a single notification with given ticket number to appear on dispatch stack, removes it and returns it
+    #[tracing::instrument(name = "Wait for notification", skip(self))]
+    pub async fn wait_for_notification(&self, ticket: &Uuid) -> Result<EnvNotification, EnvError> {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let notis_read = self.0.read().await;
+                tracing::info!("Got notis read lock");
+                if notis_read.len() == 0 {
+                    tracing::info!("No notifications, waiting");
+                    tokio::time::sleep(Duration::from_millis(1000)).await;
+                    drop(notis_read);
+                } else {
+                    break;
+                }
+            }
+            loop {
+                tracing::info!("Notifications is Some, acquiring write lock");
+                let mut notis_write =
+                    tokio::time::timeout(std::time::Duration::from_millis(1000), self.0.write())
+                        .await?;
+                tracing::info!("Got notis write lock");
+                if let Some(found_noti) = Self::take_by_ticket(&mut notis_write, *ticket) {
+                    tracing::info!("Found matching notification: {:?}", found_noti);
+                    return Ok(found_noti);
+                }
+            }
+        })
+        .await?
     }
 }

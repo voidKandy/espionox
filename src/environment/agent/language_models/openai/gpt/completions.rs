@@ -17,7 +17,7 @@ pub fn io_completion_fn_wrapper<'c>(
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
     Box::pin(io_completion(client, api_key, context, model))
 }
 
@@ -26,7 +26,7 @@ pub fn stream_completion_fn_wrapper<'c>(
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
-) -> Pin<Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + Sync + 'c>> {
     Box::pin(stream_completion(client, api_key, context, model))
 }
 
@@ -36,14 +36,14 @@ pub fn function_completion_fn_wrapper<'c>(
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
     function: &'c Function,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
     Box::pin(function_completion(
         client, api_key, context, model, function,
     ))
 }
 
 #[tracing::instrument(name = "Get completion", skip(client, api_key, model))]
-async fn io_completion(
+pub(crate) async fn io_completion(
     client: &Client,
     api_key: &str,
     context: &Vec<Value>,

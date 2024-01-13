@@ -37,7 +37,8 @@ impl LanguageModel {
         &'c str,
         &'c Vec<Value>,
         &'c LanguageModel,
-    ) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+    )
+        -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
         openai::gpt::completions::io_completion_fn_wrapper
     }
 
@@ -48,8 +49,9 @@ impl LanguageModel {
         &'c str,
         &'c Vec<Value>,
         &'c LanguageModel,
-    )
-        -> Pin<Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + 'c>> {
+    ) -> Pin<
+        Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + Sync + 'c>,
+    > {
         openai::gpt::completions::stream_completion_fn_wrapper
     }
 
@@ -61,7 +63,8 @@ impl LanguageModel {
         &'c Vec<Value>,
         &'c LanguageModel,
         &'c Function,
-    ) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + 'c>> {
+    )
+        -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
         openai::gpt::completions::function_completion_fn_wrapper
     }
 

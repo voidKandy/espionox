@@ -7,7 +7,11 @@ use espionox::{
             language_models::openai::gpt::streaming_utils::CompletionStreamStatus,
             memory::{messages::MessageRole, Message},
         },
-        dispatch::{Dispatch, EnvNotification, ThreadSafeStreamCompletionHandler},
+        dispatch::{
+            Dispatch, EnvNotification, EnvRequest, NotificationBody, SummarizeAtLimit,
+            ThreadSafeStreamCompletionHandler,
+        },
+        NotificationStack,
     },
     Agent,
 };
@@ -36,7 +40,11 @@ async fn io_prompt_agent_works() {
 
     let message = Message::new(MessageRole::User, "Hello!");
     let ticket = handle.request_io_completion(message).await.unwrap();
-    let noti: EnvNotification = environment.wait_for_notification(&ticket).await.unwrap();
+    let noti: EnvNotification = environment
+        .notifications
+        .wait_for_notification(&ticket)
+        .await
+        .unwrap();
     let message: Message = noti.extract_body().try_into().unwrap();
 
     assert_eq!(message.role, MessageRole::Assistant);
@@ -60,7 +68,11 @@ async fn stream_prompt_agent_works() {
         .await
         .unwrap();
     tracing::error!("TEST GOT TICKET: {}", ticket);
-    let noti: EnvNotification = environment.wait_for_notification(ticket).await.unwrap();
+    let noti: EnvNotification = environment
+        .notifications
+        .wait_for_notification(ticket)
+        .await
+        .unwrap();
     tracing::error!("TEST GOT NOTI: {:?}", noti);
     let handler: ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
     let mut handler = handler.lock().await;
@@ -77,13 +89,9 @@ async fn stream_prompt_agent_works() {
     tracing::info!("TEST GOT WHOLE MESSAGE: {}", whole_message);
 
     environment.finalize_dispatch().await.unwrap();
-    let mut stack = environment
-        .take_notifications()
-        .await
-        .expect("Res stack is None");
+    let mut stack = environment.notifications.0.write().await;
 
-    let stack = stack
-        .take_by_agent(&handle.id)
+    let stack = NotificationStack::take_by_agent(&mut stack, &handle.id)
         .expect("Failed to get stack of agent notis");
     println!("{:?}", stack);
 }
@@ -109,7 +117,11 @@ async fn function_prompt_agent_works() {
         .unwrap();
 
     environment.finalize_dispatch().await.unwrap();
-    let noti: EnvNotification = environment.wait_for_notification(&ticket).await.unwrap();
+    let noti: EnvNotification = environment
+        .notifications
+        .wait_for_notification(&ticket)
+        .await
+        .unwrap();
     println!("Got noti: {:?}", noti);
     let json: Value = noti.extract_body().try_into().unwrap();
     if let Some(location) = json

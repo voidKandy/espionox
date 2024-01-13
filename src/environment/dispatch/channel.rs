@@ -94,6 +94,26 @@ impl Into<EnvMessage> for EnvNotification {
     }
 }
 
+impl TryInto<EnvNotification> for EnvMessage {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<EnvNotification, Self::Error> {
+        match self {
+            EnvMessage::Response(noti) => Ok(noti),
+            _ => Err(anyhow!("EnvMessage is wrong type")),
+        }
+    }
+}
+
+impl TryInto<EnvRequest> for EnvMessage {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<EnvRequest, Self::Error> {
+        match self {
+            EnvMessage::Request(req) => Ok(req),
+            _ => Err(anyhow!("EnvMessage is wrong type")),
+        }
+    }
+}
+
 impl
     From<(
         Arc<Mutex<Sender<EnvMessage>>>,
@@ -110,26 +130,66 @@ impl
     }
 }
 
-impl EnvNotification {
+impl EnvMessage {
     pub fn agent_id(&self) -> Option<&str> {
         match self {
-            Self::CacheUpdate { agent_id, .. } => Some(agent_id),
-            Self::GotStreamHandle { agent_id, .. } => Some(agent_id),
-            Self::GotCompletionResponse { agent_id, .. } => Some(agent_id),
-            Self::GotFunctionResponse { agent_id, .. } => Some(agent_id),
+            Self::Request(req) => req.agent_id(),
+            Self::Response(noti) => noti.agent_id(),
+            Self::Finish => None,
         }
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
         match self {
-            Self::CacheUpdate { .. } => None,
-            Self::GotStreamHandle { ticket, .. } => Some(*ticket),
-            Self::GotCompletionResponse { ticket, .. } => Some(*ticket),
-            Self::GotFunctionResponse { ticket, .. } => Some(*ticket),
+            Self::Request(req) => req.ticket_number(),
+            Self::Response(noti) => noti.ticket_number(),
+            Self::Finish => None,
+        }
+    }
+}
+
+impl EnvRequest {
+    pub fn agent_id(&self) -> Option<&str> {
+        match self {
+            EnvRequest::Finish => None,
+            EnvRequest::ResetCache { agent_id, .. } => Some(agent_id),
+            EnvRequest::PushToCache { agent_id, .. } => Some(agent_id),
+            EnvRequest::GetCompletion { agent_id, .. } => Some(agent_id),
+            EnvRequest::GetFunctionCompletion { agent_id, .. } => Some(agent_id),
+            EnvRequest::GetCompletionStreamHandle { agent_id, .. } => Some(agent_id),
+        }
+    }
+    pub fn ticket_number(&self) -> Option<Uuid> {
+        match self {
+            EnvRequest::Finish => None,
+            EnvRequest::ResetCache { .. } => None,
+            EnvRequest::PushToCache { .. } => None,
+            EnvRequest::GetCompletion { ticket, .. } => Some(*ticket),
+            EnvRequest::GetFunctionCompletion { ticket, .. } => Some(*ticket),
+            EnvRequest::GetCompletionStreamHandle { ticket, .. } => Some(*ticket),
+        }
+    }
+}
+
+impl EnvNotification {
+    pub fn agent_id(&self) -> Option<&str> {
+        match self {
+            EnvNotification::CacheUpdate { agent_id, .. } => Some(agent_id),
+            EnvNotification::GotStreamHandle { agent_id, .. } => Some(agent_id),
+            EnvNotification::GotCompletionResponse { agent_id, .. } => Some(agent_id),
+            EnvNotification::GotFunctionResponse { agent_id, .. } => Some(agent_id),
+        }
+    }
+    pub fn ticket_number(&self) -> Option<Uuid> {
+        match self {
+            EnvNotification::CacheUpdate { .. } => None,
+            EnvNotification::GotStreamHandle { ticket, .. } => Some(*ticket),
+            EnvNotification::GotCompletionResponse { ticket, .. } => Some(*ticket),
+            EnvNotification::GotFunctionResponse { ticket, .. } => Some(*ticket),
         }
     }
 
     /// Consumes self & returns notification body
-    pub fn extract_body(self) -> NotificationBody {
+    pub fn extract_body(&self) -> NotificationBody {
         match self {
             EnvNotification::CacheUpdate { cache, .. } => NotificationBody::MessageVector(cache),
             EnvNotification::GotCompletionResponse { message, .. } => {
@@ -143,16 +203,16 @@ impl EnvNotification {
     }
 }
 
-pub enum NotificationBody {
-    StreamedCompletionHandler(ThreadSafeStreamCompletionHandler),
-    JsonValue(Value),
-    SingleMessage(Message),
-    MessageVector(MessageVector),
+pub enum NotificationBody<'b> {
+    StreamedCompletionHandler(&'b ThreadSafeStreamCompletionHandler),
+    JsonValue(&'b Value),
+    SingleMessage(&'b Message),
+    MessageVector(&'b MessageVector),
 }
 
-impl TryInto<Message> for NotificationBody {
+impl<'b> TryInto<&'b Message> for NotificationBody<'b> {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<Message, Self::Error> {
+    fn try_into(self) -> Result<&'b Message, Self::Error> {
         match self {
             NotificationBody::SingleMessage(m) => Ok(m),
             _ => Err(anyhow!("Wrong notification type")),
@@ -160,9 +220,9 @@ impl TryInto<Message> for NotificationBody {
     }
 }
 
-impl TryInto<MessageVector> for NotificationBody {
+impl<'b> TryInto<&'b MessageVector> for NotificationBody<'b> {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<MessageVector, Self::Error> {
+    fn try_into(self) -> Result<&'b MessageVector, Self::Error> {
         match self {
             NotificationBody::MessageVector(m) => Ok(m),
             _ => Err(anyhow!("Wrong notification type")),
@@ -170,9 +230,9 @@ impl TryInto<MessageVector> for NotificationBody {
     }
 }
 
-impl TryInto<Value> for NotificationBody {
+impl<'b> TryInto<&'b Value> for NotificationBody<'b> {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<Value, Self::Error> {
+    fn try_into(self) -> Result<&'b Value, Self::Error> {
         match self {
             NotificationBody::JsonValue(v) => Ok(v),
             _ => Err(anyhow!("Wrong notification type")),
@@ -180,9 +240,9 @@ impl TryInto<Value> for NotificationBody {
     }
 }
 
-impl TryInto<ThreadSafeStreamCompletionHandler> for NotificationBody {
+impl<'b> TryInto<&'b ThreadSafeStreamCompletionHandler> for NotificationBody<'b> {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<ThreadSafeStreamCompletionHandler, Self::Error> {
+    fn try_into(self) -> Result<&'b ThreadSafeStreamCompletionHandler, Self::Error> {
         match self {
             NotificationBody::StreamedCompletionHandler(h) => Ok(h),
             _ => Err(anyhow!("Wrong notification type")),
