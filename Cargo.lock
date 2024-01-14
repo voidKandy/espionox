@@ -3,39 +3,6 @@
 version = 3
 
 [[package]]
-name = "Espionox"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-recursion",
- "byteorder",
- "bytes",
- "dotenv",
- "futures",
- "futures-util",
- "once_cell",
- "pgvector",
- "rand",
- "reqwest",
- "reqwest-streams",
- "rust-bert",
- "serde",
- "serde-aux",
- "serde_derive",
- "serde_json",
- "serde_yaml",
- "sqlx",
- "tch",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-bunyan-formatter",
- "tracing-log",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -531,6 +498,39 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "espionox"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "byteorder",
+ "bytes",
+ "dotenv",
+ "futures",
+ "futures-util",
+ "once_cell",
+ "pgvector",
+ "rand",
+ "reqwest",
+ "reqwest-streams",
+ "rust-bert",
+ "serde",
+ "serde-aux",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "sqlx",
+ "tch",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-bunyan-formatter",
+ "tracing-log",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
