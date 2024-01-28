@@ -34,7 +34,7 @@ impl From<(usize, &str, &str)> for SummarizeAtLimit {
 impl EnvListener for SummarizeAtLimit {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Response(noti) = env_message {
-            if let EnvNotification::AgentStateUpdate { agent_id, cache } = noti {
+            if let EnvNotification::CacheUpdate { agent_id, cache } = noti {
                 if cache.len() >= self.limit && agent_id == &self.watched_agent_id {
                     return Some(env_message);
                 }
@@ -53,15 +53,15 @@ impl EnvListener for SummarizeAtLimit {
             let api_key = dispatch.api_key().expect("No api key");
             let cache_to_summarize = match trigger_message {
                 EnvMessage::Response(noti) => match noti {
-                    EnvNotification::AgentStateUpdate { cache, .. } => cache.to_string(),
+                    EnvNotification::CacheUpdate { cache, .. } => cache.to_string(),
                     _ => unreachable!(),
                 },
                 _ => unreachable!(),
             };
-            let message = Message::new_user(&format!(
-                "Summarize this chat history: {}",
-                cache_to_summarize
-            ));
+            let message = Message::new(
+                MessageRole::User,
+                &format!("Summarize this chat history: {}", cache_to_summarize),
+            );
             let summarizer = dispatch
                 .get_agent_mut(&self.summarizer_agent_id)
                 .expect("Failed to get summarizer");
@@ -81,7 +81,9 @@ impl EnvListener for SummarizeAtLimit {
                 .get_agent_mut(&self.watched_agent_id)
                 .expect("Failed to get watched agent");
             watched_agent.cache.reset_to_system_prompt();
-            watched_agent.cache.push(Message::new_system(&summary));
+            watched_agent
+                .cache
+                .push(Message::new(MessageRole::System, &summary));
             Ok(())
         })
     }
@@ -102,7 +104,7 @@ async fn main() {
     let sal = SummarizeAtLimit::from((5usize, "jerry", "sum"));
     env.add_listener(sal).await;
     env.spawn().await.unwrap();
-    let message = Message::new_system("im saying things to fill space");
+    let message = Message::new(MessageRole::User, "im saying things to fill space");
     for _ in 0..=5 {
         let sender = env.clone_sender();
         let sender_lock = sender.lock().await;
@@ -116,7 +118,7 @@ async fn main() {
     env.finalize_dispatch().await.unwrap();
     let stack = env.notifications.0.write().await;
     let messages = match stack.get(0).unwrap() {
-        EnvNotification::AgentStateUpdate { cache, .. } => cache.as_ref(),
+        EnvNotification::CacheUpdate { cache, .. } => cache.as_ref(),
         _ => panic!("First on stack should be a cache update"),
     };
 

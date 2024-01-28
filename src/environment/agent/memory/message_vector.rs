@@ -50,7 +50,7 @@ impl ToString for MessageVector {
 impl MessageVector {
     /// Create a new MessageVector given the content of a system prompt
     pub fn new(content: &str) -> Self {
-        let message = Message::new_system(content);
+        let message = Message::new(MessageRole::System, content);
         MessageVector::from(vec![message])
     }
     /// Push a message to the end of MessageVector

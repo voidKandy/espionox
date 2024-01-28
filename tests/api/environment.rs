@@ -33,7 +33,7 @@ async fn io_prompt_agent_works() {
 
     environment.spawn().await.expect("Failed to spawn");
 
-    let message = Message::new_user("Hello!");
+    let message = Message::new(MessageRole::User, "Hello!");
     let ticket = handle.request_io_completion(message).await.unwrap();
     let noti: EnvNotification = environment
         .notifications
@@ -57,7 +57,7 @@ async fn stream_prompt_agent_works() {
 
     environment.spawn().await.expect("Failed to spawn");
 
-    let message = Message::new_user("Hello!");
+    let message = Message::new(MessageRole::User, "Hello!");
     let ticket = &handle
         .request_stream_completion(message.clone())
         .await
@@ -101,7 +101,10 @@ async fn function_prompt_agent_works() {
         .await
         .unwrap();
     let function = weather_test_function();
-    let message = Message::new_user("What's the weather like in Detroit michigan in celcius?");
+    let message = Message::new(
+        MessageRole::User,
+        "What's the weather like in Detroit michigan in celcius?",
+    );
     environment.spawn().await.unwrap();
     let ticket = handle
         .request_function_prompt(function, message)

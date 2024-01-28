@@ -101,33 +101,10 @@ impl From<String> for MessageRole {
 }
 
 impl Message {
-    pub fn new_other(role: &str, content: &str) -> Self {
+    /// Best way to initialize a standard message
+    pub fn new(role: MessageRole, content: &str) -> Self {
         Message {
-            role: MessageRole::Other(role.to_string()),
-            content: content.to_string(),
-            metadata: MessageMetadata::default(),
-        }
-    }
-
-    pub fn new_system(content: &str) -> Self {
-        Message {
-            role: MessageRole::System,
-            content: content.to_string(),
-            metadata: MessageMetadata::default(),
-        }
-    }
-
-    pub fn new_user(content: &str) -> Self {
-        Message {
-            role: MessageRole::User,
-            content: content.to_string(),
-            metadata: MessageMetadata::default(),
-        }
-    }
-
-    pub fn new_assistant(content: &str) -> Self {
-        Message {
-            role: MessageRole::Assistant,
+            role,
             content: content.to_string(),
             metadata: MessageMetadata::default(),
         }
