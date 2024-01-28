@@ -70,7 +70,7 @@ async fn main() {
     let sal = Forgetful::from("jerry");
     env.add_listener(sal).await;
     env.spawn().await.unwrap();
-    let message = Message::new(MessageRole::User, "whats up jerry");
+    let message = Message::new_user("whats up jerry");
     for _ in 0..=5 {
         let _ = jerry_handle
             .request_io_completion(message.clone())

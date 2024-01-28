@@ -75,9 +75,7 @@ impl EnvListener for Decomposition {
                 .unwrap();
             let decomp_agent = dispatch.get_agent_mut(&self.decomposer_id).unwrap();
             let text = decomp_agent.handle_completion_response(decomp).unwrap();
-            decomp_agent
-                .cache
-                .push(Message::new(MessageRole::Assistant, &text));
+            decomp_agent.cache.push(Message::new_assistant(&text));
             self.decomposed_text = Some(text);
             Ok(())
         })
@@ -86,7 +84,7 @@ impl EnvListener for Decomposition {
         if let Some(text) = &self.decomposed_text {
             if let EnvMessage::Request(ref req) = origin {
                 if let EnvRequest::PushToCache { agent_id, .. } = req {
-                    let message = Message::new(MessageRole::User, &text);
+                    let message = Message::new_user(&text);
                     self.times_decomposed += 1;
                     return EnvRequest::PushToCache {
                         agent_id: agent_id.to_string(),
@@ -123,7 +121,7 @@ async fn main() {
     let decomp = Decomposition::new("jerry", "decomp", 5);
     env.add_listener(decomp).await;
     env.spawn().await.unwrap();
-    let message = Message::new(MessageRole::User, "Can you explain an inverse square??");
+    let message = Message::new_user("Can you explain an inverse square??");
     let ticket = j_handle.request_io_completion(message).await.unwrap();
 
     let noti = env
