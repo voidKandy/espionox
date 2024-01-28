@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
+use uuid::Uuid;
 
 use crate::{
     environment::agent::{
@@ -25,10 +26,10 @@ pub type AgentHashMap = HashMap<String, Agent>;
 pub struct Dispatch {
     api_key: Option<String>,
     pub client: Client,
+    pub(super) agents: AgentHashMap,
     pub(super) requests: VecDeque<EnvRequest>,
     // pub(super) listeners: Vec<Box<dyn EnvListener>>,
     pub(super) channel: EnvChannel,
-    pub(super) agents: AgentHashMap,
 }
 
 impl Dispatch {
@@ -80,10 +81,18 @@ impl Dispatch {
         agent.cache.push(message.to_owned());
         let cache = agent.cache.clone();
         let agent_id = agent_id.to_string();
+        let ticket = Uuid::new_v4();
         sender
             .lock()
             .await
-            .send(EnvNotification::CacheUpdate { agent_id, cache }.into())
+            .send(
+                EnvNotification::AgentStateUpdate {
+                    ticket,
+                    agent_id,
+                    cache,
+                }
+                .into(),
+            )
             .await
             .map_err(|_| DispatchError::Send)?;
         Ok(())
@@ -111,7 +120,7 @@ impl Dispatch {
                 .await
                 .map_err(|_| DispatchError::Send),
             EnvNotification::GotFunctionResponse { agent_id, json, .. } => {
-                let message = Message::new(MessageRole::Assistant, &json.to_string());
+                let message = Message::new_assistant(&json.to_string());
                 self.channel
                     .sender
                     .lock()
@@ -136,6 +145,21 @@ impl Dispatch {
     pub(super) async fn handle_request(&mut self, req: EnvRequest) -> Result<(), DispatchError> {
         let response = match req {
             EnvRequest::Finish => self.finish().await,
+
+            EnvRequest::GetAgentState { ticket, agent_id } => {
+                let agent = self.get_agent_ref(&agent_id)?;
+                let cache = agent.cache.clone();
+                let sender = &self.channel.sender.lock().await;
+                let response = EnvNotification::AgentStateUpdate {
+                    ticket,
+                    agent_id,
+                    cache,
+                };
+                sender
+                    .send(response.into())
+                    .await
+                    .map_err(|_| DispatchError::Send)
+            }
 
             EnvRequest::PushToCache { agent_id, message } => {
                 let sender = Arc::clone(&self.channel.sender);
@@ -170,7 +194,7 @@ impl Dispatch {
 
                 let agent = self.get_agent_mut(&agent_id)?;
                 let res_str = agent.handle_completion_response(response)?;
-                let message = Message::new(MessageRole::Assistant, &res_str);
+                let message = Message::new_assistant(&res_str);
 
                 self.channel
                     .sender

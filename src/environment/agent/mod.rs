@@ -91,6 +91,23 @@ impl Agent {
 }
 
 impl AgentHandle {
+    /// Requests the status of the given agent in the form of a cache update
+    #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
+    pub async fn request_state(&mut self) -> Result<Uuid, AgentError> {
+        let ticket = Uuid::new_v4();
+        let request = EnvRequest::GetAgentState {
+            ticket,
+            agent_id: self.id.to_string(),
+        };
+        self.sender
+            .lock()
+            .await
+            .send(request.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        Ok(ticket)
+    }
+
     /// Requests a cache update and a completion for agent, returns ticket number
     #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
     pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {

@@ -4,7 +4,11 @@ pub mod errors;
 
 use crate::Agent;
 use dispatch::*;
-use std::{collections::VecDeque, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     sync::{Mutex, RwLock, RwLockWriteGuard},
     task::JoinHandle,
@@ -44,6 +48,8 @@ pub struct Environment {
     pub id: String,
     pub dispatch: Arc<RwLock<Dispatch>>,
     pub notifications: NotificationStack,
+    // maybe a good idea?
+    // pub agent_handles: HashMap<String, AgentHandle>,
     listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
     sender: EnvMessageSender,
     handle: Option<EnvThreadHandle>,
@@ -102,6 +108,10 @@ impl EnvThreadHandle {
 }
 
 impl Environment {
+    pub fn is_running(&self) -> bool {
+        self.handle.is_some()
+    }
+
     pub fn clone_sender(&self) -> EnvMessageSender {
         Arc::clone(&self.sender)
     }
@@ -202,10 +212,10 @@ impl NotificationStack {
     pub async fn push(&self, noti: EnvNotification) {
         let mut write = self.0.write().await;
         match noti {
-            EnvNotification::CacheUpdate { ref agent_id, .. } => {
+            EnvNotification::AgentStateUpdate { ref agent_id, .. } => {
                 let outer_id = agent_id;
                 write.retain(|noti| match noti {
-                    EnvNotification::CacheUpdate { agent_id, .. } => &agent_id != &outer_id,
+                    EnvNotification::AgentStateUpdate { agent_id, .. } => &agent_id != &outer_id,
                     _ => true,
                 });
             }

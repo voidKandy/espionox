@@ -131,7 +131,7 @@ impl StreamedCompletionHandler {
                 }
                 CompletionStreamStatus::Finished => {
                     tracing::info!("Stream finished with content: {}", self.message_content);
-                    let message = Message::new(MessageRole::Assistant, &self.message_content);
+                    let message = Message::new_assistant(&self.message_content);
                     sender
                         .lock()
                         .await
