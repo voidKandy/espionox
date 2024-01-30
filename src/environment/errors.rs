@@ -1,17 +1,21 @@
-use super::agent::language_models::openai::gpt::streaming_utils::StreamError;
 pub use super::agent::language_models::GptError;
+use super::{
+    agent::language_models::openai::gpt::streaming_utils::StreamError, dispatch::ListenerError,
+};
 use crate::errors::error_chain_fmt;
 
 #[derive(thiserror::Error)]
 pub enum EnvError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
+    Listener(#[from] ListenerError),
     Dispatch(#[from] DispatchError),
     Join(#[from] tokio::task::JoinError),
     Timeout(#[from] tokio::time::error::Elapsed),
     Request(String),
     Send,
 }
+
 #[derive(thiserror::Error)]
 pub enum DispatchError {
     Undefined(#[from] anyhow::Error),

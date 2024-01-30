@@ -5,7 +5,9 @@ use std::pin::Pin;
 use espionox::{
     environment::{
         agent::memory::{messages::MessageRole, Message, MessageVector},
-        dispatch::{Dispatch, EnvListener, EnvMessage, EnvNotification, EnvRequest},
+        dispatch::{
+            Dispatch, EnvListener, EnvMessage, EnvNotification, EnvRequest, ListenerMethodReturn,
+        },
         errors::DispatchError,
         Environment,
     },
@@ -34,7 +36,10 @@ impl From<(usize, &str, &str)> for SummarizeAtLimit {
 impl EnvListener for SummarizeAtLimit {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Response(noti) = env_message {
-            if let EnvNotification::AgentStateUpdate { agent_id, cache } = noti {
+            if let EnvNotification::AgentStateUpdate {
+                agent_id, cache, ..
+            } = noti
+            {
                 if cache.len() >= self.limit && agent_id == &self.watched_agent_id {
                     return Some(env_message);
                 }
@@ -47,7 +52,7 @@ impl EnvListener for SummarizeAtLimit {
         &'l mut self,
         trigger_message: &'l EnvMessage,
         dispatch: &'l mut Dispatch,
-    ) -> Pin<Box<dyn Future<Output = Result<(), DispatchError>> + Send + Sync + 'l>> {
+    ) -> ListenerMethodReturn {
         Box::pin(async move {
             let client = &dispatch.client.clone();
             let api_key = dispatch.api_key().expect("No api key");
@@ -100,7 +105,7 @@ async fn main() {
     let _ = env.insert_agent(Some("sum"), agent).await.unwrap();
 
     let sal = SummarizeAtLimit::from((5usize, "jerry", "sum"));
-    env.add_listener(sal).await;
+    env.insert_listener(sal).await;
     env.spawn().await.unwrap();
     let message = Message::new_system("im saying things to fill space");
     for _ in 0..=5 {

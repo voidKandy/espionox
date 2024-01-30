@@ -3,8 +3,8 @@ use rust_bert::pipelines::sentence_embeddings::{
 };
 use std::{error::Error, thread};
 
-pub fn embed(contents: &str) -> Result<Embedding, Box<dyn Error + Send + Sync>> {
-    let contents = contents.to_owned();
+pub fn embed(content: &str) -> Result<Embedding, anyhow::Error> {
+    let contents = content.to_owned();
     // This operation needs to be done on a separate thread because it spawns a tokio runtime
     thread::spawn(move || {
         let model = SentenceEmbeddingsBuilder::remote(SentenceEmbeddingsModelType::AllMiniLmL12V2)

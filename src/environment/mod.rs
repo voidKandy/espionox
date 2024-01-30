@@ -139,7 +139,7 @@ impl Environment {
         Ok(())
     }
 
-    pub async fn add_listener(&mut self, listener: impl EnvListener) {
+    pub async fn insert_listener(&mut self, listener: impl EnvListener) {
         self.listeners.write().await.push(Box::new(listener))
     }
 

@@ -26,6 +26,17 @@ impl EmbeddingVector {
         self.0.clone()
     }
 
+    pub fn score_l2(&self, other: &Self) -> f32 {
+        let sum_of_squares: f32 = self
+            .0
+            .iter()
+            .zip(other.0.iter())
+            .map(|(&x, &y)| (x - y).powi(2))
+            .sum();
+
+        sum_of_squares.sqrt()
+    }
+
     pub(crate) fn from_sql(
         mut buf: &[u8],
     ) -> Result<EmbeddingVector, Box<dyn Error + Sync + Send>> {

@@ -4,7 +4,7 @@ use std::pin::Pin;
 use espionox::{
     environment::{
         agent::memory::{messages::MessageRole, Message},
-        dispatch::{Dispatch, EnvListener, EnvMessage},
+        dispatch::{Dispatch, EnvListener, EnvMessage, ListenerMethodReturn},
         errors::DispatchError,
         Environment,
     },
@@ -45,7 +45,7 @@ impl EnvListener for Forgetful {
         &'l mut self,
         _trigger_message: &'l EnvMessage,
         dispatch: &'l mut Dispatch,
-    ) -> Pin<Box<dyn Future<Output = Result<(), DispatchError>> + Send + Sync + 'l>> {
+    ) -> ListenerMethodReturn {
         Box::pin(async move {
             let watched_agent = dispatch
                 .get_agent_mut(&self.watched_agent_id)
@@ -68,7 +68,7 @@ async fn main() {
         .unwrap();
 
     let sal = Forgetful::from("jerry");
-    env.add_listener(sal).await;
+    env.insert_listener(sal).await;
     env.spawn().await.unwrap();
     let message = Message::new_user("whats up jerry");
     for _ in 0..=5 {

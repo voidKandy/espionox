@@ -7,7 +7,7 @@ use espionox::{
             language_models::LanguageModel,
             memory::{messages::MessageRole, Message},
         },
-        dispatch::{Dispatch, EnvListener, EnvMessage, EnvRequest},
+        dispatch::{Dispatch, EnvListener, EnvMessage, EnvRequest, ListenerMethodReturn},
         errors::DispatchError,
         Environment,
     },
@@ -53,7 +53,7 @@ impl EnvListener for Decomposition {
         &'l mut self,
         trigger_message: &'l EnvMessage,
         dispatch: &'l mut Dispatch,
-    ) -> Pin<Box<dyn Future<Output = Result<(), DispatchError>> + Send + Sync + 'l>> {
+    ) -> ListenerMethodReturn {
         Box::pin(async move {
             let agent = dispatch.get_agent_mut(&self.decomposer_id).unwrap();
             if let EnvMessage::Request(req) = trigger_message {
@@ -119,7 +119,7 @@ async fn main() {
         .unwrap();
 
     let decomp = Decomposition::new("jerry", "decomp", 5);
-    env.add_listener(decomp).await;
+    env.insert_listener(decomp).await;
     env.spawn().await.unwrap();
     let message = Message::new_user("Can you explain an inverse square??");
     let ticket = j_handle.request_io_completion(message).await.unwrap();
