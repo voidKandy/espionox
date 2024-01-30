@@ -5,7 +5,6 @@ use std::cmp::PartialEq;
 use std::convert::TryInto;
 use std::error::Error;
 
-use bytes::BytesMut;
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
 use sqlx::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef};
