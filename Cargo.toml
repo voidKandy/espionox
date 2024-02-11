@@ -20,14 +20,21 @@ path = "examples/summarize_at_limit.rs"
 
 [features]
 default = [
- "filesys"
+ "filesys",
+ "tools"
 ]
 filesys = []
+tools = ["dep:scraper"]
+ 
 
 
 [dependencies]
 sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional =  false }
 pgvector = { version = "0.2.2", features = ["sqlx", "postgres"], optional = true }
+scraper = { version = "0.18.1" , optional = true }
+headless_chrome = "1.0.9"
+base64 = "0.21.7"
+
 
 anyhow = "1.0.71"
 rust-bert = "0.21.0"
