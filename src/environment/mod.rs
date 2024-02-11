@@ -63,7 +63,7 @@ impl EnvThreadHandle {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Dispatch main loop", skip(dispatch))]
+    #[tracing::instrument(name = "Dispatch main loop", skip_all)]
     pub async fn main_loop(
         mut dispatch: RwLockWriteGuard<'_, Dispatch>,
         noti_stack: NotificationStack,

@@ -151,7 +151,7 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
 
     fn method<'l>(
         &'l mut self,
-        _: &'l EnvMessage,
+        trigger_message: EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
@@ -172,7 +172,7 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
                 );
                 agent.cache.push(strcts.to_message());
             }
-            Ok(())
+            Ok(trigger_message)
         })
     }
 }

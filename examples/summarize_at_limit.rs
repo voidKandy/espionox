@@ -50,14 +50,14 @@ impl EnvListener for SummarizeAtLimit {
 
     fn method<'l>(
         &'l mut self,
-        trigger_message: &'l EnvMessage,
+        trigger_message: EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let client = &dispatch.client.clone();
             let api_key = dispatch.api_key().expect("No api key");
             let cache_to_summarize = match trigger_message {
-                EnvMessage::Response(noti) => match noti {
+                EnvMessage::Response(ref noti) => match noti {
                     EnvNotification::AgentStateUpdate { cache, .. } => cache.to_string(),
                     _ => unreachable!(),
                 },
@@ -87,7 +87,7 @@ impl EnvListener for SummarizeAtLimit {
                 .expect("Failed to get watched agent");
             watched_agent.cache.reset_to_system_prompt();
             watched_agent.cache.push(Message::new_system(&summary));
-            Ok(())
+            Ok(trigger_message)
         })
     }
 }

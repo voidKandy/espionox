@@ -11,20 +11,17 @@ use tokio::sync::{RwLock, RwLockWriteGuard};
 use crate::errors::error_chain_fmt;
 
 pub type ListenerMethodReturn<'l> =
-    Pin<Box<dyn Future<Output = Result<(), ListenerError>> + Send + Sync + 'l>>;
+    Pin<Box<dyn Future<Output = Result<EnvMessage, ListenerError>> + Send + Sync + 'l>>;
 
 pub trait EnvListener: std::fmt::Debug + Send + Sync + 'static {
     /// Returns Some when the listener should be triggered
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage>;
-    /// method to be called when listener is activated
+    /// method to be called when listener is activated, must return an env message to replace input
     fn method<'l>(
         &'l mut self,
-        trigger_message: &'l EnvMessage,
+        trigger_message: EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn;
-    fn mutate<'l>(&'l mut self, origin: EnvMessage) -> EnvMessage {
-        origin
-    }
 }
 
 pub(crate) async fn run_listeners(
@@ -40,8 +37,7 @@ pub(crate) async fn run_listeners(
         active
     });
     for l in active_listeners.iter_mut() {
-        l.method(&message, &mut dispatch).await?;
-        message = l.mutate(message);
+        message = l.method(message, &mut dispatch).await?;
     }
     Ok(message)
 }

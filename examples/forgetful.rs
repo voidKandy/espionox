@@ -43,7 +43,7 @@ impl EnvListener for Forgetful {
 
     fn method<'l>(
         &'l mut self,
-        _trigger_message: &'l EnvMessage,
+        trigger_message: EnvMessage,
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
@@ -51,7 +51,7 @@ impl EnvListener for Forgetful {
                 .get_agent_mut(&self.watched_agent_id)
                 .expect("Failed to get watched agent");
             watched_agent.cache.reset_to_system_prompt();
-            Ok(())
+            Ok(trigger_message)
         })
     }
 }
