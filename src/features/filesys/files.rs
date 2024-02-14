@@ -62,17 +62,13 @@ impl From<PathBuf> for File {
 }
 
 impl ToMessage for File {
-    fn to_message(&self) -> Message {
+    fn to_message(&self, role: MessageRole) -> Message {
         // let content = summarize_code_content(&self.content());
         let message = Message {
-            role: self.role(),
+            role,
             content: "hardcoded content".to_string(),
         };
         message
-    }
-
-    fn role(&self) -> MessageRole {
-        MessageRole::System
     }
 
     //     fn get_metadata(&self) -> MessageMetadata {
@@ -89,25 +85,18 @@ impl ToMessageVector for File {
     fn to_message_vector(&self) -> MessageVector {
         let mut mvec = MessageVector::init();
         for chunk in self.chunks.iter() {
-            mvec.push(chunk.to_message());
+            mvec.push(chunk.to_message(MessageRole::User));
         }
         mvec
     }
 }
 
 impl ToMessage for FileChunk {
-    fn to_message(&self) -> Message {
+    fn to_message(&self, role: MessageRole) -> Message {
         let content = &self.content;
         let content = content.to_string();
-        let message = Message {
-            role: self.role(),
-            content,
-        };
+        let message = Message { role, content };
         message
-    }
-
-    fn role(&self) -> MessageRole {
-        MessageRole::System
     }
 
     //     fn get_metadata(&self) -> MessageMetadata {

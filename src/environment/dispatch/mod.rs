@@ -51,7 +51,7 @@ impl Dispatch {
         self.api_key.clone().ok_or(DispatchError::NoApiKey)
     }
 
-    /// Using the ID of an agent, get a it's handle
+    /// Using the ID of an agent, get it's handle
     pub async fn get_agent_handle(&self, id: &str) -> Result<AgentHandle, DispatchError> {
         if let Some(_) = self.agents.get(id) {
             let sender = Arc::clone(&self.channel.sender);

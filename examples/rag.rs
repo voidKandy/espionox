@@ -93,10 +93,7 @@ pub struct Product<'p> {
 pub struct DbStruct<'p>(Vec<Product<'p>>);
 
 impl<'p> ToMessage for DbStruct<'p> {
-    fn role(&self) -> MessageRole {
-        MessageRole::User
-    }
-    fn to_message(&self) -> Message {
+    fn to_message(&self, role: MessageRole) -> Message {
         let mut content = String::from("Answer the user's query based on the provided data:");
         self.0.iter().for_each(|p| {
             content.push_str(&format!(
@@ -104,10 +101,7 @@ impl<'p> ToMessage for DbStruct<'p> {
                 p.name, p.description
             ));
         });
-        Message {
-            role: self.role(),
-            content,
-        }
+        Message { role, content }
     }
 }
 
@@ -170,7 +164,7 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
                     "STRUCTS PUSHING: {:?}",
                     strcts.0.iter().map(|p| p.name).collect::<Vec<&str>>()
                 );
-                agent.cache.push(strcts.to_message());
+                agent.cache.push(strcts.to_message(MessageRole::System));
             }
             Ok(trigger_message)
         })

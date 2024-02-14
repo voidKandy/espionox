@@ -18,8 +18,7 @@ impl PartialEq for Message {
 impl Eq for Message {}
 
 pub trait ToMessage: std::fmt::Debug + Send + Sync {
-    fn to_message(&self) -> Message;
-    fn role(&self) -> MessageRole;
+    fn to_message(&self, role: MessageRole) -> Message;
 }
 
 pub trait ToMessageVector {
