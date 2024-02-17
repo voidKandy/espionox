@@ -12,3 +12,9 @@
 - new method `request_state` added to `AgentHandle` for getting the current cache state of the associated agent
 - Added experimental `Surfer` and `Vision` agents
 - Listener trait changed slightly; `mutate` method no longer exists, any mutations to the trigger message should be done in `method`, which now returns an `EnvMessage`
+
+# v0.1.11
+
+## HOTFIX
+
+Merge removed `is_running` method from `Environment` this fixes that

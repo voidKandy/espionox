@@ -102,6 +102,10 @@ impl EnvThreadHandle {
 }
 
 impl Environment {
+    pub fn is_running(&self) -> bool {
+        self.handle.is_some()
+    }
+
     pub fn clone_sender(&self) -> EnvMessageSender {
         Arc::clone(&self.sender)
     }
