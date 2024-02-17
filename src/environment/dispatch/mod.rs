@@ -111,7 +111,7 @@ impl Dispatch {
                 .await
                 .map_err(|_| DispatchError::Send),
             EnvNotification::GotFunctionResponse { agent_id, json, .. } => {
-                let message = Message::new(MessageRole::Assistant, &json.to_string());
+                let message = Message::new_assistant(&json.to_string());
                 self.channel
                     .sender
                     .lock()
@@ -170,7 +170,7 @@ impl Dispatch {
 
                 let agent = self.get_agent_mut(&agent_id)?;
                 let res_str = agent.handle_completion_response(response)?;
-                let message = Message::new(MessageRole::Assistant, &res_str);
+                let message = Message::new_assistant(&res_str);
 
                 self.channel
                     .sender
