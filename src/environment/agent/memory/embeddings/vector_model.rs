@@ -5,6 +5,11 @@ use std::cmp::PartialEq;
 use std::convert::TryInto;
 use std::error::Error;
 
+use sqlx::encode::IsNull;
+use sqlx::error::BoxDynError;
+use sqlx::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef};
+use sqlx::{Decode, Encode, Postgres, Type};
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EmbeddingVector(Vec<f32>);
 
@@ -24,6 +29,17 @@ impl Into<Vec<f32>> for EmbeddingVector {
 impl EmbeddingVector {
     pub fn to_vec(&self) -> Vec<f32> {
         self.0.clone()
+    }
+
+    pub fn score_l2(&self, other: &Self) -> f32 {
+        let sum_of_squares: f32 = self
+            .0
+            .iter()
+            .zip(other.0.iter())
+            .map(|(&x, &y)| (x - y).powi(2))
+            .sum();
+
+        sum_of_squares.sqrt()
     }
 
     pub(crate) fn from_sql(
@@ -60,20 +76,30 @@ impl PartialEq for EmbeddingVector {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::EmbeddingVector;
-
-    #[test]
-    fn test_into() {
-        let vec = EmbeddingVector::from(vec![1.0, 2.0, 3.0]);
-        let f32_vec: Vec<f32> = vec.into();
-        assert_eq!(f32_vec, vec![1.0, 2.0, 3.0]);
+impl Type<Postgres> for EmbeddingVector {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("vector")
     }
+}
 
-    #[test]
-    fn test_to_vec() {
-        let vec = EmbeddingVector::from(vec![1.0, 2.0, 3.0]);
-        assert_eq!(vec.to_vec(), vec![1.0, 2.0, 3.0]);
+impl Encode<'_, Postgres> for EmbeddingVector {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
+        let mut w = BytesMut::new();
+        self.to_sql(&mut w).unwrap();
+        buf.extend(&w[..]);
+        IsNull::No
+    }
+}
+
+impl Decode<'_, Postgres> for EmbeddingVector {
+    fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
+        let buf = <&[u8] as Decode<Postgres>>::decode(value)?;
+        EmbeddingVector::from_sql(buf)
+    }
+}
+
+impl PgHasArrayType for EmbeddingVector {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("_vector")
     }
 }

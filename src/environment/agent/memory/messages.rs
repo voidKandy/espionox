@@ -8,7 +8,6 @@ use std::fmt;
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
-    pub metadata: MessageMetadata,
 }
 
 impl PartialEq for Message {
@@ -18,30 +17,12 @@ impl PartialEq for Message {
 }
 impl Eq for Message {}
 
-pub trait ToMessage: std::fmt::Debug + ToString + Send + Sync {
-    fn to_message(&self) -> Message;
-    fn get_metadata(&self) -> MessageMetadata {
-        MessageMetadata::default()
-    }
-    fn role(&self) -> MessageRole;
+pub trait ToMessage: std::fmt::Debug + Send + Sync {
+    fn to_message(&self, role: MessageRole) -> Message;
 }
 
 pub trait ToMessageVector {
     fn to_message_vector(&self) -> MessageVector;
-}
-
-impl ToMessage for String {
-    fn to_message(&self) -> Message {
-        let message = Message {
-            role: self.role(),
-            content: self.to_string(),
-            metadata: self.get_metadata(),
-        };
-        message
-    }
-    fn role(&self) -> MessageRole {
-        MessageRole::System
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -50,20 +31,6 @@ pub enum MessageRole {
     User,
     System,
     Other(String),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct MetadataInfo {
-    pub name: String,
-    pub content: String,
-    pub embedding: Option<EmbeddingVector>,
-}
-
-/// Data about a struct that can only be ascertained by a model
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct MessageMetadata {
-    pub content_embedding: Option<EmbeddingVector>,
-    pub infos: Vec<MetadataInfo>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -101,37 +68,35 @@ impl From<String> for MessageRole {
 }
 
 impl Message {
-    /// Best way to initialize a standard message
-    pub fn new(role: MessageRole, content: &str) -> Self {
+    pub fn new_other(role: &str, content: &str) -> Self {
         Message {
-            role,
+            role: MessageRole::Other(role.to_string()),
             content: content.to_string(),
-            metadata: MessageMetadata::default(),
+            // embeddings: None,
         }
     }
-}
 
-impl Default for MessageMetadata {
-    fn default() -> Self {
-        Self {
-            content_embedding: None,
-            infos: vec![],
+    pub fn new_system(content: &str) -> Self {
+        Message {
+            role: MessageRole::System,
+            content: content.to_string(),
+            // embeddings: MessageMetadata::default(),
         }
     }
-}
 
-impl MetadataInfo {
-    pub fn new(name: &str, content: &str, create_embedding: bool) -> Self {
-        let name = name.to_lowercase().to_string();
-        let content = content.to_string();
-        let embedding = match create_embedding {
-            true => embed(&content).ok().map(|emb| emb.into()),
-            false => None,
-        };
-        Self {
-            name,
-            content,
-            embedding,
+    pub fn new_user(content: &str) -> Self {
+        Message {
+            role: MessageRole::User,
+            content: content.to_string(),
+            // metadata: MessageMetadata::default(),
+        }
+    }
+
+    pub fn new_assistant(content: &str) -> Self {
+        Message {
+            role: MessageRole::Assistant,
+            content: content.to_string(),
+            // metadata: MessageMetadata::default(),
         }
     }
 }
@@ -173,7 +138,6 @@ impl From<GptMessage> for Message {
         Message {
             role: value.role.into(),
             content,
-            metadata: MessageMetadata::default(),
         }
     }
 }
@@ -189,11 +153,7 @@ impl From<Value> for Message {
             .get("content")
             .expect("Couldn't get content")
             .to_string();
-        Message {
-            role,
-            content,
-            metadata: MessageMetadata::default(),
-        }
+        Message { role, content }
     }
 }
 
