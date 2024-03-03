@@ -1,7 +1,8 @@
 use crate::errors::error_chain_fmt;
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 #[derive(thiserror::Error)]
-pub enum GptError {
+pub enum ModelEndpointError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
     NetRequest(#[from] reqwest::Error),
@@ -9,14 +10,14 @@ pub enum GptError {
     NoApiKey,
 }
 
-impl std::fmt::Debug for GptError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for ModelEndpointError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         error_chain_fmt(self, f)
     }
 }
 
-impl std::fmt::Display for GptError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for ModelEndpointError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{:?}", self)
     }
 }

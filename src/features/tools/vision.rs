@@ -1,5 +1,5 @@
-use crate::environment::agent::{
-    language_models::{openai::gpt::models::GptResponse, GptError, LanguageModel},
+use crate::agents::{
+    language_models::{error::ModelEndpointError, openai::gpt::models::GptResponse, LanguageModel},
     memory::MessageVector,
 };
 use reqwest::Client;
@@ -67,7 +67,7 @@ pub async fn vision_completion(
     api_key: &str,
     context: &Vec<Value>,
     model: &LanguageModel,
-) -> Result<GptResponse, GptError> {
+) -> Result<GptResponse, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let temperature = (gpt.temperature * 10.0).round() / 10.0;
     let payload = json!({"model": "gpt-4-vision-preview", "messages": context, "temperature": temperature, "max_tokens": 1000});

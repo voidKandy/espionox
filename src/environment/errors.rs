@@ -1,8 +1,11 @@
-pub use super::agent::language_models::GptError;
-use super::{
-    agent::language_models::openai::gpt::streaming_utils::StreamError, dispatch::ListenerError,
+use crate::{
+    agents::{error::AgentError, language_models::error::ModelEndpointError},
+    errors::error_chain_fmt,
 };
-use crate::errors::error_chain_fmt;
+
+use std::fmt::{Debug, Display, Formatter};
+
+pub use super::dispatch::listeners::error::ListenerError;
 
 #[derive(thiserror::Error)]
 pub enum EnvError {
@@ -16,77 +19,43 @@ pub enum EnvError {
     Send,
 }
 
+impl From<ModelEndpointError> for DispatchError {
+    fn from(value: ModelEndpointError) -> Self {
+        Self::Agent(value.into())
+    }
+}
+
 #[derive(thiserror::Error)]
 pub enum DispatchError {
     Undefined(#[from] anyhow::Error),
-    Gpt(#[from] GptError),
+    Listener(#[from] ListenerError),
     Agent(#[from] AgentError),
-    Stream(#[from] StreamError),
     Timeout(#[from] tokio::time::error::Elapsed),
     NoApiKey,
     AgentIsNone,
     Send,
 }
 
-#[derive(thiserror::Error)]
-pub enum AgentError {
-    #[error(transparent)]
-    Undefined(#[from] anyhow::Error),
-    GptError(#[from] GptError),
-    EnvSend,
-    AgentSenderIsNone,
-}
-
-#[derive(thiserror::Error)]
-pub enum MemoryError {
-    Unexpected(#[from] anyhow::Error),
-    Agent(#[from] AgentError),
-}
-
-impl std::fmt::Debug for EnvError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for EnvError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         error_chain_fmt(self, f)
     }
 }
 
-impl std::fmt::Display for EnvError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for EnvError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl std::fmt::Debug for DispatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for DispatchError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         error_chain_fmt(self, f)
     }
 }
 
-impl std::fmt::Display for DispatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::fmt::Debug for MemoryError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for MemoryError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::fmt::Debug for AgentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for AgentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for DispatchError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }

@@ -1,47 +1,16 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, BytesMut};
-use serde::{Deserialize, Serialize};
-use std::cmp::PartialEq;
 use std::convert::TryInto;
 use std::error::Error;
 
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
 use sqlx::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef};
-use sqlx::{Decode, Encode, Postgres, Type};
+use sqlx::{Decode, Encode, Postgres};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EmbeddingVector(Vec<f32>);
-
-impl From<Vec<f32>> for EmbeddingVector {
-    fn from(v: Vec<f32>) -> Self {
-        EmbeddingVector(v)
-    }
-}
-
-impl Into<Vec<f32>> for EmbeddingVector {
-    fn into(self) -> Vec<f32> {
-        self.0
-    }
-}
-
+use super::EmbeddingVector;
 #[allow(unused)]
 impl EmbeddingVector {
-    pub fn to_vec(&self) -> Vec<f32> {
-        self.0.clone()
-    }
-
-    pub fn score_l2(&self, other: &Self) -> f32 {
-        let sum_of_squares: f32 = self
-            .0
-            .iter()
-            .zip(other.0.iter())
-            .map(|(&x, &y)| (x - y).powi(2))
-            .sum();
-
-        sum_of_squares.sqrt()
-    }
-
     pub(crate) fn from_sql(
         mut buf: &[u8],
     ) -> Result<EmbeddingVector, Box<dyn Error + Sync + Send>> {
@@ -67,18 +36,6 @@ impl EmbeddingVector {
         }
 
         Ok(())
-    }
-}
-
-impl PartialEq for EmbeddingVector {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Type<Postgres> for EmbeddingVector {
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::with_name("vector")
     }
 }
 

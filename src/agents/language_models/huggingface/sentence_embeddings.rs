@@ -1,7 +1,7 @@
 use rust_bert::pipelines::sentence_embeddings::{
     Embedding, SentenceEmbeddingsBuilder, SentenceEmbeddingsModelType,
 };
-use std::{error::Error, thread};
+use std::thread;
 
 pub fn embed(content: &str) -> Result<Embedding, anyhow::Error> {
     let contents = content.to_owned();

@@ -1,5 +1,5 @@
-use super::{embeddings::EmbeddingVector, MessageVector};
-use crate::environment::agent::language_models::{embed, openai::gpt::GptMessage};
+use super::MessageVector;
+use crate::agents::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
@@ -23,6 +23,15 @@ pub trait ToMessage: std::fmt::Debug + Send + Sync {
 
 pub trait ToMessageVector {
     fn to_message_vector(&self) -> MessageVector;
+}
+
+impl ToMessage for String {
+    fn to_message(&self, role: MessageRole) -> Message {
+        Message {
+            role,
+            content: self.to_owned(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

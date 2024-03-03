@@ -1,18 +1,19 @@
 mod channel;
-mod listeners;
+pub mod listeners;
 pub use channel::*;
-pub use listeners::*;
+pub use listeners::EnvListener;
 use tokio::sync::Mutex;
 
+use super::AgentHandle;
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
 
-use crate::{
-    environment::agent::{
-        language_models::openai::gpt::streaming_utils::*,
-        memory::{messages::MessageRole, Message, MessageVector},
-        AgentHandle,
+use crate::agents::{
+    independent::IndependentAgent,
+    language_models::openai::gpt::streaming::{
+        CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
     },
+    memory::{Message, MessageVector},
     Agent,
 };
 use std::collections::HashMap;
@@ -32,6 +33,16 @@ pub struct Dispatch {
 }
 
 impl Dispatch {
+    /// Using the api key and client already in dispatch, make an agent independent
+    pub async fn make_agent_independent(
+        &self,
+        agent: Agent,
+    ) -> Result<IndependentAgent, DispatchError> {
+        let api_key = self.api_key()?;
+        let client = self.client.clone();
+        Ok(IndependentAgent::new(agent, client, api_key))
+    }
+    /// Get a mutable reference to an agent within the dispatch
     pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent, DispatchError> {
         if let Some(agent) = self.agents.get_mut(id) {
             return Ok(agent);
@@ -39,6 +50,7 @@ impl Dispatch {
         Err(DispatchError::AgentIsNone)
     }
 
+    /// Get a immutable reference to an agent within the dispatch
     pub fn get_agent_ref(&self, id: &str) -> Result<&Agent, DispatchError> {
         if let Some(agent) = self.agents.get(id) {
             return Ok(agent);
@@ -46,6 +58,9 @@ impl Dispatch {
         Err(DispatchError::AgentIsNone)
     }
 
+    /// Get the api key of the dispatch
+    /// TODO!
+    /// THIS METHOD WILL NEED TO CHANGE WHEN MORE MODELS ARE SUPPORTED
     pub fn api_key(&self) -> Result<String, DispatchError> {
         self.api_key.clone().ok_or(DispatchError::NoApiKey)
     }
@@ -80,10 +95,18 @@ impl Dispatch {
         agent.cache.push(message.to_owned());
         let cache = agent.cache.clone();
         let agent_id = agent_id.to_string();
+        let ticket = uuid::Uuid::new_v4();
         sender
             .lock()
             .await
-            .send(EnvNotification::CacheUpdate { agent_id, cache }.into())
+            .send(
+                EnvNotification::AgentStateUpdate {
+                    ticket,
+                    agent_id,
+                    cache,
+                }
+                .into(),
+            )
             .await
             .map_err(|_| DispatchError::Send)?;
         Ok(())
@@ -136,6 +159,21 @@ impl Dispatch {
     pub(super) async fn handle_request(&mut self, req: EnvRequest) -> Result<(), DispatchError> {
         let response = match req {
             EnvRequest::Finish => self.finish().await,
+
+            EnvRequest::GetAgentState { ticket, agent_id } => {
+                let agent = self.get_agent_ref(&agent_id)?;
+                let cache = agent.cache.clone();
+                let sender = &self.channel.sender.lock().await;
+                let response = EnvNotification::AgentStateUpdate {
+                    ticket,
+                    agent_id,
+                    cache,
+                };
+                sender
+                    .send(response.into())
+                    .await
+                    .map_err(|_| DispatchError::Send)
+            }
 
             EnvRequest::PushToCache { agent_id, message } => {
                 let sender = Arc::clone(&self.channel.sender);

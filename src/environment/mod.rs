@@ -1,8 +1,8 @@
-pub mod agent;
+pub mod agent_handle;
 pub mod dispatch;
 pub mod errors;
 
-use crate::Agent;
+use agent_handle::AgentHandle;
 use dispatch::*;
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 use tokio::{
@@ -11,10 +11,8 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use self::{
-    agent::{memory::Message, AgentHandle},
-    errors::EnvError,
-};
+use crate::agents::{independent::IndependentAgent, Agent};
+pub use errors::*;
 
 #[derive(Debug)]
 pub struct NotificationStack(pub Arc<RwLock<VecDeque<EnvNotification>>>);
@@ -37,7 +35,7 @@ impl Into<Arc<RwLock<VecDeque<EnvNotification>>>> for NotificationStack {
     }
 }
 #[derive(Debug)]
-pub struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
+struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
 
 #[derive(Debug)]
 pub struct Environment {
@@ -51,14 +49,15 @@ pub struct Environment {
 
 impl EnvThreadHandle {
     /// Join and resolve the current thread
-    /// Env will need to be 'rerun' after calling this method
-    pub async fn join(self) -> Result<(), EnvError> {
+    /// In order to make more requests
+    /// You will need to call `spawn` on this env again after calling this method
+    async fn join(self) -> Result<(), EnvError> {
         self.0.await??;
         Ok(())
     }
 
     #[tracing::instrument(name = "Dispatch main loop", skip_all)]
-    pub async fn main_loop(
+    async fn main_loop(
         mut dispatch: RwLockWriteGuard<'_, Dispatch>,
         noti_stack: NotificationStack,
         listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
@@ -71,8 +70,12 @@ impl EnvThreadHandle {
                 .recv()
                 .await
             {
-                let message =
-                    dispatch::run_listeners(message, Arc::clone(&listeners), &mut dispatch).await?;
+                let message = dispatch::listeners::run_listeners(
+                    message,
+                    Arc::clone(&listeners),
+                    &mut dispatch,
+                )
+                .await?;
                 match message {
                     EnvMessage::Request(req) => {
                         tracing::info!("Dispatch received request: {:?}", req);
@@ -102,10 +105,22 @@ impl EnvThreadHandle {
 }
 
 impl Environment {
+    /// Wraps method by the same name in inner Dispatch
+    pub async fn make_agent_independent(&self, agent: Agent) -> Result<IndependentAgent, EnvError> {
+        Ok(self
+            .dispatch
+            .read()
+            .await
+            .make_agent_independent(agent)
+            .await?)
+    }
+
+    /// Returns boolean if environment thread handle has already been spawned
     pub fn is_running(&self) -> bool {
         self.handle.is_some()
     }
 
+    /// Helper method for getting Arc clone of message sender
     pub fn clone_sender(&self) -> EnvMessageSender {
         Arc::clone(&self.sender)
     }
@@ -133,6 +148,7 @@ impl Environment {
         Ok(())
     }
 
+    /// Insert any struct implementing `EnvListener` trait
     pub async fn insert_listener(&mut self, listener: impl EnvListener) {
         self.listeners.write().await.push(Box::new(listener))
     }
@@ -203,13 +219,13 @@ impl Environment {
 
 impl NotificationStack {
     /// Pushes given notification to the front
-    pub async fn push(&self, noti: EnvNotification) {
+    pub(crate) async fn push(&self, noti: EnvNotification) {
         let mut write = self.0.write().await;
         match noti {
-            EnvNotification::CacheUpdate { ref agent_id, .. } => {
+            EnvNotification::AgentStateUpdate { ref agent_id, .. } => {
                 let outer_id = agent_id;
                 write.retain(|noti| match noti {
-                    EnvNotification::CacheUpdate { agent_id, .. } => &agent_id != &outer_id,
+                    EnvNotification::AgentStateUpdate { agent_id, .. } => &agent_id != &outer_id,
                     _ => true,
                 });
             }

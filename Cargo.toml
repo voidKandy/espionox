@@ -1,6 +1,6 @@
 [package]
 name = "espionox"
-version = "0.1.11"
+version = "0.1.2"
 license = "MIT OR Apache-2.0"
 description = "A library for creating multi-agent workflows in Rust"
 homepage="https://github.com/voidKandy/Espionox"
@@ -16,24 +16,31 @@ path = "src/lib.rs"
 [[example]]
 name = "summarize_at_limit"
 path = "examples/summarize_at_limit.rs"
+[[example]]
+name = "forgetful"
+path = "examples/forgetful.rs"
+[[example]]
+name = "rag"
+path = "examples/rag.rs"
 
 
 [features]
 default = [
- "filesys",
- "tools"
+ # "tools"
+ # "embedding_sql"
 ]
-filesys = []
-tools = ["dep:scraper"]
+tools = ["dep:scraper", "dep:headless_chrome", "dep:base64"]
+embedding_sql = ["dep:sqlx", "dep:pgvector"]
+
  
 
 
 [dependencies]
-sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional =  false }
+sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional = true }
 pgvector = { version = "0.2.2", features = ["sqlx", "postgres"], optional = true }
 scraper = { version = "0.18.1" , optional = true }
-headless_chrome = "1.0.9"
-base64 = "0.21.7"
+headless_chrome = { version = "1.0.9", optional = true}
+base64 = { version = "0.21.7", optional = true }
 
 
 anyhow = "1.0.71"

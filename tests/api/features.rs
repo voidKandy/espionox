@@ -1,15 +1,13 @@
-use espionox::features::tools::vision::{message_vector_to_context_with_image, vision_completion};
-use espionox::features::tools::websurf::Surfer;
-use espionox::{
-    environment::agent::{
-        language_models::{
-            openai::gpt::{Gpt, GptModel},
-            LanguageModel,
-        },
-        memory::{Message, MessageVector},
+use espionox::agents::{
+    language_models::{
+        openai::gpt::{Gpt, GptModel},
+        LanguageModel,
     },
+    memory::{Message, MessageVector},
     Agent,
 };
+use espionox::features::tools::vision::{message_vector_to_context_with_image, vision_completion};
+use espionox::features::tools::websurf::Surfer;
 
 use crate::{helpers, init_test, test_env};
 
@@ -32,7 +30,6 @@ async fn vision_completion_works() {
         .await
         .unwrap();
     tracing::info!("{:?}", response);
-    assert!(false)
 }
 
 #[tokio::test]
@@ -43,9 +40,12 @@ async fn surfer_get_screenshot_works() {
     let handle = env.insert_agent(None, agent).await.unwrap();
     let mut surfer = Surfer::from(&handle);
     surfer.get_screenshot("https://docs.rs/headless_chrome/latest/headless_chrome/browser/tab/struct.Tab.html#method.print_to_pdf").unwrap();
-    let desc = surfer.description_of_current_screenshot().await.unwrap();
+    let api_key = std::env::var("TESTING_API_KEY").unwrap();
+    let desc = surfer
+        .description_of_current_screenshot(&api_key)
+        .await
+        .unwrap();
     tracing::info!("{:?}", desc);
-    assert!(false);
 }
 
 #[tokio::test]
@@ -69,5 +69,4 @@ async fn surfer_listener_works() {
         .unwrap();
     let response: &Message = comp_noti.extract_body().try_into().unwrap();
     println!("{}", response.content);
-    assert!(false);
 }

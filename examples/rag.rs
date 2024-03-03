@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
 use espionox::{
+    agents::{
+        language_models::{huggingface::embed, LanguageModel},
+        memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
+        Agent,
+    },
     environment::{
-        agent::{
-            language_models::{huggingface::embed, LanguageModel},
-            memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
+        dispatch::{
+            listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvRequest,
         },
-        dispatch::{Dispatch, EnvListener, EnvMessage, EnvRequest, ListenerMethodReturn},
         Environment,
     },
-    Agent,
 };
 
 #[derive(Debug)]

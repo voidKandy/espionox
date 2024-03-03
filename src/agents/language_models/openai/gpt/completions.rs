@@ -1,9 +1,9 @@
 use super::{
     super::{super::LanguageModel, functions::Function},
     models::*,
-    streaming_utils::*,
+    streaming::*,
 };
-use crate::environment::errors::GptError;
+use crate::agents::language_models::error::ModelEndpointError;
 use anyhow::anyhow;
 use bytes::Bytes;
 use reqwest::Client;
@@ -17,7 +17,7 @@ pub fn io_completion_fn_wrapper<'c>(
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>> {
     Box::pin(io_completion(client, api_key, context, model))
 }
 
@@ -26,7 +26,8 @@ pub fn stream_completion_fn_wrapper<'c>(
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
-) -> Pin<Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + Sync + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<CompletionStream, ModelEndpointError>> + Send + Sync + 'c>>
+{
     Box::pin(stream_completion(client, api_key, context, model))
 }
 
@@ -36,7 +37,7 @@ pub fn function_completion_fn_wrapper<'c>(
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
     function: &'c Function,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>> {
     Box::pin(function_completion(
         client, api_key, context, model, function,
     ))
@@ -48,7 +49,7 @@ pub(crate) async fn io_completion(
     api_key: &str,
     context: &Vec<Value>,
     model: &LanguageModel,
-) -> Result<GptResponse, GptError> {
+) -> Result<GptResponse, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let temperature = (gpt.temperature * 10.0).round() / 10.0;
     let payload = json!({"model": gpt.model.to_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
@@ -69,7 +70,7 @@ pub async fn stream_completion(
     api_key: &str,
     context: &Vec<Value>,
     model: &LanguageModel,
-) -> Result<CompletionStream, GptError> {
+) -> Result<CompletionStream, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let temperature = (gpt.temperature * 10.0).round() / 10.0;
     let payload = json!({
@@ -93,12 +94,12 @@ pub async fn stream_completion(
         request
             .send()
             .await
-            .map_err(|err| GptError::NetRequest(err))
+            .map_err(|err| ModelEndpointError::NetRequest(err))
             .unwrap()
             .json_array_stream::<StreamResponse>(1024)
     })
     .await
-    .map_err(|_| GptError::Undefined(anyhow!("Response stream request timed out")))?;
+    .map_err(|_| ModelEndpointError::Undefined(anyhow!("Response stream request timed out")))?;
 
     tracing::info!("Got response stream, returning");
     Ok(Box::new(response_stream))
@@ -111,7 +112,7 @@ pub async fn function_completion(
     context: &Vec<Value>,
     model: &LanguageModel,
     function: &Function,
-) -> Result<GptResponse, GptError> {
+) -> Result<GptResponse, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let payload = json!({
         "model": gpt.model.to_string(),
@@ -181,7 +182,7 @@ impl GptResponse {
 
 impl StreamResponse {
     #[tracing::instrument(name = "Get token from byte chunk")]
-    pub async fn from_byte_chunk(chunk: Bytes) -> Result<Option<Self>, GptError> {
+    pub async fn from_byte_chunk(chunk: Bytes) -> Result<Option<Self>, ModelEndpointError> {
         let chunk_string = String::from_utf8_lossy(&chunk).trim().to_string();
 
         let chunk_strings: Vec<&str> = chunk_string.split('\n').filter(|s| !s.is_empty()).collect();
@@ -215,7 +216,7 @@ impl StreamResponse {
                 }
                 Err(err) => {
                     if err.to_string().contains("expected value") {
-                        return Err(GptError::Recoverable);
+                        return Err(ModelEndpointError::Recoverable);
                     }
                 }
             }

@@ -1,14 +1,38 @@
 use futures_util::Future;
 
-use crate::environment::errors::{AgentError, DispatchError, EnvError};
-
 use super::{Dispatch, EnvMessage};
+
 use std::pin::Pin;
 
 use std::sync::Arc;
 use tokio::sync::{RwLock, RwLockWriteGuard};
 
-use crate::errors::error_chain_fmt;
+pub mod error {
+    use crate::agents::AgentError;
+    use crate::errors::error_chain_fmt;
+    use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+
+    #[derive(thiserror::Error)]
+    pub enum ListenerError {
+        #[error(transparent)]
+        Undefined(#[from] anyhow::Error),
+        Agent(#[from] AgentError),
+        Other(String),
+    }
+
+    impl Debug for ListenerError {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+            error_chain_fmt(self, f)
+        }
+    }
+
+    impl Display for ListenerError {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+            write!(f, "{:?}", self)
+        }
+    }
+}
+use error::*;
 
 pub type ListenerMethodReturn<'l> =
     Pin<Box<dyn Future<Output = Result<EnvMessage, ListenerError>> + Send + Sync + 'l>>;
@@ -40,25 +64,4 @@ pub(crate) async fn run_listeners(
         message = l.method(message, &mut dispatch).await?;
     }
     Ok(message)
-}
-
-#[derive(thiserror::Error)]
-pub enum ListenerError {
-    #[error(transparent)]
-    Undefined(#[from] anyhow::Error),
-    Dispatch(#[from] DispatchError),
-    Agent(#[from] AgentError),
-    Other(String),
-}
-
-impl std::fmt::Debug for ListenerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for ListenerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }

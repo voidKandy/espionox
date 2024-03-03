@@ -1,14 +1,9 @@
-use futures_util::Future;
-use std::pin::Pin;
-
 use espionox::{
+    agents::{memory::Message, Agent},
     environment::{
-        agent::memory::{messages::MessageRole, Message},
-        dispatch::{Dispatch, EnvListener, EnvMessage, ListenerMethodReturn},
-        errors::DispatchError,
+        dispatch::{listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage},
         Environment,
     },
-    Agent,
 };
 
 #[derive(Debug)]
@@ -67,8 +62,8 @@ async fn main() {
         .await
         .unwrap();
 
-    let sal = Forgetful::from("jerry");
-    env.insert_listener(sal).await;
+    let fgt = Forgetful::from("jerry");
+    env.insert_listener(fgt).await;
     env.spawn().await.unwrap();
     let message = Message::new_user("whats up jerry");
     for _ in 0..=5 {

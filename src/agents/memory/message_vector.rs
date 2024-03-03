@@ -70,15 +70,19 @@ impl MessageVector {
         self.0.len()
     }
 
-    /// Clone the MessageVector & remove any messages with system role
-    pub fn clone_sans_system_prompt(&self) -> MessageVector {
-        MessageVector::from(
-            self.as_ref()
-                .iter()
-                .filter(|message| message.role != MessageRole::System)
-                .cloned()
-                .collect::<Vec<Message>>(),
-        )
+    ///  Get a clone of the MessageVector but without any System messages
+    pub fn clone_sans_system_prompt(&self) -> Option<MessageVector> {
+        let clone = self
+            .as_ref()
+            .iter()
+            .filter(|message| message.role != MessageRole::System)
+            .cloned()
+            .collect::<Vec<Message>>();
+        if clone.len() > 0 {
+            Some(MessageVector::from(clone))
+        } else {
+            None
+        }
     }
 
     /// Clone the MessageVector & remove any messages without system role
@@ -105,23 +109,4 @@ impl MessageVector {
             .filter(|m| m.role == MessageRole::User || m.role == MessageRole::Assistant)
             .count()
     }
-
-    // pub fn get_structs(&self) -> Option<Vec<Box<dyn ToMessage>>> {
-    //     let mut return_vec = Vec::new();
-    //     for message in self.as_ref().into_iter() {
-    //         if let Message::FlatStruct { .. } = message {
-    //             return_vec.push(
-    //                 message
-    //                     .to_owned()
-    //                     .try_into()
-    //                     .expect("Failed to get box struct from message"),
-    //             );
-    //         }
-    //     }
-    //     if !return_vec.is_empty() {
-    //         Some(return_vec)
-    //     } else {
-    //         None
-    //     }
-    // }
 }

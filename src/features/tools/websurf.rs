@@ -1,16 +1,14 @@
-use std::sync::Arc;
-
 use headless_chrome::{
     self,
     protocol::cdp::{Page::CaptureScreenshotFormatOption, Target::CreateTarget},
-    Browser, LaunchOptions, Tab,
+    Browser, LaunchOptions,
 };
 use reqwest::Client;
 use serde_derive::Deserialize;
 use serde_json::{json, Value};
 
-use crate::environment::{
-    agent::{
+use crate::{
+    agents::{
         language_models::{
             openai::{
                 functions::{CustomFunction, Property, PropertyInfo},
@@ -19,9 +17,12 @@ use crate::environment::{
             LanguageModel,
         },
         memory::{Message, MessageRole, MessageVector},
-        AgentHandle,
     },
-    dispatch::{EnvListener, EnvMessage, EnvRequest, ListenerError},
+    environment::{
+        agent_handle::AgentHandle,
+        dispatch::{listeners::ListenerMethodReturn, EnvListener, EnvMessage, EnvRequest},
+        ListenerError,
+    },
 };
 
 use super::vision::{message_vector_to_context_with_image, vision_completion};
@@ -115,7 +116,10 @@ impl Surfer {
         Ok(())
     }
 
-    pub async fn description_of_current_screenshot(&self) -> Result<String, anyhow::Error> {
+    pub async fn description_of_current_screenshot(
+        &self,
+        api_key: &str,
+    ) -> Result<String, anyhow::Error> {
         let mut messages = MessageVector::new(
             "Your job is to give detailed descriptions of webpages based on screenshots",
         );
@@ -124,11 +128,12 @@ impl Surfer {
         let screenshot = self.current_screenshot.clone().unwrap();
         let context = message_vector_to_context_with_image(&mut messages, None, Some(screenshot));
         let client = reqwest::Client::new();
-        let api_key = std::env::var("TESTING_API_KEY").unwrap();
+        //// BAD!!!
+        // let api_key = std::env::var("TESTING_API_KEY").unwrap();
         let gpt = Gpt::new(GptModel::Gpt4, 0.4);
         let model = LanguageModel::OpenAi(gpt);
 
-        let response = vision_completion(&client, &api_key, &context, &model).await?;
+        let response = vision_completion(&client, api_key, &context, &model).await?;
         response.parse()
     }
 }
@@ -141,7 +146,7 @@ impl EnvListener for Surfer {
         &'l mut self,
         trigger_message: EnvMessage,
         dispatch: &'l mut crate::environment::dispatch::Dispatch,
-    ) -> crate::environment::dispatch::ListenerMethodReturn {
+    ) -> ListenerMethodReturn {
         Box::pin(async move {
             let trigger_message = self.listener.method(trigger_message, dispatch).await?;
             let trigger_message: EnvRequest = trigger_message.try_into().unwrap();
@@ -152,7 +157,9 @@ impl EnvListener for Surfer {
                     self.get_screenshot(&fn_out.url)
                         .map_err(|e| ListenerError::Undefined(e.into()))?;
                     let screenshot_desc = self
-                        .description_of_current_screenshot()
+                        .description_of_current_screenshot(&dispatch.api_key().map_err(|_| {
+                            ListenerError::Other("NO API KEY IN DISPATCH".to_owned())
+                        })?)
                         .await
                         .map_err(|e| ListenerError::Undefined(e.into()))?;
                     tracing::info!("Surfer got screenshot, desc: {}", screenshot_desc);
@@ -194,7 +201,7 @@ impl EnvListener for SurferListener {
         &'l mut self,
         trigger_message: crate::environment::dispatch::EnvMessage,
         dispatch: &'l mut crate::environment::dispatch::Dispatch,
-    ) -> crate::environment::dispatch::ListenerMethodReturn {
+    ) -> ListenerMethodReturn {
         Box::pin(async move {
             let req: EnvRequest = trigger_message.try_into().unwrap();
             if let EnvRequest::PushToCache { message, agent_id } = req {

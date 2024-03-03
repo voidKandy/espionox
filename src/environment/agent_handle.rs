@@ -1,27 +1,15 @@
-pub mod language_models;
-pub mod memory;
-pub mod utils;
-use dotenv::dotenv;
-use memory::{Message, MessageVector};
 use uuid::Uuid;
 
-pub use super::errors::AgentError;
-use anyhow::anyhow;
-use language_models::LanguageModel;
+pub use crate::agents::{
+    error::AgentError,
+    language_models::{
+        openai::{functions::CustomFunction, gpt::GptResponse},
+        LanguageModel,
+    },
+    memory::{Message, MessageRole, MessageVector, ToMessage},
+};
 
-use crate::environment::{EnvMessageSender, EnvRequest};
-
-use self::language_models::openai::{functions::CustomFunction, gpt::GptResponse};
-
-/// Agent struct for interracting with LLM
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Agent {
-    /// Unique Identifier
-    /// Memory contains cache and ltm
-    pub cache: MessageVector,
-    /// Language model defines which model to use for the given agent
-    pub model: LanguageModel,
-}
+use super::{EnvMessageSender, EnvRequest};
 
 /// Handle for making requests to agents within Environment
 #[derive(Debug, Clone)]
@@ -41,56 +29,43 @@ impl From<(&str, EnvMessageSender)> for AgentHandle {
     }
 }
 
-impl Default for Agent {
-    fn default() -> Self {
-        dotenv().ok();
-
-        let prompt = std::env::var("DEFAULT_INIT_PROMPT");
-        let cache = match prompt.ok() {
-            Some(p) => MessageVector::new(&p),
-            None => MessageVector::init(),
-        };
-
-        tracing::info!("Default Agent initialized with cache: {:?}", cache);
-        let model = LanguageModel::default_gpt();
-        Agent { cache, model }
-    }
-}
-
-impl Agent {
-    /// Helper function for creating an Agent given system prompt content and model
-    pub fn new(init_prompt: &str, model: LanguageModel) -> Self {
-        let cache = MessageVector::new(init_prompt);
-        Agent {
-            cache,
-            model,
-            ..Default::default()
-        }
-    }
-
-    #[tracing::instrument(name = "Parse GptResponse and add token count")]
-    pub fn handle_completion_response(
-        &mut self,
-        response: GptResponse,
-    ) -> Result<String, AgentError> {
-        let gpt = self.model.inner_mut_gpt().unwrap();
-        gpt.token_count += response.usage.total_tokens;
-
-        tracing::info!(
-            "{} tokens added to model token count. Total count: {}",
-            response.usage.total_tokens,
-            gpt.token_count
-        );
-
-        let parsed_response = response
-            .parse()
-            .map_err(|err| AgentError::Undefined(anyhow!("Error parsing Gpt Reponse: {err:?}")))?;
-
-        Ok(parsed_response)
-    }
-}
-
 impl AgentHandle {
+    /// Requests an update to the handle's agent's cache
+    #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
+    pub async fn request_cache_push(
+        &mut self,
+        to_message: impl ToMessage,
+        role: MessageRole,
+    ) -> Result<(), AgentError> {
+        let request = EnvRequest::PushToCache {
+            agent_id: self.id.clone(),
+            message: to_message.to_message(role),
+        };
+        self.sender
+            .lock()
+            .await
+            .send(request.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        Ok(())
+    }
+
+    /// Requests the status of the given agent in the form of a cache update
+    #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
+    pub async fn request_state(&mut self) -> Result<Uuid, AgentError> {
+        let ticket = Uuid::new_v4();
+        let request = EnvRequest::GetAgentState {
+            ticket,
+            agent_id: self.id.to_string(),
+        };
+        self.sender
+            .lock()
+            .await
+            .send(request.into())
+            .await
+            .map_err(|_| AgentError::EnvSend)?;
+        Ok(ticket)
+    }
     /// Requests a cache update and a completion for agent, returns ticket number
     #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
     pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {
@@ -186,28 +161,4 @@ impl AgentHandle {
         tracing::info!("Requested a stream completion from the env");
         Ok(ticket)
     }
-    //     #[cfg(feature = "long_term_memory")]
-    //     pub fn vector_query_files(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
-    //         match &self.memory.long_term {
-    //             LongTermMemory::Some(mem) => {
-    //                 let query_vector = embed(query).expect("Failed to embed query");
-    //                 Some(File::get_from_embedding(query_vector.into(), &mem.pool()))
-    //             }
-    //             _ => None,
-    //         }
-    //     }
-    //
-    //     #[cfg(feature = "long_term_memory")]
-    //     pub fn vector_query_chunks(&mut self, query: &str) -> Option<Vec<EmbeddedCoreStruct>> {
-    //         match &self.context.long_term {
-    //             LongTermMemory::Some(mem) => {
-    //                 let query_vector = embed(query).expect("Failed to embed query");
-    //                 Some(FileChunk::get_from_embedding(
-    //                     query_vector.into(),
-    //                     &mem.pool(),
-    //                 ))
-    //             }
-    //             _ => None,
-    //         }
-    //     }
 }

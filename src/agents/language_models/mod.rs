@@ -1,9 +1,10 @@
+pub mod error;
 pub mod huggingface;
 pub mod openai;
+use error::*;
 pub use huggingface::embed;
-pub use openai::GptError;
 
-use openai::gpt::{streaming_utils::CompletionStream, Gpt, GptResponse};
+use openai::gpt::{streaming::CompletionStream, Gpt, GptResponse};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -43,15 +44,16 @@ impl LanguageModel {
         Self::OpenAi(gpt)
     }
 
-    pub fn io_completion_fn<'c>(
+    pub(crate) fn io_completion_fn<'c>(
         &self,
     ) -> fn(
         &'c Client,
         &'c str,
         &'c Vec<Value>,
         &'c LanguageModel,
-    )
-        -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
+    ) -> Pin<
+        Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>,
+    > {
         openai::gpt::completions::io_completion_fn_wrapper
     }
 
@@ -63,7 +65,7 @@ impl LanguageModel {
         &'c Vec<Value>,
         &'c LanguageModel,
     ) -> Pin<
-        Box<dyn Future<Output = Result<CompletionStream, GptError>> + Send + Sync + 'c>,
+        Box<dyn Future<Output = Result<CompletionStream, ModelEndpointError>> + Send + Sync + 'c>,
     > {
         openai::gpt::completions::stream_completion_fn_wrapper
     }
@@ -76,8 +78,9 @@ impl LanguageModel {
         &'c Vec<Value>,
         &'c LanguageModel,
         &'c Function,
-    )
-        -> Pin<Box<dyn Future<Output = Result<GptResponse, GptError>> + Send + Sync + 'c>> {
+    ) -> Pin<
+        Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>,
+    > {
         openai::gpt::completions::function_completion_fn_wrapper
     }
 

@@ -1,10 +1,10 @@
-use crate::environment::errors::GptError;
+use super::super::super::ModelEndpointError;
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-1106";
+const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-0125";
 const GPT4_MODEL_STR: &str = "gpt-4";
 
 /// Gpt struct contains info needed for completion endpoint
@@ -50,12 +50,12 @@ pub enum GptModel {
 }
 
 impl TryFrom<String> for GptModel {
-    type Error = GptError;
+    type Error = ModelEndpointError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             GPT3_MODEL_STR => Ok(Self::Gpt3),
             GPT4_MODEL_STR => Ok(Self::Gpt4),
-            _ => Err(GptError::Undefined(anyhow!(
+            _ => Err(ModelEndpointError::Undefined(anyhow!(
                 "{} does not have a corresponding GPT variant",
                 value
             ))),

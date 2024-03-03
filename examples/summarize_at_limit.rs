@@ -1,34 +1,34 @@
 use core::time::Duration;
-use futures_util::Future;
-use std::pin::Pin;
 
 use espionox::{
+    agents::{
+        independent::IndependentAgent,
+        memory::{messages::MessageRole, Message, MessageVector},
+        Agent,
+    },
     environment::{
-        agent::memory::{messages::MessageRole, Message, MessageVector},
+        agent_handle::LanguageModel,
         dispatch::{
-            Dispatch, EnvListener, EnvMessage, EnvNotification, EnvRequest, ListenerMethodReturn,
+            listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvNotification,
+            EnvRequest,
         },
-        errors::DispatchError,
         Environment,
     },
-    Agent,
 };
 
 #[derive(Debug)]
 pub struct SummarizeAtLimit {
     limit: usize,
+    summarizer: IndependentAgent,
     watched_agent_id: String,
-    summarizer_agent_id: String,
 }
 
-impl From<(usize, &str, &str)> for SummarizeAtLimit {
-    fn from((limit, wa, sa): (usize, &str, &str)) -> Self {
-        let watched_agent_id = wa.to_string();
-        let summarizer_agent_id = sa.to_string();
+impl SummarizeAtLimit {
+    fn new(limit: usize, watched_agent_id: &str, summarizer: IndependentAgent) -> Self {
         Self {
             limit,
-            watched_agent_id,
-            summarizer_agent_id,
+            watched_agent_id: watched_agent_id.to_owned(),
+            summarizer,
         }
     }
 }
@@ -54,8 +54,6 @@ impl EnvListener for SummarizeAtLimit {
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
-            let client = &dispatch.client.clone();
-            let api_key = dispatch.api_key().expect("No api key");
             let cache_to_summarize = match trigger_message {
                 EnvMessage::Response(ref noti) => match noti {
                     EnvNotification::AgentStateUpdate { cache, .. } => cache.to_string(),
@@ -63,24 +61,13 @@ impl EnvListener for SummarizeAtLimit {
                 },
                 _ => unreachable!(),
             };
+
             let message = Message::new_user(&format!(
                 "Summarize this chat history: {}",
                 cache_to_summarize
             ));
-            let summarizer = dispatch
-                .get_agent_mut(&self.summarizer_agent_id)
-                .expect("Failed to get summarizer");
-            tracing::info!("Sending message to summarizer: {:?} ", message);
-            let io_comp_fn = summarizer.model.io_completion_fn();
-            let mut mvec = MessageVector::init();
-            mvec.push(message);
-
-            let summary = io_comp_fn(&client, &api_key, &(&mvec).into(), &summarizer.model)
-                .await
-                .expect("Failed to get GptResponse");
-            let summary = summarizer
-                .handle_completion_response(summary)
-                .expect("Failed to parse GptResponse");
+            self.summarizer.agent.cache.push(message);
+            let summary = self.summarizer.io_completion().await?;
 
             let watched_agent = dispatch
                 .get_agent_mut(&self.watched_agent_id)
@@ -98,13 +85,17 @@ async fn main() {
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     let mut env = Environment::new(Some("testing"), Some(&api_key));
     let agent = Agent::default();
-    let _ = env
-        .insert_agent(Some("jerry"), agent.clone())
+    let _ = env.insert_agent(Some("jerry"), agent).await.unwrap();
+
+    let summarizer = env
+        .make_agent_independent(Agent {
+            cache: MessageVector::new("Your job is to summarize chunks of a conversation"),
+            model: LanguageModel::default_gpt(),
+        })
         .await
         .unwrap();
-    let _ = env.insert_agent(Some("sum"), agent).await.unwrap();
+    let sal = SummarizeAtLimit::new(5usize, "jerry", summarizer);
 
-    let sal = SummarizeAtLimit::from((5usize, "jerry", "sum"));
     env.insert_listener(sal).await;
     env.spawn().await.unwrap();
     let message = Message::new_system("im saying things to fill space");

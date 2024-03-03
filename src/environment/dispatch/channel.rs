@@ -1,11 +1,6 @@
-use crate::environment::{
-    agent::{
-        language_models::openai::{
-            functions::Function, gpt::streaming_utils::StreamedCompletionHandler,
-        },
-        memory::MessageVector,
-    },
-    Message,
+use crate::agents::{
+    language_models::openai::{functions::Function, gpt::streaming::StreamedCompletionHandler},
+    memory::{Message, MessageVector},
 };
 use anyhow::anyhow;
 use serde_json::Value;
@@ -56,12 +51,17 @@ pub enum EnvRequest {
         agent_id: String,
         keep_sys_message: bool,
     },
+    GetAgentState {
+        ticket: Uuid,
+        agent_id: String,
+    },
     Finish,
 }
 
 #[derive(Debug)]
 pub enum EnvNotification {
-    CacheUpdate {
+    AgentStateUpdate {
+        ticket: Uuid,
         agent_id: String,
         cache: MessageVector,
     },
@@ -156,6 +156,7 @@ impl EnvRequest {
             EnvRequest::GetCompletion { agent_id, .. } => Some(agent_id),
             EnvRequest::GetFunctionCompletion { agent_id, .. } => Some(agent_id),
             EnvRequest::GetCompletionStreamHandle { agent_id, .. } => Some(agent_id),
+            EnvRequest::GetAgentState { agent_id, .. } => Some(agent_id),
         }
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
@@ -166,6 +167,7 @@ impl EnvRequest {
             EnvRequest::GetCompletion { ticket, .. } => Some(*ticket),
             EnvRequest::GetFunctionCompletion { ticket, .. } => Some(*ticket),
             EnvRequest::GetCompletionStreamHandle { ticket, .. } => Some(*ticket),
+            EnvRequest::GetAgentState { ticket, .. } => Some(*ticket),
         }
     }
 }
@@ -173,7 +175,7 @@ impl EnvRequest {
 impl EnvNotification {
     pub fn agent_id(&self) -> Option<&str> {
         match self {
-            EnvNotification::CacheUpdate { agent_id, .. } => Some(agent_id),
+            EnvNotification::AgentStateUpdate { agent_id, .. } => Some(agent_id),
             EnvNotification::GotStreamHandle { agent_id, .. } => Some(agent_id),
             EnvNotification::GotCompletionResponse { agent_id, .. } => Some(agent_id),
             EnvNotification::GotFunctionResponse { agent_id, .. } => Some(agent_id),
@@ -181,7 +183,7 @@ impl EnvNotification {
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
         match self {
-            EnvNotification::CacheUpdate { .. } => None,
+            EnvNotification::AgentStateUpdate { .. } => None,
             EnvNotification::GotStreamHandle { ticket, .. } => Some(*ticket),
             EnvNotification::GotCompletionResponse { ticket, .. } => Some(*ticket),
             EnvNotification::GotFunctionResponse { ticket, .. } => Some(*ticket),
@@ -191,7 +193,9 @@ impl EnvNotification {
     /// Consumes self & returns notification body
     pub fn extract_body(&self) -> NotificationBody {
         match self {
-            EnvNotification::CacheUpdate { cache, .. } => NotificationBody::MessageVector(cache),
+            EnvNotification::AgentStateUpdate { cache, .. } => {
+                NotificationBody::MessageVector(cache)
+            }
             EnvNotification::GotCompletionResponse { message, .. } => {
                 NotificationBody::SingleMessage(message)
             }

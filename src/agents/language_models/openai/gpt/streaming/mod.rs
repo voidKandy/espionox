@@ -1,11 +1,10 @@
 use std::time::Duration;
+pub mod error;
+pub use error::*;
 
+use crate::agents::language_models::error::ModelEndpointError;
+use crate::agents::memory::Message;
 use crate::environment::dispatch::{EnvMessageSender, EnvRequest};
-use crate::environment::{
-    agent::memory::{messages::MessageRole, Message},
-    errors::GptError,
-};
-use crate::errors::error_chain_fmt;
 use anyhow::anyhow;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -29,26 +28,6 @@ pub struct StreamChoice {
 pub struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
-}
-
-#[derive(thiserror::Error)]
-pub enum StreamError {
-    #[error(transparent)]
-    Undefined(#[from] anyhow::Error),
-    GptError(#[from] GptError),
-    RetryError,
-}
-
-impl std::fmt::Debug for StreamError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for StreamError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 pub type CompletionStreamReceiver =
@@ -121,7 +100,7 @@ impl StreamedCompletionHandler {
         if let Some(result) =
             tokio::time::timeout(Duration::from_millis(1000), self.receiver.recv())
                 .await
-                .map_err(|_| StreamError::Undefined(anyhow!("Receiver got nothing after 1000ms")))
+                .map_err(|_| StreamError::ReceiverTimeout)
                 .ok()?
         {
             match result.ok()? {
@@ -143,9 +122,7 @@ impl StreamedCompletionHandler {
                             .into(),
                         )
                         .await
-                        .map_err(|_| {
-                            StreamError::Undefined(anyhow!("Couldn't send update cache request"))
-                        })
+                        .map_err(|_| StreamError::EnvMessageSenderFail)
                         .ok()?;
                     return Some(CompletionStreamStatus::Finished);
                 }
@@ -175,9 +152,9 @@ impl StreamedCompletionHandler {
                             &CompletionStreamStatus::Finished => true,
                             _ => false,
                         };
-                        tx.send(Ok(status))
-                            .await
-                            .map_err(|err| StreamError::Undefined(anyhow!("{:?}", err)))?;
+                        tx.send(Ok(status)).await.map_err(|err| {
+                            StreamError::Undefined(anyhow!("Unexpected Error: {:?}", err))
+                        })?;
 
                         if break_loop {
                             break;
@@ -185,8 +162,8 @@ impl StreamedCompletionHandler {
                     }
                     Err(err) => {
                         let error = match err {
-                            GptError::Recoverable => StreamError::RetryError,
-                            _ => err.into(),
+                            ModelEndpointError::Recoverable => StreamError::RetryError,
+                            e => StreamError::Undefined(anyhow!("Unexpected Error: {:?}", e)),
                         };
 
                         if let Err(_) = tx.send(Err(error)).await {
@@ -206,7 +183,7 @@ impl CompletionStreamingThread {
     #[tracing::instrument(name = "Get token from stream" skip(stream))]
     async fn poll_stream_for_tokens(
         stream: &mut CompletionStream,
-    ) -> Result<Option<String>, GptError> {
+    ) -> Result<Option<String>, ModelEndpointError> {
         while let Some(Ok(stream_response)) = stream.next().await {
             let parsed_response = stream_response.parse();
             return Ok(parsed_response);
