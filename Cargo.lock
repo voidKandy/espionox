@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "espionox"
-version = "0.1.2"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-recursion",

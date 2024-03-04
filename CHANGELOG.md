@@ -40,3 +40,12 @@ This is a relatively big update. Adding a lot of quality of life changes. As wel
 
 - Added `IndependentAgent` struct. Should make it a little easier to use agents outside of an env. Supports both io and function completions. Does not support streamed completions
 - Added Surfer and vision features in tools directory. Still very experimental, use at your own risk
+
+# v0.1.21
+
+## CHANGES
+
+- IncorrectTrigger error added to listenererror
+- NoAgent error added to listenererror
+
+- `push_to_agent_cache` now returns a ticket for the `AgentStateUpdate` it triggers

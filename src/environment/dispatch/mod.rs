@@ -3,6 +3,7 @@ pub mod listeners;
 pub use channel::*;
 pub use listeners::EnvListener;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 use super::AgentHandle;
 use reqwest::Client;
@@ -91,7 +92,7 @@ impl Dispatch {
         agent_id: &str,
         message: &Message,
         sender: &EnvMessageSender,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Uuid, DispatchError> {
         agent.cache.push(message.to_owned());
         let cache = agent.cache.clone();
         let agent_id = agent_id.to_string();
@@ -109,7 +110,7 @@ impl Dispatch {
             )
             .await
             .map_err(|_| DispatchError::Send)?;
-        Ok(())
+        Ok(ticket)
     }
 
     pub(super) async fn handle_notification(

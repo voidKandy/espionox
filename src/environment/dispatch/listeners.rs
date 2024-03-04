@@ -17,6 +17,8 @@ pub mod error {
         #[error(transparent)]
         Undefined(#[from] anyhow::Error),
         Agent(#[from] AgentError),
+        IncorrectTrigger,
+        NoAgent,
         Other(String),
     }
 
