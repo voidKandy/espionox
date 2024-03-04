@@ -43,9 +43,7 @@ This is a relatively big update. Adding a lot of quality of life changes. As wel
 
 # v0.1.21
 
-## CHANGES
+## HOTFIX
 
 - IncorrectTrigger error added to listenererror
 - NoAgent error added to listenererror
-
-- `push_to_agent_cache` now returns a ticket for the `AgentStateUpdate` it triggers

@@ -92,7 +92,7 @@ impl Dispatch {
         agent_id: &str,
         message: &Message,
         sender: &EnvMessageSender,
-    ) -> Result<Uuid, DispatchError> {
+    ) -> Result<(), DispatchError> {
         agent.cache.push(message.to_owned());
         let cache = agent.cache.clone();
         let agent_id = agent_id.to_string();
@@ -110,7 +110,7 @@ impl Dispatch {
             )
             .await
             .map_err(|_| DispatchError::Send)?;
-        Ok(ticket)
+        Ok(())
     }
 
     pub(super) async fn handle_notification(
