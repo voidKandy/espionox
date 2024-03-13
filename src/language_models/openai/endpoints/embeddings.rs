@@ -25,15 +25,13 @@ impl ToString for OpenAiEmbeddingModel {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct OpenAiEmbeddingData {
-    embedding: Vec<f32>,
-    object: String,
-    index: i32,
+    pub embedding: Vec<f32>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct OpenAiEmbeddingResponse {
-    data: Vec<OpenAiEmbeddingData>,
-    usage: OpenAiUsage,
+    pub data: Vec<OpenAiEmbeddingData>,
+    pub usage: OpenAiUsage,
 }
 
 #[tracing::instrument(name = "Get embedding from openai's endpoint")]
