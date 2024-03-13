@@ -3,7 +3,7 @@ use espionox::agents::{
         openai::gpt::{Gpt, GptModel},
         LanguageModel,
     },
-    memory::{Message, MessageVector},
+    memory::{Message, MessageStack},
     Agent,
 };
 use espionox::features::tools::vision::{message_vector_to_context_with_image, vision_completion};
@@ -19,7 +19,7 @@ async fn vision_completion_works() {
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     tracing::info!("API KEY: {}", api_key);
     let image_url = "./tests/test-screenshot.png";
-    let mut messages = MessageVector::new("You are an image looker-atter");
+    let mut messages = MessageStack::new("You are an image looker-atter");
     messages.push(Message::new_user("What is this image?"));
     let gpt = Gpt::new(GptModel::Gpt4, 0.4);
     let model = LanguageModel::OpenAi(gpt);

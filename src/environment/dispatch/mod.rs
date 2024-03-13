@@ -14,7 +14,7 @@ use crate::agents::{
     language_models::openai::gpt::streaming::{
         CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
     },
-    memory::{Message, MessageVector},
+    memory::{Message, MessageRole, MessageStack},
     Agent,
 };
 use std::collections::HashMap;
@@ -189,10 +189,10 @@ impl Dispatch {
                 let agent = self.get_agent_mut(&agent_id)?;
                 match keep_sys_message {
                     true => {
-                        agent.cache.reset_to_system_prompt();
+                        agent.cache.mut_filter_by(MessageRole::System, true);
                     }
                     false => {
-                        agent.cache = MessageVector::init();
+                        agent.cache = MessageStack::init();
                     }
                 }
                 Ok(())

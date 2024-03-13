@@ -3,7 +3,7 @@ pub mod independent;
 pub mod language_models;
 pub mod memory;
 use dotenv::dotenv;
-use memory::MessageVector;
+use memory::MessageStack;
 
 use anyhow::anyhow;
 pub use error::AgentError;
@@ -16,7 +16,7 @@ use self::language_models::openai::gpt::GptResponse;
 pub struct Agent {
     /// Unique Identifier
     /// Memory contains cache and ltm
-    pub cache: MessageVector,
+    pub cache: MessageStack,
     /// Language model defines which model to use for the given agent
     pub model: LanguageModel,
 }
@@ -27,8 +27,8 @@ impl Default for Agent {
 
         let prompt = std::env::var("DEFAULT_INIT_PROMPT");
         let cache = match prompt.ok() {
-            Some(p) => MessageVector::new(&p),
-            None => MessageVector::init(),
+            Some(p) => MessageStack::new(&p),
+            None => MessageStack::init(),
         };
 
         tracing::info!("Default Agent initialized with cache: {:?}", cache);
@@ -40,7 +40,7 @@ impl Default for Agent {
 impl Agent {
     /// Helper function for creating an Agent given system prompt content and model
     pub fn new(init_prompt: &str, model: LanguageModel) -> Self {
-        let cache = MessageVector::new(init_prompt);
+        let cache = MessageStack::new(init_prompt);
         Agent {
             cache,
             model,

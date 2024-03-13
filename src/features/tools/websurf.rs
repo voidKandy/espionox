@@ -16,7 +16,7 @@ use crate::{
             },
             LanguageModel,
         },
-        memory::{Message, MessageRole, MessageVector},
+        memory::{Message, MessageRole, MessageStack},
     },
     environment::{
         agent_handle::AgentHandle,
@@ -120,7 +120,7 @@ impl Surfer {
         &self,
         api_key: &str,
     ) -> Result<String, anyhow::Error> {
-        let mut messages = MessageVector::new(
+        let mut messages = MessageStack::new(
             "Your job is to give detailed descriptions of webpages based on screenshots",
         );
         messages.push(Message::new_user("Describe this webpage"));

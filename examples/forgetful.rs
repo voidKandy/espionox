@@ -1,6 +1,7 @@
 use espionox::{
     agents::{memory::Message, Agent},
     environment::{
+        agent_handle::MessageRole,
         dispatch::{listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage},
         Environment,
     },
@@ -45,7 +46,7 @@ impl EnvListener for Forgetful {
             let watched_agent = dispatch
                 .get_agent_mut(&self.watched_agent_id)
                 .expect("Failed to get watched agent");
-            watched_agent.cache.reset_to_system_prompt();
+            watched_agent.cache.mut_filter_by(MessageRole::System, true);
             Ok(trigger_message)
         })
     }

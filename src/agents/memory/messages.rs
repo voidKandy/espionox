@@ -1,4 +1,4 @@
-use super::MessageVector;
+use super::MessageStack;
 use crate::agents::language_models::openai::gpt::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -21,8 +21,8 @@ pub trait ToMessage: std::fmt::Debug + Send + Sync {
     fn to_message(&self, role: MessageRole) -> Message;
 }
 
-pub trait ToMessageVector {
-    fn to_message_vector(&self) -> MessageVector;
+pub trait ToMessageStack {
+    fn to_message_vector(&self) -> MessageStack;
 }
 
 impl ToMessage for String {

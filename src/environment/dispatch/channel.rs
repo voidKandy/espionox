@@ -1,6 +1,6 @@
 use crate::agents::{
     language_models::openai::{functions::Function, gpt::streaming::StreamedCompletionHandler},
-    memory::{Message, MessageVector},
+    memory::{Message, MessageStack},
 };
 use anyhow::anyhow;
 use serde_json::Value;
@@ -63,7 +63,7 @@ pub enum EnvNotification {
     AgentStateUpdate {
         ticket: Uuid,
         agent_id: String,
-        cache: MessageVector,
+        cache: MessageStack,
     },
     GotCompletionResponse {
         ticket: Uuid,
@@ -194,7 +194,7 @@ impl EnvNotification {
     pub fn extract_body(&self) -> NotificationBody {
         match self {
             EnvNotification::AgentStateUpdate { cache, .. } => {
-                NotificationBody::MessageVector(cache)
+                NotificationBody::MessageStack(cache)
             }
             EnvNotification::GotCompletionResponse { message, .. } => {
                 NotificationBody::SingleMessage(message)
@@ -211,7 +211,7 @@ pub enum NotificationBody<'b> {
     StreamedCompletionHandler(&'b ThreadSafeStreamCompletionHandler),
     JsonValue(&'b Value),
     SingleMessage(&'b Message),
-    MessageVector(&'b MessageVector),
+    MessageStack(&'b MessageStack),
 }
 
 impl<'b> TryInto<&'b Message> for NotificationBody<'b> {
@@ -224,11 +224,11 @@ impl<'b> TryInto<&'b Message> for NotificationBody<'b> {
     }
 }
 
-impl<'b> TryInto<&'b MessageVector> for NotificationBody<'b> {
+impl<'b> TryInto<&'b MessageStack> for NotificationBody<'b> {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<&'b MessageVector, Self::Error> {
+    fn try_into(self) -> Result<&'b MessageStack, Self::Error> {
         match self {
-            NotificationBody::MessageVector(m) => Ok(m),
+            NotificationBody::MessageStack(m) => Ok(m),
             _ => Err(anyhow!("Wrong notification type")),
         }
     }

@@ -6,7 +6,7 @@ pub use crate::agents::{
         openai::{functions::CustomFunction, gpt::GptResponse},
         LanguageModel,
     },
-    memory::{Message, MessageRole, MessageVector, ToMessage},
+    memory::{Message, MessageRole, MessageStack, ToMessage},
 };
 
 use super::{EnvMessageSender, EnvRequest};
@@ -69,7 +69,6 @@ impl AgentHandle {
     /// Requests a cache update and a completion for agent, returns ticket number
     #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
     pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {
-        let ticket = Uuid::new_v4();
         let cache_change = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
             message,
@@ -82,6 +81,7 @@ impl AgentHandle {
             .map_err(|_| AgentError::EnvSend)?;
         tracing::info!("Requested a cache change");
 
+        let ticket = Uuid::new_v4();
         let completion = EnvRequest::GetCompletion {
             ticket,
             agent_id: self.id.clone(),
@@ -102,7 +102,6 @@ impl AgentHandle {
         &mut self,
         message: Message,
     ) -> Result<Uuid, AgentError> {
-        let ticket = Uuid::new_v4();
         let cache_change = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
             message,
@@ -114,6 +113,7 @@ impl AgentHandle {
             .await
             .map_err(|_| AgentError::EnvSend)?;
 
+        let ticket = Uuid::new_v4();
         let stream_req = EnvRequest::GetCompletionStreamHandle {
             ticket,
             agent_id: self.id.clone(),
@@ -135,7 +135,6 @@ impl AgentHandle {
         custom_function: CustomFunction,
         message: Message,
     ) -> Result<Uuid, AgentError> {
-        let ticket = Uuid::new_v4();
         let cache_change = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
             message,
@@ -147,6 +146,8 @@ impl AgentHandle {
             .await
             .map_err(|_| AgentError::EnvSend)?;
         let function = custom_function.function();
+
+        let ticket = Uuid::new_v4();
         let func_req = EnvRequest::GetFunctionCompletion {
             ticket,
             agent_id: self.id.clone(),

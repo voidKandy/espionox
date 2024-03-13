@@ -3,7 +3,7 @@ use core::time::Duration;
 use espionox::{
     agents::{
         independent::IndependentAgent,
-        memory::{messages::MessageRole, Message, MessageVector},
+        memory::{messages::MessageRole, Message, MessageStack},
         Agent,
     },
     environment::{
@@ -72,7 +72,7 @@ impl EnvListener for SummarizeAtLimit {
             let watched_agent = dispatch
                 .get_agent_mut(&self.watched_agent_id)
                 .expect("Failed to get watched agent");
-            watched_agent.cache.reset_to_system_prompt();
+            watched_agent.cache.mut_filter_by(MessageRole::System, true);
             watched_agent.cache.push(Message::new_system(&summary));
             Ok(trigger_message)
         })
@@ -85,11 +85,11 @@ async fn main() {
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     let mut env = Environment::new(Some("testing"), Some(&api_key));
     let agent = Agent::default();
-    let _ = env.insert_agent(Some("jerry"), agent).await.unwrap();
+    let mut jerry_handle = env.insert_agent(Some("jerry"), agent).await.unwrap();
 
     let summarizer = env
         .make_agent_independent(Agent {
-            cache: MessageVector::new("Your job is to summarize chunks of a conversation"),
+            cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
             model: LanguageModel::default_gpt(),
         })
         .await
@@ -98,15 +98,14 @@ async fn main() {
 
     env.insert_listener(sal).await;
     env.spawn().await.unwrap();
-    let message = Message::new_system("im saying things to fill space");
     for _ in 0..=5 {
-        let sender = env.clone_sender();
-        let sender_lock = sender.lock().await;
-        let push_to_cache = EnvRequest::PushToCache {
-            agent_id: "jerry".to_string(),
-            message: message.clone(),
-        };
-        sender_lock.send(push_to_cache.into()).await.unwrap();
+        jerry_handle
+            .request_cache_push(
+                "im saying things to fill space".to_owned(),
+                MessageRole::System,
+            )
+            .await
+            .expect("failed to request cache push");
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     env.finalize_dispatch().await.unwrap();

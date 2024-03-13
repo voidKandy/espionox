@@ -2,7 +2,7 @@
 
 ## Overview of changes
 
-- Changed `Message::new` method to four different methods:
+ Changed `Message::new` method to four different methods:
   - `new_system`
   - `new_user`
   - `new_assistant`
@@ -47,3 +47,44 @@ This is a relatively big update. Adding a lot of quality of life changes. As wel
 
 - IncorrectTrigger error added to listenererror
 - NoAgent error added to listenererror
+
+# v0.1.22
+
+## Breaking changes
+
+`MessageVector` renamed to `MessageStack` for more accurate naming
+Also added `MessageStackRef`, which contains references to messages within a stack owned elsewhere
+This struct also has `len`, `pop`, and `filter_by` methods
+
+```
+#[derive(Clone, Debug, PartialEq)]
+pub struct MessageStackRef<'stack>(Vec<&'stack Message>);
+
+impl<'stack> From<Vec<&'stack Message>> for MessageStackRef<'stack> {
+    fn from(value: Vec<&'stack Message>) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<MessageStack> for MessageStackRef<'_> {
+    fn into(self) -> MessageStack {
+        MessageStack(self.0.into_iter().map(|m| m.clone()).collect())
+    }
+}
+```
+
+Added/Removed methods from what is now `MessageStack`
+_Added_:
+
+- `pop` - which has an optional role parameter for popping last message matching
+- `mut_filter_by` mutates `MessageStack` in place
+- `ref_filter_by` returns `MessageStackRef` of filtered messages
+- `filter_by` method was also added to `MessageStackRef`
+
+_Removed_ (`filter_by` deprecated all of the following):
+
+- `clone_sans_system_prompt`
+- `clone_system_prompt`
+- `chat_count`
+- `reset_to_system_prompt`
+

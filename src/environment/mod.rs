@@ -180,7 +180,7 @@ impl Environment {
         let mut dispatch = self.dispatch.write().await;
         let id = match id {
             Some(id) => id.to_string(),
-            None => uuid::Uuid::new_v4().to_string(),
+            None => Uuid::new_v4().to_string(),
         };
         dispatch.agents.insert(id.clone(), agent);
         let handle = dispatch.get_agent_handle(&id).await.unwrap();
@@ -249,7 +249,7 @@ impl NotificationStack {
         None
     }
 
-    /// Removes the notification with the given ticket number from the stack
+    /// Removes the most recent notification with the given ticket number from the stack
     pub fn take_by_ticket(
         vec: &mut VecDeque<EnvNotification>,
         ticket: Uuid,

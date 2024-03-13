@@ -1,6 +1,6 @@
 use crate::agents::{
     language_models::{error::ModelEndpointError, openai::gpt::models::GptResponse, LanguageModel},
-    memory::MessageVector,
+    memory::MessageStack,
 };
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -15,7 +15,7 @@ use std::io::Read;
     skip(image_buffer)
 )]
 pub fn message_vector_to_context_with_image(
-    vec: &mut MessageVector,
+    vec: &mut MessageStack,
     image_path: Option<&str>,
     image_buffer: Option<Vec<u8>>,
 ) -> Vec<Value> {

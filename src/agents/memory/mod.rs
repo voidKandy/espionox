@@ -1,6 +1,6 @@
 pub mod embeddings;
-pub mod message_vector;
+pub mod message_stack;
 pub mod messages;
 
-pub use message_vector::MessageVector;
+pub use message_stack::MessageStack;
 pub use messages::*;
