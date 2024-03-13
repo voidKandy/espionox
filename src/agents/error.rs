@@ -1,5 +1,5 @@
-use super::language_models::error::ModelEndpointError;
 use crate::errors::error_chain_fmt;
+use crate::language_models::error::ModelEndpointError;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 #[derive(thiserror::Error)]

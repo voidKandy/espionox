@@ -1,6 +1,5 @@
 use crate::{
-    agents::{error::AgentError, language_models::error::ModelEndpointError},
-    errors::error_chain_fmt,
+    agents::error::AgentError, errors::error_chain_fmt, language_models::error::ModelEndpointError,
 };
 
 use std::fmt::{Debug, Display, Formatter};

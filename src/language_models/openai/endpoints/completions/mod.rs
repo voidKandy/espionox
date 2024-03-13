@@ -1,23 +1,22 @@
-use super::{
-    super::{super::LanguageModel, functions::Function},
-    models::*,
-    streaming::*,
-};
-use crate::agents::language_models::error::ModelEndpointError;
+pub mod models;
+pub mod streaming;
+use super::super::{super::LanguageModel, functions::Function};
+use crate::language_models::error::ModelEndpointError;
 use anyhow::anyhow;
-use bytes::Bytes;
+pub use models::*;
 use reqwest::Client;
 use reqwest_streams::JsonStreamResponse;
 use serde_json::{json, Value};
 use std::pin::Pin;
 use std::{future::Future, time::Duration};
+use streaming::*;
 
 pub fn io_completion_fn_wrapper<'c>(
     client: &'c Client,
     api_key: &'c str,
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<OpenAiResponse, ModelEndpointError>> + Send + Sync + 'c>> {
     Box::pin(io_completion(client, api_key, context, model))
 }
 
@@ -37,7 +36,7 @@ pub fn function_completion_fn_wrapper<'c>(
     context: &'c Vec<Value>,
     model: &'c LanguageModel,
     function: &'c Function,
-) -> Pin<Box<dyn Future<Output = Result<GptResponse, ModelEndpointError>> + Send + Sync + 'c>> {
+) -> Pin<Box<dyn Future<Output = Result<OpenAiResponse, ModelEndpointError>> + Send + Sync + 'c>> {
     Box::pin(function_completion(
         client, api_key, context, model, function,
     ))
@@ -49,7 +48,7 @@ pub(crate) async fn io_completion(
     api_key: &str,
     context: &Vec<Value>,
     model: &LanguageModel,
-) -> Result<GptResponse, ModelEndpointError> {
+) -> Result<OpenAiResponse, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let temperature = (gpt.temperature * 10.0).round() / 10.0;
     let payload = json!({"model": gpt.model.to_string(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null});
@@ -112,7 +111,7 @@ pub async fn function_completion(
     context: &Vec<Value>,
     model: &LanguageModel,
     function: &Function,
-) -> Result<GptResponse, ModelEndpointError> {
+) -> Result<OpenAiResponse, ModelEndpointError> {
     let gpt = model.inner_gpt().unwrap();
     let payload = json!({
         "model": gpt.model.to_string(),
@@ -132,7 +131,7 @@ pub async fn function_completion(
     Ok(gpt_response)
 }
 
-impl GptResponse {
+impl OpenAiResponse {
     #[tracing::instrument(name = "Parse gpt response into string")]
     pub fn parse(&self) -> Result<String, anyhow::Error> {
         match self.choices[0].message.content.to_owned() {
@@ -176,64 +175,6 @@ impl GptResponse {
                 Ok(args_output)
             }
             None => Err(anyhow!("Unable to parse completion response")),
-        }
-    }
-}
-
-impl StreamResponse {
-    #[tracing::instrument(name = "Get token from byte chunk")]
-    pub async fn from_byte_chunk(chunk: Bytes) -> Result<Option<Self>, ModelEndpointError> {
-        let chunk_string = String::from_utf8_lossy(&chunk).trim().to_string();
-
-        let chunk_strings: Vec<&str> = chunk_string.split('\n').filter(|s| !s.is_empty()).collect();
-
-        tracing::info!(
-            "{} chunk data strings to process: {:?}",
-            chunk_strings.len(),
-            chunk_strings
-        );
-        for string in chunk_strings
-            .iter()
-            .map(|s| s.trim_start_matches("data:").trim())
-        {
-            tracing::info!("Processing string: {}", string);
-            if string == "[DONE]" {
-                return Ok(None);
-            }
-
-            match serde_json::from_str::<StreamResponse>(&string) {
-                Ok(stream_response) => {
-                    if let Some(choice) = &stream_response.choices.get(0) {
-                        tracing::info!("Chunk as stream response: {:?}", stream_response);
-                        if choice.delta.role.is_some() {
-                            continue;
-                        }
-                        if choice.delta.content.is_none() && choice.delta.role.is_none() {
-                            continue;
-                        }
-                        return Ok(Some(stream_response));
-                    }
-                }
-                Err(err) => {
-                    if err.to_string().contains("expected value") {
-                        return Err(ModelEndpointError::Recoverable);
-                    }
-                }
-            }
-        }
-        Ok(None)
-    }
-
-    #[tracing::instrument(name = "Parse stream response for string")]
-    pub fn parse(&self) -> Option<String> {
-        match self.choices[0].delta.content.to_owned() {
-            Some(response) => Some(
-                response
-                    .trim_start_matches('"')
-                    .trim_end_matches('"')
-                    .to_string(),
-            ),
-            None => None,
         }
     }
 }

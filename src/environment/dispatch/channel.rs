@@ -1,6 +1,8 @@
-use crate::agents::{
-    language_models::openai::{functions::Function, gpt::streaming::StreamedCompletionHandler},
-    memory::{Message, MessageStack},
+use crate::{
+    agents::memory::{Message, MessageStack},
+    language_models::openai::{
+        endpoints::completions::streaming::StreamedCompletionHandler, functions::Function,
+    },
 };
 use anyhow::anyhow;
 use serde_json::Value;

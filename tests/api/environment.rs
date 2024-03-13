@@ -1,7 +1,6 @@
 use crate::{functions::weather_test_function, helpers, init_test};
 use espionox::{
     agents::{
-        language_models::openai::gpt::streaming::CompletionStreamStatus,
         memory::{messages::MessageRole, Message},
         Agent,
     },
@@ -9,6 +8,7 @@ use espionox::{
         dispatch::{EnvNotification, ThreadSafeStreamCompletionHandler},
         NotificationStack,
     },
+    language_models::openai::endpoints::completions::streaming::CompletionStreamStatus,
 };
 use serde_json::Value;
 use tokio;

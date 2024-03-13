@@ -3,19 +3,20 @@ pub mod listeners;
 pub use channel::*;
 pub use listeners::EnvListener;
 use tokio::sync::Mutex;
-use uuid::Uuid;
 
 use super::AgentHandle;
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
 
-use crate::agents::{
-    independent::IndependentAgent,
-    language_models::openai::gpt::streaming::{
+use crate::{
+    agents::{
+        independent::IndependentAgent,
+        memory::{Message, MessageRole, MessageStack},
+        Agent,
+    },
+    language_models::openai::endpoints::completions::streaming::{
         CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
     },
-    memory::{Message, MessageRole, MessageStack},
-    Agent,
 };
 use std::collections::HashMap;
 

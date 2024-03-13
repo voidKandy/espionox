@@ -1,5 +1,5 @@
 use super::MessageStack;
-use crate::agents::language_models::openai::gpt::GptMessage;
+use crate::language_models::openai::endpoints::completions::GptMessage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;

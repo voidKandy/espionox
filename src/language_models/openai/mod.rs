@@ -1,2 +1,2 @@
+pub mod endpoints;
 pub mod functions;
-pub mod gpt;

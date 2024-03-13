@@ -1,12 +1,14 @@
 use uuid::Uuid;
 
-pub use crate::agents::{
-    error::AgentError,
+pub use crate::{
+    agents::{
+        error::AgentError,
+        memory::{Message, MessageRole, MessageStack, ToMessage},
+    },
     language_models::{
-        openai::{functions::CustomFunction, gpt::GptResponse},
+        openai::{endpoints::completions::OpenAiResponse, functions::CustomFunction},
         LanguageModel,
     },
-    memory::{Message, MessageRole, MessageStack, ToMessage},
 };
 
 use super::{EnvMessageSender, EnvRequest};

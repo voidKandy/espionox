@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use espionox::{
     agents::{
-        language_models::{huggingface::embed, LanguageModel},
         memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
         Agent,
     },
@@ -12,6 +11,7 @@ use espionox::{
         },
         Environment,
     },
+    language_models::{huggingface::embed, LanguageModel},
 };
 
 #[derive(Debug)]
@@ -178,7 +178,7 @@ async fn main() {
     dotenv::dotenv().ok();
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     let mut env = Environment::new(Some("testing"), Some(&api_key));
-    let agent = Agent::new("You are jerry!!", LanguageModel::default_gpt());
+    let agent = Agent::new("You are jerry!!", LanguageModel::default_openai());
     let mut handle = env.insert_agent(None, agent).await.unwrap();
     let data = init_products();
     let listener = RagListener {

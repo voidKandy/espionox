@@ -1,15 +1,14 @@
 pub mod error;
 pub mod independent;
-pub mod language_models;
 pub mod memory;
 use dotenv::dotenv;
 use memory::MessageStack;
 
+use crate::language_models::LanguageModel;
 use anyhow::anyhow;
 pub use error::AgentError;
-use language_models::LanguageModel;
 
-use self::language_models::openai::gpt::GptResponse;
+use crate::language_models::openai::endpoints::completions::OpenAiResponse;
 
 /// Agent struct for interracting with LLM
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -32,7 +31,7 @@ impl Default for Agent {
         };
 
         tracing::info!("Default Agent initialized with cache: {:?}", cache);
-        let model = LanguageModel::default_gpt();
+        let model = LanguageModel::default_openai();
         Agent { cache, model }
     }
 }
@@ -48,10 +47,10 @@ impl Agent {
         }
     }
 
-    #[tracing::instrument(name = "Parse GptResponse and add token count")]
+    #[tracing::instrument(name = "Parse OpenAiResponse and add token count")]
     pub fn handle_completion_response(
         &mut self,
-        response: GptResponse,
+        response: OpenAiResponse,
     ) -> Result<String, AgentError> {
         let gpt = self.model.inner_mut_gpt().unwrap();
         gpt.token_count += response.usage.total_tokens;

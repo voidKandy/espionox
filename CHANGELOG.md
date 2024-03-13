@@ -88,3 +88,8 @@ _Removed_ (`filter_by` deprecated all of the following):
 - `chat_count`
 - `reset_to_system_prompt`
 
+## Other changes 
+Reorganized OpenAi model stuff to prepare for support of more models. 
+Added embedding models for openai.
+Put all huggingface stuff behind 'bert' feature flag
+

@@ -1,4 +1,4 @@
-use super::super::super::ModelEndpointError;
+use crate::language_models::{openai::endpoints::OpenAiUsage, ModelEndpointError};
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -9,29 +9,21 @@ const GPT4_MODEL_STR: &str = "gpt-4";
 
 /// Gpt struct contains info needed for completion endpoint
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Gpt {
-    pub model: GptModel,
+pub struct OpenAi {
+    pub model: OpenAiCompletionModel,
     pub token_count: i32,
     pub temperature: f32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct GptResponse {
+pub struct OpenAiResponse {
     pub choices: Vec<Choice>,
-    pub usage: GptUsage,
+    pub usage: OpenAiUsage,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Choice {
     pub message: GptMessage,
-}
-
-#[allow(unused)]
-#[derive(Debug, Deserialize, Clone)]
-pub struct GptUsage {
-    prompt_tokens: i32,
-    completion_tokens: i32,
-    pub total_tokens: i32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -41,15 +33,15 @@ pub struct GptMessage {
     pub function_call: Option<Value>,
 }
 
-/// More variations of these models should be added
+// More variations of these models should be added
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub enum GptModel {
+pub enum OpenAiCompletionModel {
     #[default]
     Gpt3,
     Gpt4,
 }
 
-impl TryFrom<String> for GptModel {
+impl TryFrom<String> for OpenAiCompletionModel {
     type Error = ModelEndpointError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
@@ -63,7 +55,7 @@ impl TryFrom<String> for GptModel {
     }
 }
 
-impl ToString for GptModel {
+impl ToString for OpenAiCompletionModel {
     fn to_string(&self) -> String {
         String::from(match self {
             Self::Gpt3 => GPT3_MODEL_STR,
@@ -75,12 +67,12 @@ impl ToString for GptModel {
 /// Sensible defaults for Gpt:
 /// * Temperature of 0.7
 /// * Gpt3 Model
-impl Default for Gpt {
+impl Default for OpenAi {
     fn default() -> Self {
-        let model = GptModel::default();
+        let model = OpenAiCompletionModel::default();
         let temperature = 0.7;
         let token_count = 0;
-        Gpt {
+        OpenAi {
             model,
             temperature,
             token_count,
@@ -88,9 +80,9 @@ impl Default for Gpt {
     }
 }
 
-impl Gpt {
+impl OpenAi {
     /// Create a GPT from a model, temperature, and api_key
-    pub fn new(model: GptModel, temperature: f32) -> Self {
+    pub fn new(model: OpenAiCompletionModel, temperature: f32) -> Self {
         Self {
             model,
             temperature,

@@ -90,7 +90,7 @@ async fn main() {
     let summarizer = env
         .make_agent_independent(Agent {
             cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
-            model: LanguageModel::default_gpt(),
+            model: LanguageModel::default_openai(),
         })
         .await
         .unwrap();

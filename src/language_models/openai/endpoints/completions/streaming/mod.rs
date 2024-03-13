@@ -1,10 +1,11 @@
+use bytes::Bytes;
 use std::time::Duration;
 pub mod error;
 pub use error::*;
 
-use crate::agents::language_models::error::ModelEndpointError;
 use crate::agents::memory::Message;
 use crate::environment::dispatch::{EnvMessageSender, EnvRequest};
+use crate::language_models::error::ModelEndpointError;
 use anyhow::anyhow;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -190,5 +191,63 @@ impl CompletionStreamingThread {
         }
 
         Ok(None)
+    }
+}
+
+impl StreamResponse {
+    #[tracing::instrument(name = "Get token from byte chunk")]
+    pub async fn from_byte_chunk(chunk: Bytes) -> Result<Option<Self>, ModelEndpointError> {
+        let chunk_string = String::from_utf8_lossy(&chunk).trim().to_string();
+
+        let chunk_strings: Vec<&str> = chunk_string.split('\n').filter(|s| !s.is_empty()).collect();
+
+        tracing::info!(
+            "{} chunk data strings to process: {:?}",
+            chunk_strings.len(),
+            chunk_strings
+        );
+        for string in chunk_strings
+            .iter()
+            .map(|s| s.trim_start_matches("data:").trim())
+        {
+            tracing::info!("Processing string: {}", string);
+            if string == "[DONE]" {
+                return Ok(None);
+            }
+
+            match serde_json::from_str::<StreamResponse>(&string) {
+                Ok(stream_response) => {
+                    if let Some(choice) = &stream_response.choices.get(0) {
+                        tracing::info!("Chunk as stream response: {:?}", stream_response);
+                        if choice.delta.role.is_some() {
+                            continue;
+                        }
+                        if choice.delta.content.is_none() && choice.delta.role.is_none() {
+                            continue;
+                        }
+                        return Ok(Some(stream_response));
+                    }
+                }
+                Err(err) => {
+                    if err.to_string().contains("expected value") {
+                        return Err(ModelEndpointError::Recoverable);
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    #[tracing::instrument(name = "Parse stream response for string")]
+    pub fn parse(&self) -> Option<String> {
+        match self.choices[0].delta.content.to_owned() {
+            Some(response) => Some(
+                response
+                    .trim_start_matches('"')
+                    .trim_end_matches('"')
+                    .to_string(),
+            ),
+            None => None,
+        }
     }
 }
