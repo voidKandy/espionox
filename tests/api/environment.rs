@@ -21,11 +21,12 @@ async fn insert_agent_works() {
     assert!(handle.is_ok());
 }
 
+#[ignore]
 #[tokio::test]
 async fn io_prompt_agent_works() {
     init_test();
     let agent = Agent::default();
-    let mut environment = helpers::test_env();
+    let mut environment = helpers::test_env_with_key();
     let mut handle = environment
         .insert_agent(Some("jerry"), agent)
         .await
@@ -45,11 +46,12 @@ async fn io_prompt_agent_works() {
     assert_eq!(message.role, MessageRole::Assistant);
 }
 
+#[ignore]
 #[tokio::test]
 async fn stream_prompt_agent_works() {
     init_test();
     let agent = Agent::default();
-    let mut environment = helpers::test_env();
+    let mut environment = helpers::test_env_with_key();
     let mut handle = environment
         .insert_agent(Some("jerry"), agent)
         .await
@@ -91,11 +93,12 @@ async fn stream_prompt_agent_works() {
     println!("{:?}", stack);
 }
 
+#[ignore]
 #[tokio::test]
 async fn function_prompt_agent_works() {
     init_test();
     let agent = Agent::default();
-    let mut environment = helpers::test_env();
+    let mut environment = helpers::test_env_with_key();
     let mut handle = environment
         .insert_agent(Some("fn jerry"), agent)
         .await

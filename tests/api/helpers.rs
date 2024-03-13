@@ -22,6 +22,11 @@ pub fn init_test() {
 
 pub fn test_env() -> Environment {
     dotenv::dotenv().ok();
+    Environment::new(Some("testing"), None)
+}
+
+pub fn test_env_with_key() -> Environment {
+    dotenv::dotenv().ok();
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     Environment::new(Some("testing"), Some(&api_key))
 }

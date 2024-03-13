@@ -4,6 +4,7 @@ use espionox::language_models::openai::endpoints::embeddings::{
 
 use crate::init_test;
 
+#[ignore]
 #[tokio::test]
 async fn openai_embedding_works() {
     init_test();
