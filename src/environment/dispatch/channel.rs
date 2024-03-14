@@ -1,7 +1,7 @@
 use crate::{
     agents::memory::{Message, MessageStack},
     language_models::openai::{
-        endpoints::completions::streaming::StreamedCompletionHandler, functions::Function,
+        completions::streaming::StreamedCompletionHandler, functions::Function,
     },
 };
 use anyhow::anyhow;

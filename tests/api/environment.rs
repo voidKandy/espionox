@@ -8,7 +8,7 @@ use espionox::{
         dispatch::{EnvNotification, ThreadSafeStreamCompletionHandler},
         NotificationStack,
     },
-    language_models::openai::endpoints::completions::streaming::CompletionStreamStatus,
+    language_models::openai::completions::streaming::CompletionStreamStatus,
 };
 use serde_json::Value;
 use tokio;

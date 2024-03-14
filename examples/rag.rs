@@ -12,9 +12,9 @@ use espionox::{
         Environment,
     },
     language_models::{
+        endpoint_completions::LLMCompletionHandler,
         error::ModelEndpointError,
-        openai::endpoints::embeddings::{get_embedding, OpenAiEmbeddingModel},
-        LanguageModel,
+        openai::embeddings::{get_embedding, OpenAiEmbeddingModel},
     },
 };
 
@@ -190,7 +190,7 @@ async fn main() {
     dotenv::dotenv().ok();
     let api_key = std::env::var("TESTING_API_KEY").unwrap();
     let mut env = Environment::new(Some("testing"), Some(&api_key));
-    let agent = Agent::new("You are jerry!!", LanguageModel::default_openai());
+    let agent = Agent::new("You are jerry!!", LLMCompletionHandler::default_openai());
     let mut handle = env.insert_agent(None, agent).await.unwrap();
     let data = init_products().await;
     let listener = RagListener {

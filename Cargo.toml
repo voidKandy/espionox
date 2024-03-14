@@ -63,12 +63,7 @@ once_cell = "1.18.0"
 futures = "0.3.28"
 futures-util = "0.3.28"
 bytes = "1.4.0"
-serde-aux = "4.2.0"
-rand = "0.8.5"
-byteorder = "1.4.3"
 thiserror = "1.0.48"
-serde_yaml = "0.9.25"
-async-recursion = "1.0.5"
 reqwest-streams = { version = "0.3.0", features=["json"] }
 dotenv = "0.15.0"
 

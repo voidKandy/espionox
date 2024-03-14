@@ -7,13 +7,13 @@ use espionox::{
         Agent,
     },
     environment::{
-        agent_handle::LanguageModel,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvNotification,
             EnvRequest,
         },
         Environment,
     },
+    language_models::endpoint_completions::LLMCompletionHandler,
 };
 
 #[derive(Debug)]
@@ -90,7 +90,7 @@ async fn main() {
     let summarizer = env
         .make_agent_independent(Agent {
             cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
-            model: LanguageModel::default_openai(),
+            completion_handler: LLMCompletionHandler::default_openai(),
         })
         .await
         .unwrap();

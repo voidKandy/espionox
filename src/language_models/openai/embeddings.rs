@@ -1,8 +1,8 @@
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::json;
 
-use crate::language_models::ModelEndpointError;
+use crate::language_models::error::ModelEndpointError;
 
 use super::OpenAiUsage;
 

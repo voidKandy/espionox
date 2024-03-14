@@ -26,26 +26,26 @@ impl IndependentAgent {
     }
 
     pub async fn io_completion(&mut self) -> Result<String, AgentError> {
-        let func = self.agent.model.io_completion_fn();
-        let context = (&self.agent.cache).into();
-        let response = func(&self.client, &self.api_key, &context, &self.agent.model).await?;
-        self.agent.handle_completion_response(response)
+        Ok(self
+            .agent
+            .completion_handler
+            .get_io_completion(&self.agent.cache, &self.api_key, &self.client)
+            .await?)
     }
 
     pub async fn function_completion(
         &mut self,
         function: CustomFunction,
     ) -> Result<Value, AgentError> {
-        let func = self.agent.model.function_completion_fn();
-        let context = (&self.agent.cache).into();
-        let response = func(
-            &self.client,
-            &self.api_key,
-            &context,
-            &self.agent.model,
-            &function.function(),
-        )
-        .await?;
-        Ok(response.parse_fn()?)
+        Ok(self
+            .agent
+            .completion_handler
+            .get_fn_completion(
+                &self.agent.cache,
+                &self.api_key,
+                &self.client,
+                function.function(),
+            )
+            .await?)
     }
 }

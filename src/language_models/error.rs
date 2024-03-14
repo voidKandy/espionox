@@ -6,6 +6,9 @@ pub enum ModelEndpointError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
     NetRequest(#[from] reqwest::Error),
+    SerdeJson(#[from] serde_json::Error),
+    CouldNotParseResponse,
+    MethodUnimplemented,
     Recoverable,
     NoApiKey,
 }

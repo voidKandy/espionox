@@ -93,3 +93,18 @@ Reorganized OpenAi model stuff to prepare for support of more models.
 Added embedding models for openai.
 Put all huggingface stuff behind 'bert' feature flag
 
+# v0.1.23
+
+## Changes 
+Removed: 
+ "async-recursion"
+  "byteorder"
+  "rand"
+  "serde-aux"
+  "serde_yaml"
+
+## New Model traits
+Deprecated `parse` fn on OpenaiResponse as it is now in it's own function in `EndpointCompletionHandler`
+
+## TODO! 
+Support anthropic models

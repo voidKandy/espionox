@@ -1,6 +1,4 @@
-use espionox::language_models::openai::endpoints::embeddings::{
-    get_embedding, OpenAiEmbeddingModel,
-};
+use espionox::language_models::openai::embeddings::{get_embedding, OpenAiEmbeddingModel};
 
 use crate::init_test;
 

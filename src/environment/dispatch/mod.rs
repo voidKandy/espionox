@@ -14,7 +14,7 @@ use crate::{
         memory::{Message, MessageRole, MessageStack},
         Agent,
     },
-    language_models::openai::endpoints::completions::streaming::{
+    language_models::openai::completions::streaming::{
         CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
     },
 };
@@ -204,13 +204,12 @@ impl Dispatch {
                 let client = &self.client;
                 let agent = self.get_agent_ref(&agent_id)?;
 
-                let completion_fn = agent.model.io_completion_fn();
-                let payload = &(&agent.cache).into();
-                let response = completion_fn(&client, &api_key, payload, &agent.model).await?;
-
-                let agent = self.get_agent_mut(&agent_id)?;
-                let res_str = agent.handle_completion_response(response)?;
-                let message = Message::new_assistant(&res_str);
+                let response = agent
+                    .completion_handler
+                    .get_io_completion(&agent.cache, &api_key, &client)
+                    .await?
+                    .to_owned();
+                let message = Message::new_assistant(&response);
 
                 self.channel
                     .sender
@@ -239,12 +238,10 @@ impl Dispatch {
                 let api_key = self.api_key()?;
                 let agent = self.get_agent_ref(&agent_id)?;
 
-                let completion_fn = agent.model.function_completion_fn();
-                let payload = &(&agent.cache).into();
-                let response =
-                    completion_fn(&client, &api_key, payload, &agent.model, &function).await?;
-
-                let json = response.parse_fn()?;
+                let response = agent
+                    .completion_handler
+                    .get_fn_completion(&agent.cache, &api_key, &client, function)
+                    .await?;
 
                 self.channel
                     .sender
@@ -254,7 +251,7 @@ impl Dispatch {
                         EnvNotification::GotFunctionResponse {
                             ticket,
                             agent_id: agent_id.clone(),
-                            json,
+                            json: response,
                         }
                         .into(),
                     )
@@ -268,10 +265,10 @@ impl Dispatch {
                 let client = &self.client;
                 let agent = self.get_agent_ref(&agent_id)?;
 
-                let completion_fn = agent.model.stream_completion_fn();
-                let payload = &(&agent.cache).into();
-                let response = completion_fn(&client, &api_key, payload, &agent.model).await?;
-
+                let response = agent
+                    .completion_handler
+                    .get_stream_completion(&agent.cache, &api_key, &client)
+                    .await?;
                 let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
                     tokio::sync::mpsc::channel(50);
                 let handler = Arc::new(Mutex::new(StreamedCompletionHandler::from((

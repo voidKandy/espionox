@@ -1,6 +1,6 @@
 pub mod models;
 pub mod streaming;
-use super::super::{super::LanguageModel, functions::Function};
+use super::super::functions::Function;
 use crate::language_models::error::ModelEndpointError;
 use anyhow::anyhow;
 pub use models::*;
