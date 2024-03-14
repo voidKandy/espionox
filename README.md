@@ -12,18 +12,28 @@ Espionox is an attempt to make building Ai applications in Rust just as approach
 First, you'll want to create an environment.
 
 ```
-use espionox::environment::Environment;
-let env_name = "demo-env";
-let api_key: &str = "your-openai-api-key";
-let env = Environment::new(Some(env_name), Some(api_key));
+let open_key = std::env::var("OPENAI_KEY").unwrap();
+let anth_key = std::env::var("ANTHROPIC_KEY").unwrap();
+
+let mut keys = HashMap::new();
+keys.insert(ModelProvider::OpenAi, api_key);
+keys.insert(ModelProvider::Anthropic, api_key);
+
+let env_name = "MyEnv";
+
+Environment::new(Some(env_name), keys)
 ```
 
 Once an `Environment` has been instantiated, you can add agents to it
 
 ```
-use espionox::environment::Agent;
-let agent = Agent::default();
 let agent_name = "my agent";
+let init_prompt = "You are a helpful assistant";
+let handler = LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai();
+let agent = Agent::new(
+    init_prompt,
+    handler
+);
 let agent_handle = env.insert_agent(Some(agent_name), agent).await.unwrap();
 ```
 
@@ -79,8 +89,9 @@ pub trait EnvListener: std::fmt::Debug + Send + Sync + 'static {
     ) -> ListenerMethodReturn;
 }
 ```
+It looks simple, but this trait will allow you to create RAG pipelines, add tool use, and create self reflection techniques.
+Think of the `EnvMessages` as events that can trigger specific things to happen to your agents.
 
-Any struct implementing this trait can be added to an Environment using the `insert_listener` method. EnvListeners can be used to enforce self consistency in creative ways. Check the examples directory for examples of listeners in action.
 
 espionox is very early in development and everything in the API may be subject to change
 Please feel free to reach out with any questions, suggestions, issues or anything else :)
