@@ -14,19 +14,27 @@ use crate::{
         memory::{Message, MessageRole, MessageStack},
         Agent,
     },
-    language_models::openai::completions::streaming::{
-        CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
+    language_models::{
+        openai::completions::streaming::{
+            CompletionStreamReceiver, CompletionStreamSender, StreamedCompletionHandler,
+        },
+        ModelProvider,
     },
 };
 use std::collections::HashMap;
 
 use super::errors::DispatchError;
+#[derive(Debug, Clone)]
+pub enum ApiKey {
+    OpenAi(String),
+    Anthropic(String),
+}
 
 pub type AgentHashMap<H> = HashMap<String, Agent<H>>;
 
 #[derive(Debug)]
 pub struct Dispatch<H: EndpointCompletionHandler> {
-    api_key: Option<String>,
+    api_keys: HashMap<ModelProvider, String>,
     pub client: Client,
     pub(super) requests: VecDeque<EnvRequest>,
     // pub(super) listeners: Vec<Box<dyn EnvListener>>,
@@ -40,9 +48,9 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
         &self,
         agent: Agent<H>,
     ) -> Result<IndependentAgent<H>, DispatchError> {
-        let api_key = self.api_key()?;
+        let api_key = self.api_key(agent.provider())?;
         let client = self.client.clone();
-        Ok(IndependentAgent::new(agent, client, api_key))
+        Ok(IndependentAgent::new(agent, client, api_key.to_owned()))
     }
     /// Get a mutable reference to an agent within the dispatch
     pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent<H>, DispatchError> {
@@ -63,8 +71,11 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
     /// Get the api key of the dispatch
     /// TODO!
     /// THIS METHOD WILL NEED TO CHANGE WHEN MORE MODELS ARE SUPPORTED
-    pub fn api_key(&self) -> Result<String, DispatchError> {
-        self.api_key.clone().ok_or(DispatchError::NoApiKey)
+    pub fn api_key(&self, provider: ModelProvider) -> Result<&str, DispatchError> {
+        match self.api_keys.get(&provider) {
+            Some(key) => Ok(key.as_str()),
+            None => Err(DispatchError::NoApiKey),
+        }
     }
 
     /// Using the ID of an agent, get it's handle
@@ -77,9 +88,9 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
         Err(DispatchError::AgentIsNone)
     }
 
-    pub(crate) fn new(channel: EnvChannel, api_key: Option<String>) -> Self {
+    pub(crate) fn new(channel: EnvChannel, api_keys: HashMap<ModelProvider, String>) -> Self {
         Self {
-            api_key,
+            api_keys,
             requests: VecDeque::new(),
             channel,
             client: Client::new(),
@@ -200,9 +211,9 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
             }
 
             EnvRequest::GetCompletion { ticket, agent_id } => {
-                let api_key = self.api_key()?;
                 let client = &self.client;
                 let agent = self.get_agent_ref(&agent_id)?;
+                let api_key = self.api_key(agent.provider())?;
 
                 let response = agent
                     .completion_handler
@@ -235,8 +246,8 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
                 function,
             } => {
                 let client = &self.client;
-                let api_key = self.api_key()?;
                 let agent = self.get_agent_ref(&agent_id)?;
+                let api_key = self.api_key(agent.provider())?;
 
                 let response = agent
                     .completion_handler
@@ -261,9 +272,9 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
             }
 
             EnvRequest::GetCompletionStreamHandle { ticket, agent_id } => {
-                let api_key = self.api_key()?;
                 let client = &self.client;
                 let agent = self.get_agent_ref(&agent_id)?;
+                let api_key = self.api_key(agent.provider())?;
 
                 let response = agent
                     .completion_handler

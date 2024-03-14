@@ -5,8 +5,9 @@ use std::fmt::Debug;
 
 use memory::MessageStack;
 
-use crate::language_models::endpoint_completions::{
-    EndpointCompletionHandler, LLMCompletionHandler,
+use crate::language_models::{
+    endpoint_completions::{EndpointCompletionHandler, LLMCompletionHandler},
+    ModelProvider,
 };
 pub use error::AgentError;
 
@@ -25,5 +26,9 @@ impl<H: EndpointCompletionHandler> Agent<H> {
             cache,
             completion_handler,
         }
+    }
+
+    pub fn provider(&self) -> ModelProvider {
+        self.completion_handler.inner_ref().provider()
     }
 }

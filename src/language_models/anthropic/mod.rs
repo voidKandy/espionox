@@ -1,4 +1,4 @@
-use reqwest::{header::HeaderMap, Client};
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -19,6 +19,9 @@ const SONNET_MODEL_STR: &str = "claude-3-sonnet-20240229";
 const HAIKU_MODEL_STR: &str = "claude-3-haiku-20240307";
 
 impl EndpointCompletionHandler for AnthropicCompletionHandler {
+    fn provider(&self) -> super::ModelProvider {
+        super::ModelProvider::Anthropic
+    }
     fn name(&self) -> &str {
         match self {
             Self::Opus => OPUS_MODEL_STR,
@@ -55,7 +58,6 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
         let system_stack: MessageStack = messages.ref_filter_by(MessageRole::System, true).into();
         let sans_system_stack: MessageStack =
             messages.ref_filter_by(MessageRole::System, false).into();
-
         let context: Vec<Value> = (&sans_system_stack).into();
         let system_content = system_stack
             .as_ref()
@@ -73,14 +75,15 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
     }
 
     fn handle_io_response(&self, response: Value) -> Result<String, ModelEndpointError> {
+        println!("value: {:?}", response);
         let response = AnthropicResponse::try_from(response).unwrap();
-        Ok(response.content.text)
+        Ok(response.content[0].text.to_owned())
     }
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct AnthropicResponse {
-    content: AnthropicResponseContent,
+    content: Vec<AnthropicResponseContent>,
     usage: AnthropicUsage,
 }
 

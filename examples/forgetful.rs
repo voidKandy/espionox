@@ -1,9 +1,15 @@
+use std::collections::HashMap;
+
 use espionox::{
     agents::{memory::Message, Agent},
     environment::{
-        agent_handle::MessageRole,
+        agent_handle::{EndpointCompletionHandler, MessageRole},
         dispatch::{listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage},
         Environment,
+    },
+    language_models::{
+        endpoint_completions::LLMCompletionHandler, openai::completions::OpenAiCompletionHandler,
+        ModelProvider,
     },
 };
 
@@ -19,7 +25,7 @@ impl From<&str> for Forgetful {
     }
 }
 
-impl EnvListener for Forgetful {
+impl<H: EndpointCompletionHandler> EnvListener<H> for Forgetful {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         match env_message {
             EnvMessage::Response(noti) => {
@@ -40,7 +46,7 @@ impl EnvListener for Forgetful {
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
+        dispatch: &'l mut Dispatch<H>,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let watched_agent = dispatch
@@ -55,9 +61,14 @@ impl EnvListener for Forgetful {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
-    let mut env = Environment::new(Some("testing"), Some(&api_key));
-    let agent = Agent::default();
+    let api_key = std::env::var("OPENAI_KEY").unwrap();
+    let mut map = HashMap::new();
+    map.insert(ModelProvider::OpenAi, api_key);
+    let mut env = Environment::new(Some("testing"), map);
+    let agent = Agent::new(
+        "You are jerry!!",
+        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
+    );
     let mut jerry_handle = env
         .insert_agent(Some("jerry"), agent.clone())
         .await

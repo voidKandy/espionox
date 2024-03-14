@@ -1,4 +1,4 @@
-use super::{anthropic::AnthropicCompletionHandler, error::*};
+use super::{anthropic::AnthropicCompletionHandler, error::*, ModelProvider};
 use anyhow::anyhow;
 use reqwest_streams::JsonStreamResponse;
 
@@ -19,6 +19,7 @@ use std::{fmt::Debug, time::Duration};
 // pub trait EndpointCompletionModel: Sized + Clone + Copy {}
 
 pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'static {
+    fn provider(&self) -> ModelProvider;
     fn from_str(str: &str) -> Option<Self>;
     fn name(&self) -> &str;
     fn context_window(&self) -> i64;
@@ -27,22 +28,22 @@ pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'stati
     fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value;
     fn fn_request_body(
         &self,
-        messages: &MessageStack,
-        function: Function,
-        temperature: f32,
+        _messages: &MessageStack,
+        _function: Function,
+        _temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
     fn stream_request_body(
         &self,
-        messages: &MessageStack,
-        temperature: f32,
+        _messages: &MessageStack,
+        _temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
 
     fn handle_io_response(&self, response: Value) -> Result<String, ModelEndpointError>;
-    fn handle_fn_response(&self, response: Value) -> Result<Value, ModelEndpointError> {
+    fn handle_fn_response(&self, _response: Value) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
     // fn handle_stream_response(&mut self, response: Value) -> Result<String, ModelEndpointError> {
@@ -59,7 +60,7 @@ pub struct LLMCompletionHandler<H: EndpointCompletionHandler> {
 }
 
 impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
-    fn new(handler: H, temperature: i32) -> LLMCompletionHandler<H> {
+    pub fn new(handler: H, temperature: i32) -> LLMCompletionHandler<H> {
         Self {
             handler,
             temperature,
@@ -92,7 +93,7 @@ impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
         LLMCompletionHandler::new(handler, 70)
     }
 
-    pub(crate) async fn get_io_completion(
+    pub async fn get_io_completion(
         &self,
         messages: &MessageStack,
         api_key: &str,
@@ -112,7 +113,7 @@ impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
         Ok(self.inner_ref().handle_io_response(json)?)
     }
 
-    pub(crate) async fn get_stream_completion(
+    pub async fn get_stream_completion(
         &self,
         messages: &MessageStack,
         api_key: &str,
@@ -140,7 +141,7 @@ impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
         Ok(Box::new(response_stream))
     }
 
-    pub(crate) async fn get_fn_completion(
+    pub async fn get_fn_completion(
         &self,
         messages: &MessageStack,
         api_key: &str,

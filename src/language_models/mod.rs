@@ -7,7 +7,8 @@ pub mod endpoint_completions;
 pub mod error;
 pub mod openai;
 
-pub enum ApiKey {
-    OpenAi(String),
-    Anthropic(String),
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ModelProvider {
+    OpenAi,
+    Anthropic,
 }

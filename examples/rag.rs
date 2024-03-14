@@ -6,6 +6,7 @@ use espionox::{
         Agent,
     },
     environment::{
+        agent_handle::EndpointCompletionHandler,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvRequest,
         },
@@ -14,7 +15,11 @@ use espionox::{
     language_models::{
         endpoint_completions::LLMCompletionHandler,
         error::ModelEndpointError,
-        openai::embeddings::{get_embedding, OpenAiEmbeddingModel},
+        openai::{
+            completions::OpenAiCompletionHandler,
+            embeddings::{get_embedding, OpenAiEmbeddingModel},
+        },
+        ModelProvider,
     },
 };
 
@@ -26,7 +31,7 @@ pub struct RagListener<'p> {
 
 async fn embed(str: &str) -> Result<Vec<f32>, ModelEndpointError> {
     let client = reqwest::Client::new();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
+    let api_key = std::env::var("OPENAI_KEY").unwrap();
     let res = get_embedding(&client, &api_key, str, OpenAiEmbeddingModel::Small).await?;
     Ok(res.data[0].embedding.clone())
 }
@@ -144,7 +149,7 @@ impl<'p> DbStruct<'p> {
     }
 }
 
-impl<'p: 'static> EnvListener for RagListener<'p> {
+impl<'p: 'static, H: EndpointCompletionHandler> EnvListener<H> for RagListener<'p> {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Request(req) = env_message {
             if let EnvRequest::GetCompletion { agent_id, .. } = req {
@@ -159,7 +164,7 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
+        dispatch: &'l mut Dispatch<H>,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let agent = dispatch.get_agent_mut(&self.agent_id).unwrap();
@@ -188,9 +193,14 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
-    let mut env = Environment::new(Some("testing"), Some(&api_key));
-    let agent = Agent::new("You are jerry!!", LLMCompletionHandler::default_openai());
+    let api_key = std::env::var("OPENAI_KEY").unwrap();
+    let mut map = HashMap::new();
+    map.insert(ModelProvider::OpenAi, api_key);
+    let mut env = Environment::new(Some("testing"), map);
+    let agent = Agent::new(
+        "You are jerry!!",
+        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
+    );
     let mut handle = env.insert_agent(None, agent).await.unwrap();
     let data = init_products().await;
     let listener = RagListener {

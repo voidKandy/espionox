@@ -16,7 +16,7 @@ async fn vision_completion_works() {
     init_test();
     dotenv::dotenv().ok();
     let client = reqwest::Client::new();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
+    let api_key = std::env::var("OPENAI_KEY").unwrap();
     tracing::info!("API KEY: {}", api_key);
     let image_url = "./tests/test-screenshot.png";
     let mut messages = MessageStack::new("You are an image looker-atter");
@@ -40,7 +40,7 @@ async fn surfer_get_screenshot_works() {
     let handle = env.insert_agent(None, agent).await.unwrap();
     let mut surfer = Surfer::from(&handle);
     surfer.get_screenshot("https://docs.rs/headless_chrome/latest/headless_chrome/browser/tab/struct.Tab.html#method.print_to_pdf").unwrap();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
+    let api_key = std::env::var("OPENAI_KEY").unwrap();
     let desc = surfer
         .description_of_current_screenshot(&api_key)
         .await

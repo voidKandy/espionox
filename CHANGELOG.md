@@ -95,7 +95,7 @@ Put all huggingface stuff behind 'bert' feature flag
 
 # v0.1.23
 
-## Changes 
+## Removed Unused Dependencies 
 Removed: 
  "async-recursion"
   "byteorder"
@@ -103,8 +103,46 @@ Removed:
   "serde-aux"
   "serde_yaml"
 
-## New Model traits
-Deprecated `parse` fn on OpenaiResponse as it is now in it's own function in `EndpointCompletionHandler`
+## New Model traits BREAKING CHANGE
+Anthropic models now supported
+Model enpoint handlers have been completely redone to make it easier to expand model support in the future.
+All supported models now implement the `EndpointCompletionHandler` trait. Because this trait is implemented
+over generic `H` starting @ the new `LLMCompletionHandler` struct, the `H` generic has bubbled up all the way to `Environment`.
 
-## TODO! 
-Support anthropic models
+#### Model Provider 
+To support referring to specific providers this enum has been added:
+```
+pub enum ModelProvider {
+    OpenAi,
+    Anthropic,
+}
+```
+
+
+#### Agent 
+`Default` no longer implemented 
+`model` field changed to `completion_handler` field. 
+The process of initializing an agent now requires the initialization of an `LLMCompletionHandler`. For Example:
+```
+let handler = LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai();
+let agent = Agent::new(
+    "test",
+    handler
+);
+```
+
+#### Environment
+Because of the added support for more models, api keys are now stored in a hashmap:
+`HashMap<ModelProvider, String>`
+`Environment::new()` method has changed to take a hashmap instead of an `Option<String>`
+```
+let open_key = std::env::var("OPENAI_KEY").unwrap();
+let anth_key = std::env::var("ANTHROPIC_KEY").unwrap();
+
+let mut keys = HashMap::new();
+keys.insert(ModelProvider::OpenAi, api_key);
+keys.insert(ModelProvider::Anthropic, api_key);
+
+Environment::new(Some("testing"), keys)
+```
+

@@ -23,6 +23,9 @@ const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-0125";
 const GPT4_MODEL_STR: &str = "gpt-4-0125-preview";
 
 impl EndpointCompletionHandler for OpenAiCompletionHandler {
+    fn provider(&self) -> crate::language_models::ModelProvider {
+        crate::language_models::ModelProvider::OpenAi
+    }
     fn from_str(str: &str) -> Option<Self> {
         match str {
             GPT3_MODEL_STR => Some(Self::Gpt3),

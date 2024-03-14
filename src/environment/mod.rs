@@ -4,14 +4,21 @@ pub mod errors;
 
 use agent_handle::AgentHandle;
 use dispatch::*;
-use std::{collections::VecDeque, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     sync::{Mutex, RwLock, RwLockWriteGuard},
     task::JoinHandle,
 };
 use uuid::Uuid;
 
-use crate::agents::{independent::IndependentAgent, Agent};
+use crate::{
+    agents::{independent::IndependentAgent, Agent},
+    language_models::ModelProvider,
+};
 pub use errors::*;
 
 use self::agent_handle::EndpointCompletionHandler;
@@ -107,6 +114,34 @@ impl EnvThreadHandle {
 }
 
 impl<H: EndpointCompletionHandler> Environment<H> {
+    /// New environment from id & api_keys, if id is None it will be a Uuid V4
+    pub fn new(id: Option<&str>, api_keys: HashMap<ModelProvider, String>) -> Self {
+        let id = match id {
+            Some(id) => id.to_string(),
+            None => Uuid::new_v4().to_string(),
+        };
+
+        let (s, r) = tokio::sync::mpsc::channel(1000);
+        let sender = Arc::new(Mutex::new(s));
+        let receiver = Arc::new(Mutex::new(r));
+        let channel = EnvChannel::from((Arc::clone(&sender), receiver));
+
+        let dispatch = Dispatch::new(channel, api_keys);
+        let dispatch = Arc::new(RwLock::new(dispatch));
+
+        let notifications = Arc::new(RwLock::new(VecDeque::new())).into();
+        let listeners = Arc::new(RwLock::new(vec![]));
+
+        Self {
+            id,
+            sender,
+            dispatch,
+            listeners,
+            notifications,
+            handle: None,
+        }
+    }
+
     /// Wraps method by the same name in inner Dispatch
     pub async fn make_agent_independent(
         &self,
@@ -191,34 +226,6 @@ impl<H: EndpointCompletionHandler> Environment<H> {
         let handle = dispatch.get_agent_handle(&id).await.unwrap();
         drop(dispatch);
         Ok(handle)
-    }
-
-    /// New environment from id & api_key, if id is None it will be a Uuid V4
-    pub fn new(id: Option<&str>, api_key: Option<&str>) -> Self {
-        let id = match id {
-            Some(id) => id.to_string(),
-            None => Uuid::new_v4().to_string(),
-        };
-
-        let (s, r) = tokio::sync::mpsc::channel(1000);
-        let sender = Arc::new(Mutex::new(s));
-        let receiver = Arc::new(Mutex::new(r));
-        let channel = EnvChannel::from((Arc::clone(&sender), receiver));
-
-        let dispatch = Dispatch::new(channel, api_key.map(|k| k.to_string()));
-        let dispatch = Arc::new(RwLock::new(dispatch));
-
-        let notifications = Arc::new(RwLock::new(VecDeque::new())).into();
-        let listeners = Arc::new(RwLock::new(vec![]));
-
-        Self {
-            id,
-            sender,
-            dispatch,
-            listeners,
-            notifications,
-            handle: None,
-        }
     }
 }
 

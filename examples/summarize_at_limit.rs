@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::collections::HashMap;
 
 use espionox::{
     agents::{
@@ -7,24 +8,27 @@ use espionox::{
         Agent,
     },
     environment::{
+        agent_handle::EndpointCompletionHandler,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvNotification,
-            EnvRequest,
         },
         Environment,
     },
-    language_models::endpoint_completions::LLMCompletionHandler,
+    language_models::{
+        anthropic::AnthropicCompletionHandler, endpoint_completions::LLMCompletionHandler,
+        ModelProvider,
+    },
 };
 
 #[derive(Debug)]
-pub struct SummarizeAtLimit {
+pub struct SummarizeAtLimit<H: EndpointCompletionHandler> {
     limit: usize,
-    summarizer: IndependentAgent,
+    summarizer: IndependentAgent<H>,
     watched_agent_id: String,
 }
 
-impl SummarizeAtLimit {
-    fn new(limit: usize, watched_agent_id: &str, summarizer: IndependentAgent) -> Self {
+impl<H: EndpointCompletionHandler> SummarizeAtLimit<H> {
+    fn new(limit: usize, watched_agent_id: &str, summarizer: IndependentAgent<H>) -> Self {
         Self {
             limit,
             watched_agent_id: watched_agent_id.to_owned(),
@@ -33,7 +37,7 @@ impl SummarizeAtLimit {
     }
 }
 
-impl EnvListener for SummarizeAtLimit {
+impl<H: EndpointCompletionHandler> EnvListener<H> for SummarizeAtLimit<H> {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Response(noti) = env_message {
             if let EnvNotification::AgentStateUpdate {
@@ -51,7 +55,7 @@ impl EnvListener for SummarizeAtLimit {
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
+        dispatch: &'l mut Dispatch<H>,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let cache_to_summarize = match trigger_message {
@@ -82,15 +86,21 @@ impl EnvListener for SummarizeAtLimit {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    let api_key = std::env::var("TESTING_API_KEY").unwrap();
-    let mut env = Environment::new(Some("testing"), Some(&api_key));
-    let agent = Agent::default();
+    let api_key = std::env::var("ANTHROPIC_KEY").unwrap();
+    let mut map = HashMap::new();
+    map.insert(ModelProvider::Anthropic, api_key);
+    let mut env = Environment::new(Some("testing"), map);
+    let agent = Agent::new(
+        "You are jerry!!",
+        LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
+    );
     let mut jerry_handle = env.insert_agent(Some("jerry"), agent).await.unwrap();
 
     let summarizer = env
         .make_agent_independent(Agent {
             cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
-            completion_handler: LLMCompletionHandler::default_openai(),
+            completion_handler:
+                LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
         })
         .await
         .unwrap();
