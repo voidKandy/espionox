@@ -1,4 +1,4 @@
-use super::error::*;
+use super::{anthropic::AnthropicCompletionHandler, error::*};
 use anyhow::anyhow;
 use reqwest_streams::JsonStreamResponse;
 
@@ -14,28 +14,30 @@ use super::openai::{
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Duration;
+use std::{fmt::Debug, time::Duration};
 
-pub trait EndpointCompletionModel: Sized + Clone + Copy {
+// pub trait EndpointCompletionModel: Sized + Clone + Copy {}
+
+pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'static {
     fn from_str(str: &str) -> Option<Self>;
     fn name(&self) -> &str;
     fn context_window(&self) -> i64;
-}
-
-pub trait EndpointCompletionHandler: Into<LLMCompletionHandler> {
     fn completion_url(&self) -> &str;
-    fn model(&self) -> impl EndpointCompletionModel;
-    fn temperature(&self) -> f32;
     fn request_headers(&self, api_key: &str) -> HeaderMap;
-    fn io_request_body(&self, messages: &MessageStack) -> Value;
+    fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value;
     fn fn_request_body(
         &self,
         messages: &MessageStack,
         function: Function,
+        temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
-    fn stream_request_body(&self, messages: &MessageStack) -> Result<Value, ModelEndpointError> {
+    fn stream_request_body(
+        &self,
+        messages: &MessageStack,
+        temperature: f32,
+    ) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
 
@@ -49,27 +51,45 @@ pub trait EndpointCompletionHandler: Into<LLMCompletionHandler> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum LLMCompletionHandler {
-    OpenAi(OpenAiCompletionHandler),
+pub struct LLMCompletionHandler<H: EndpointCompletionHandler> {
+    handler: H,
+    /// Temperature is computed to a number between 0 and 1 by dividing this value by 100
+    temperature: i32,
+    token_count: i32,
 }
 
-impl LLMCompletionHandler {
-    /// Returns immutable reference to inner Completion Handler
-    pub fn inner_ref(&self) -> &impl EndpointCompletionHandler {
-        match self {
-            Self::OpenAi(h) => h,
+impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
+    fn new(handler: H, temperature: i32) -> LLMCompletionHandler<H> {
+        Self {
+            handler,
+            temperature,
+            token_count: 0,
         }
+    }
+
+    fn temperature(&self) -> f32 {
+        (self.temperature / 100) as f32
+    }
+
+    /// Returns immutable reference to inner Completion Handler
+    pub fn inner_ref(&self) -> &H {
+        &self.handler
     }
     /// Returns mutable reference to inner Completion Handler
-    pub fn inner_mut(&mut self) -> &mut impl EndpointCompletionHandler {
-        match self {
-            Self::OpenAi(h) => h,
-        }
+    pub fn inner_mut(&mut self) -> &mut H {
+        &mut self.handler
     }
-    /// Creates LanguageModel with default gpt settings
-    pub fn default_openai() -> Self {
-        let openai = OpenAiCompletionHandler::default();
-        Self::OpenAi(openai)
+
+    /// Default openai handler with 0.7 temp
+    pub fn default_openai() -> LLMCompletionHandler<OpenAiCompletionHandler> {
+        let handler = OpenAiCompletionHandler::default();
+        LLMCompletionHandler::new(handler, 70)
+    }
+
+    /// Default anthropic handler with 0.7 temp
+    pub fn default_anthropic() -> LLMCompletionHandler<AnthropicCompletionHandler> {
+        let handler = AnthropicCompletionHandler::default();
+        LLMCompletionHandler::new(handler, 70)
     }
 
     pub(crate) async fn get_io_completion(
@@ -79,7 +99,9 @@ impl LLMCompletionHandler {
         client: &Client,
     ) -> Result<String, ModelEndpointError> {
         let headers = self.inner_ref().request_headers(api_key);
-        let body = self.inner_ref().io_request_body(messages);
+        let body = self
+            .inner_ref()
+            .io_request_body(messages, self.temperature());
         let response = client
             .post(self.inner_ref().completion_url())
             .headers(headers)
@@ -97,7 +119,9 @@ impl LLMCompletionHandler {
         client: &Client,
     ) -> Result<CompletionStream, ModelEndpointError> {
         let headers = self.inner_ref().request_headers(api_key);
-        let body = self.inner_ref().stream_request_body(messages)?;
+        let body = self
+            .inner_ref()
+            .stream_request_body(messages, self.temperature())?;
         let request = client
             .post(self.inner_ref().completion_url())
             .headers(headers)
@@ -124,7 +148,9 @@ impl LLMCompletionHandler {
         function: Function,
     ) -> Result<Value, ModelEndpointError> {
         let headers = self.inner_ref().request_headers(api_key);
-        let body = self.inner_ref().fn_request_body(messages, function)?;
+        let body = self
+            .inner_ref()
+            .fn_request_body(messages, function, self.temperature())?;
         let response = client
             .post(self.inner_ref().completion_url())
             .headers(headers)

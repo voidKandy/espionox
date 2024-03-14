@@ -1,5 +1,7 @@
 use futures_util::Future;
 
+use crate::language_models::endpoint_completions::EndpointCompletionHandler;
+
 use super::{Dispatch, EnvMessage};
 
 use std::pin::Pin;
@@ -39,21 +41,23 @@ use error::*;
 pub type ListenerMethodReturn<'l> =
     Pin<Box<dyn Future<Output = Result<EnvMessage, ListenerError>> + Send + Sync + 'l>>;
 
-pub trait EnvListener: std::fmt::Debug + Send + Sync + 'static {
+pub trait EnvListener<H: EndpointCompletionHandler>:
+    std::fmt::Debug + Send + Sync + 'static
+{
     /// Returns Some when the listener should be triggered
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage>;
     /// method to be called when listener is activated, must return an env message to replace input
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
+        dispatch: &'l mut Dispatch<H>,
     ) -> ListenerMethodReturn;
 }
 
-pub(crate) async fn run_listeners(
+pub(crate) async fn run_listeners<H: EndpointCompletionHandler>(
     mut message: EnvMessage,
-    listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
-    mut dispatch: &mut RwLockWriteGuard<'_, Dispatch>,
+    listeners: Arc<RwLock<Vec<Box<dyn EnvListener<H>>>>>,
+    mut dispatch: &mut RwLockWriteGuard<'_, Dispatch<H>>,
 ) -> Result<EnvMessage, ListenerError> {
     let mut listeners_write = listeners.write().await;
     let mut active_listeners = listeners_write.iter_mut().fold(vec![], |mut active, l| {

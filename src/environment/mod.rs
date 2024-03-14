@@ -14,6 +14,8 @@ use uuid::Uuid;
 use crate::agents::{independent::IndependentAgent, Agent};
 pub use errors::*;
 
+use self::agent_handle::EndpointCompletionHandler;
+
 #[derive(Debug)]
 pub struct NotificationStack(pub Arc<RwLock<VecDeque<EnvNotification>>>);
 
@@ -38,11 +40,11 @@ impl Into<Arc<RwLock<VecDeque<EnvNotification>>>> for NotificationStack {
 struct EnvThreadHandle(JoinHandle<Result<(), EnvError>>);
 
 #[derive(Debug)]
-pub struct Environment {
+pub struct Environment<H: EndpointCompletionHandler> {
     pub id: String,
-    pub dispatch: Arc<RwLock<Dispatch>>,
+    pub dispatch: Arc<RwLock<Dispatch<H>>>,
     pub notifications: NotificationStack,
-    listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
+    listeners: Arc<RwLock<Vec<Box<dyn EnvListener<H>>>>>,
     sender: EnvMessageSender,
     handle: Option<EnvThreadHandle>,
 }
@@ -57,10 +59,10 @@ impl EnvThreadHandle {
     }
 
     #[tracing::instrument(name = "Dispatch main loop", skip_all)]
-    async fn main_loop(
-        mut dispatch: RwLockWriteGuard<'_, Dispatch>,
+    async fn main_loop<H: EndpointCompletionHandler>(
+        mut dispatch: RwLockWriteGuard<'_, Dispatch<H>>,
         noti_stack: NotificationStack,
-        listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
+        listeners: Arc<RwLock<Vec<Box<dyn EnvListener<H>>>>>,
     ) -> Result<(), EnvError> {
         let receiver: EnvMessageReceiver = Arc::clone(&dispatch.channel.receiver);
         loop {
@@ -104,9 +106,12 @@ impl EnvThreadHandle {
     }
 }
 
-impl Environment {
+impl<H: EndpointCompletionHandler> Environment<H> {
     /// Wraps method by the same name in inner Dispatch
-    pub async fn make_agent_independent(&self, agent: Agent) -> Result<IndependentAgent, EnvError> {
+    pub async fn make_agent_independent(
+        &self,
+        agent: Agent<H>,
+    ) -> Result<IndependentAgent<H>, EnvError> {
         Ok(self
             .dispatch
             .read()
@@ -149,7 +154,7 @@ impl Environment {
     }
 
     /// Insert any struct implementing `EnvListener` trait
-    pub async fn insert_listener(&mut self, listener: impl EnvListener) {
+    pub async fn insert_listener(&mut self, listener: impl EnvListener<H>) {
         self.listeners.write().await.push(Box::new(listener))
     }
 
@@ -175,7 +180,7 @@ impl Environment {
     pub async fn insert_agent(
         &mut self,
         id: Option<&str>,
-        agent: Agent,
+        agent: Agent<H>,
     ) -> Result<AgentHandle, EnvError> {
         let mut dispatch = self.dispatch.write().await;
         let id = match id {

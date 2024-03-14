@@ -4,7 +4,7 @@ pub use channel::*;
 pub use listeners::EnvListener;
 use tokio::sync::Mutex;
 
-use super::AgentHandle;
+use super::{agent_handle::EndpointCompletionHandler, AgentHandle};
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -22,30 +22,30 @@ use std::collections::HashMap;
 
 use super::errors::DispatchError;
 
-pub type AgentHashMap = HashMap<String, Agent>;
+pub type AgentHashMap<H> = HashMap<String, Agent<H>>;
 
 #[derive(Debug)]
-pub struct Dispatch {
+pub struct Dispatch<H: EndpointCompletionHandler> {
     api_key: Option<String>,
     pub client: Client,
     pub(super) requests: VecDeque<EnvRequest>,
     // pub(super) listeners: Vec<Box<dyn EnvListener>>,
     pub(super) channel: EnvChannel,
-    pub(super) agents: AgentHashMap,
+    pub(super) agents: AgentHashMap<H>,
 }
 
-impl Dispatch {
+impl<H: EndpointCompletionHandler> Dispatch<H> {
     /// Using the api key and client already in dispatch, make an agent independent
     pub async fn make_agent_independent(
         &self,
-        agent: Agent,
-    ) -> Result<IndependentAgent, DispatchError> {
+        agent: Agent<H>,
+    ) -> Result<IndependentAgent<H>, DispatchError> {
         let api_key = self.api_key()?;
         let client = self.client.clone();
         Ok(IndependentAgent::new(agent, client, api_key))
     }
     /// Get a mutable reference to an agent within the dispatch
-    pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent, DispatchError> {
+    pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent<H>, DispatchError> {
         if let Some(agent) = self.agents.get_mut(id) {
             return Ok(agent);
         }
@@ -53,7 +53,7 @@ impl Dispatch {
     }
 
     /// Get a immutable reference to an agent within the dispatch
-    pub fn get_agent_ref(&self, id: &str) -> Result<&Agent, DispatchError> {
+    pub fn get_agent_ref(&self, id: &str) -> Result<&Agent<H>, DispatchError> {
         if let Some(agent) = self.agents.get(id) {
             return Ok(agent);
         }
@@ -89,7 +89,7 @@ impl Dispatch {
 
     #[tracing::instrument(name = "Push message to agent cache")]
     async fn push_to_agent_cache(
-        agent: &mut Agent,
+        agent: &mut Agent<H>,
         agent_id: &str,
         message: &Message,
         sender: &EnvMessageSender,
