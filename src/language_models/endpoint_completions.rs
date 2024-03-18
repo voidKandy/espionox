@@ -16,12 +16,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{fmt::Debug, time::Duration};
 
-// pub trait EndpointCompletionModel: Sized + Clone + Copy {}
-
 pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'static {
     fn provider(&self) -> ModelProvider;
     fn from_str(str: &str) -> Option<Self>;
     fn name(&self) -> &str;
+    fn agent_cache_to_json(cache: &MessageStack) -> Vec<Value>;
     fn context_window(&self) -> i64;
     fn completion_url(&self) -> &str;
     fn request_headers(&self, api_key: &str) -> HeaderMap;
@@ -30,7 +29,6 @@ pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'stati
         &self,
         _messages: &MessageStack,
         _function: Function,
-        _temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
         Err(ModelEndpointError::MethodUnimplemented)
     }
@@ -52,14 +50,20 @@ pub trait EndpointCompletionHandler: Clone + Copy + Debug + Sync + Send + 'stati
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LLMCompletionHandler<H: EndpointCompletionHandler> {
+pub struct LLMCompletionHandler<H>
+where
+    H: EndpointCompletionHandler,
+{
     handler: H,
     /// Temperature is computed to a number between 0 and 1 by dividing this value by 100
     temperature: i32,
     token_count: i32,
 }
 
-impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
+impl<H> LLMCompletionHandler<H>
+where
+    H: EndpointCompletionHandler,
+{
     pub fn new(handler: H, temperature: i32) -> LLMCompletionHandler<H> {
         Self {
             handler,
@@ -149,9 +153,7 @@ impl<H: EndpointCompletionHandler> LLMCompletionHandler<H> {
         function: Function,
     ) -> Result<Value, ModelEndpointError> {
         let headers = self.inner_ref().request_headers(api_key);
-        let body = self
-            .inner_ref()
-            .fn_request_body(messages, function, self.temperature())?;
+        let body = self.inner_ref().fn_request_body(messages, function)?;
         let response = client
             .post(self.inner_ref().completion_url())
             .headers(headers)

@@ -185,7 +185,7 @@ impl EnvNotification {
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
         match self {
-            EnvNotification::AgentStateUpdate { .. } => None,
+            EnvNotification::AgentStateUpdate { ticket, .. } => Some(*ticket),
             EnvNotification::GotStreamHandle { ticket, .. } => Some(*ticket),
             EnvNotification::GotCompletionResponse { ticket, .. } => Some(*ticket),
             EnvNotification::GotFunctionResponse { ticket, .. } => Some(*ticket),

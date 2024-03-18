@@ -13,12 +13,18 @@ pub use error::AgentError;
 
 /// Agent struct for interracting with LLM
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Agent<H: EndpointCompletionHandler> {
+pub struct Agent<H>
+where
+    H: EndpointCompletionHandler,
+{
     pub cache: MessageStack,
     pub completion_handler: LLMCompletionHandler<H>,
 }
 
-impl<H: EndpointCompletionHandler> Agent<H> {
+impl<H> Agent<H>
+where
+    H: EndpointCompletionHandler,
+{
     /// For creating an Agent given system prompt content and model
     pub fn new(init_prompt: &str, completion_handler: LLMCompletionHandler<H>) -> Self {
         let cache = MessageStack::new(init_prompt);

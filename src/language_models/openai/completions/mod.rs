@@ -48,6 +48,15 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         }
     }
 
+    fn agent_cache_to_json(cache: &MessageStack) -> Vec<Value> {
+        cache
+            .as_ref()
+            .to_owned()
+            .into_iter()
+            .map(|m| m.into())
+            .collect::<Vec<Value>>()
+    }
+
     fn completion_url(&self) -> &str {
         "https://api.openai.com/v1/chat/completions"
     }
@@ -62,16 +71,15 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         map
     }
     fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value {
-        let context: Vec<Value> = messages.into();
+        let context = Self::agent_cache_to_json(messages);
         json!({"model": self.name(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null})
     }
     fn fn_request_body(
         &self,
         messages: &MessageStack,
         function: super::functions::Function,
-        temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
-        let context: Vec<Value> = messages.into();
+        let context = Self::agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,
@@ -84,7 +92,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         messages: &MessageStack,
         temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
-        let context: Vec<Value> = messages.into();
+        let context = Self::agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,

@@ -1,6 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use espionox::environment::agent_handle::{Message, MessageRole, MessageStack};
+    use espionox::{
+        environment::agent_handle::{
+            EndpointCompletionHandler, Message, MessageRole, MessageStack,
+        },
+        language_models::anthropic::AnthropicCompletionHandler,
+    };
 
     #[test]
     fn message_stack_filter_by_behavior() {
@@ -41,5 +46,21 @@ mod tests {
         println!("{:?}", stack_ref);
         let m = stack_ref.pop(Some(MessageRole::System));
         assert_eq!(None, m);
+    }
+
+    #[test]
+    fn anthropic_agent_cache_to_json() {
+        let mut stack = MessageStack::new("SYSTEM");
+        stack.push(Message::new_user("USER"));
+        stack.push(Message::new_user("USE1"));
+        stack.push(Message::new_user("USE2"));
+        stack.push(Message::new_assistant("ASS"));
+        stack.push(Message::new_assistant("ASS1"));
+        stack.push(Message::new_user("USE1"));
+        stack.push(Message::new_user("USE2"));
+        let vals = AnthropicCompletionHandler::agent_cache_to_json(&stack);
+        println!("VALS: {:?}", vals);
+        let stack: MessageStack = MessageStack::from(vals);
+        assert_eq!(4, stack.len());
     }
 }

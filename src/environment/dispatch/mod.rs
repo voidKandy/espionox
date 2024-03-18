@@ -33,16 +33,21 @@ pub enum ApiKey {
 pub type AgentHashMap<H> = HashMap<String, Agent<H>>;
 
 #[derive(Debug)]
-pub struct Dispatch<H: EndpointCompletionHandler> {
+pub struct Dispatch<H>
+where
+    H: EndpointCompletionHandler,
+{
     api_keys: HashMap<ModelProvider, String>,
     pub client: Client,
     pub(super) requests: VecDeque<EnvRequest>,
-    // pub(super) listeners: Vec<Box<dyn EnvListener>>,
     pub(super) channel: EnvChannel,
     pub(super) agents: AgentHashMap<H>,
 }
 
-impl<H: EndpointCompletionHandler> Dispatch<H> {
+impl<H> Dispatch<H>
+where
+    H: EndpointCompletionHandler,
+{
     /// Using the api key and client already in dispatch, make an agent independent
     pub async fn make_agent_independent(
         &self,
@@ -174,7 +179,7 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
             EnvRequest::Finish => self.finish().await,
 
             EnvRequest::GetAgentState { ticket, agent_id } => {
-                let agent = self.get_agent_ref(&agent_id)?;
+                let agent: &Agent<H> = self.get_agent_ref(&agent_id)?;
                 let cache = agent.cache.clone();
                 let sender = &self.channel.sender.lock().await;
                 let response = EnvNotification::AgentStateUpdate {

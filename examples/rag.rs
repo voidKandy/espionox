@@ -207,9 +207,9 @@ async fn main() {
         agent_id: handle.id.clone(),
         data,
     };
-    env.insert_listener(listener).await;
+    let _ = env.insert_listener(listener).await;
 
-    let _ = env.spawn().await.unwrap();
+    let mut env_handle = env.spawn_handle().unwrap();
 
     let ticket = handle
         .request_io_completion(Message::new_user(
@@ -218,11 +218,7 @@ async fn main() {
         .await
         .unwrap();
 
-    env.finalize_dispatch().await.unwrap();
-    let noti = env
-        .notifications
-        .wait_for_notification(&ticket)
-        .await
-        .unwrap();
+    let mut stack = env_handle.finish_current_job().await.unwrap();
+    let noti = stack.take_by_ticket(ticket).unwrap();
     println!("{:?}", noti);
 }

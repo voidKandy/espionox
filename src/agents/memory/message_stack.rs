@@ -3,14 +3,33 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-pub struct MessageStack(Vec<Message>);
+pub struct MessageStack(pub(crate) Vec<Message>);
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MessageStackRef<'stack>(Vec<&'stack Message>);
+pub struct MessageStackRef<'stack>(pub(crate) Vec<&'stack Message>);
 
 impl<'stack> From<Vec<&'stack Message>> for MessageStackRef<'stack> {
     fn from(value: Vec<&'stack Message>) -> Self {
         Self(value)
+    }
+}
+
+impl From<Vec<Value>> for MessageStack {
+    fn from(json_vec: Vec<Value>) -> Self {
+        let mut vec: Vec<Message> = vec![];
+        for val in json_vec.into_iter() {
+            let m = Message::from(val);
+            vec.push(m);
+        }
+        Self(vec)
+    }
+}
+
+impl IntoIterator for MessageStack {
+    type Item = Message;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -35,16 +54,6 @@ impl AsRef<Vec<Message>> for MessageStack {
 impl AsMut<Vec<Message>> for MessageStack {
     fn as_mut(&mut self) -> &mut Vec<Message> {
         &mut self.0
-    }
-}
-
-impl Into<Vec<Value>> for &MessageStack {
-    fn into(self) -> Vec<Value> {
-        self.0
-            .to_owned()
-            .into_iter()
-            .map(|m| m.into())
-            .collect::<Vec<Value>>()
     }
 }
 
@@ -104,26 +113,8 @@ impl<'stack> MessageStack {
     /// Mutates message vector in place. Excludes/Explicitly includes given message role
     pub fn mut_filter_by(&mut self, role: MessageRole, inclusive: bool) {
         match inclusive {
-            true => {
-                let og_len = self.len();
-                for i in 0..og_len {
-                    let amt_removed = og_len - self.len();
-                    let m = &self.0[i - amt_removed];
-                    if m.role != role {
-                        self.0.remove(i - amt_removed);
-                    }
-                }
-            }
-            false => {
-                let og_len = self.len();
-                for i in 0..og_len {
-                    let amt_removed = og_len - self.len();
-                    let m = &self.0[i - amt_removed];
-                    if m.role == role {
-                        self.0.remove(i - amt_removed);
-                    }
-                }
-            }
+            true => self.0.retain(|m| m.role == role),
+            false => self.0.retain(|m| m.role != role),
         }
     }
 

@@ -12,14 +12,20 @@ use super::AgentError;
 /// can be built from an environment or dispatch using `make_agent_independent` or
 /// with `new`. Needs a `reqwest::Client` and valid api key
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct IndependentAgent<H: EndpointCompletionHandler> {
+pub struct IndependentAgent<H>
+where
+    H: EndpointCompletionHandler,
+{
     pub agent: Agent<H>,
     #[serde(skip)]
     client: Client,
     api_key: String,
 }
 
-impl<H: EndpointCompletionHandler> IndependentAgent<H> {
+impl<H> IndependentAgent<H>
+where
+    H: EndpointCompletionHandler,
+{
     pub fn new(agent: Agent<H>, client: Client, api_key: String) -> Self {
         Self {
             agent,

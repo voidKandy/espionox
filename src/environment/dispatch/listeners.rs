@@ -41,8 +41,9 @@ use error::*;
 pub type ListenerMethodReturn<'l> =
     Pin<Box<dyn Future<Output = Result<EnvMessage, ListenerError>> + Send + Sync + 'l>>;
 
-pub trait EnvListener<H: EndpointCompletionHandler>:
-    std::fmt::Debug + Send + Sync + 'static
+pub trait EnvListener<H>: std::fmt::Debug + Send + Sync + 'static
+where
+    H: EndpointCompletionHandler,
 {
     /// Returns Some when the listener should be triggered
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage>;
