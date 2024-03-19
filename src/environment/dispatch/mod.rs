@@ -4,7 +4,7 @@ pub use channel::*;
 pub use listeners::EnvListener;
 use tokio::sync::Mutex;
 
-use super::{agent_handle::EndpointCompletionHandler, AgentHandle};
+use super::{agent_handle::InferenceEndpointHandler, AgentHandle};
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
 

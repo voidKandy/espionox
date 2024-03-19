@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
     use espionox::{
-        environment::agent_handle::{
-            EndpointCompletionHandler, Message, MessageRole, MessageStack,
+        environment::agent_handle::{Message, MessageRole, MessageStack},
+        language_models::{
+            anthropic::AnthropicCompletionHandler, inference::CompletionEndpointHandler,
         },
-        language_models::anthropic::AnthropicCompletionHandler,
     };
 
     #[test]

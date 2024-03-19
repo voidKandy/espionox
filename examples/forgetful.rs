@@ -12,7 +12,7 @@ use espionox::{
         },
         Environment,
     },
-    language_models::{openai::completions::OpenAiCompletionHandler, ModelProvider, LLM},
+    language_models::{ModelProvider, LLM},
 };
 use tokio::time::sleep;
 
@@ -62,7 +62,7 @@ async fn main() {
     let mut map = HashMap::new();
     map.insert(ModelProvider::OpenAi, api_key);
     let mut env = Environment::new(Some("testing"), map);
-    let agent = Agent::new("You are jerry!!", LLM::default_openai());
+    let agent = Agent::new(Some("You are jerry!!"), LLM::default_openai());
     let mut jerry_handle = env
         .insert_agent(Some("jerry"), agent.clone())
         .await

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use espionox::{
     agents::{
         independent::IndependentAgent,
-        memory::{messages::MessageRole, Message, MessageStack},
+        memory::{messages::MessageRole, Message},
         Agent,
     },
     environment::{
@@ -13,7 +13,7 @@ use espionox::{
         },
         Environment,
     },
-    language_models::{anthropic::AnthropicCompletionHandler, ModelProvider, LLM},
+    language_models::{ModelProvider, LLM},
 };
 
 #[derive(Debug)]
@@ -68,7 +68,8 @@ impl EnvListener for SummarizeAtLimit {
                 "Summarize this chat history: {}",
                 cache_to_summarize
             ));
-            self.summarizer.agent.cache.push(message);
+            self.summarizer.mutate_agent_cache(|c| c.push(message));
+
             let summary = self.summarizer.io_completion().await?;
 
             let watched_agent = dispatch
@@ -88,14 +89,14 @@ async fn main() {
     let mut map = HashMap::new();
     map.insert(ModelProvider::Anthropic, api_key);
     let mut env = Environment::new(Some("testing"), map);
-    let agent = Agent::new("You are jerry!!", LLM::default_anthropic());
+    let agent = Agent::new(Some("You are jerry!!"), LLM::default_anthropic());
     let mut jerry_handle = env.insert_agent(Some("jerry"), agent).await.unwrap();
 
     let summarizer = env
-        .make_agent_independent(Agent {
-            cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
-            completion_handler: LLM::default_anthropic(),
-        })
+        .make_agent_independent(Agent::new(
+            Some("Your job is to summarize chunks of a conversation"),
+            LLM::default_anthropic(),
+        ))
         .await
         .unwrap();
     let sal = SummarizeAtLimit::new(5usize, "jerry", summarizer);

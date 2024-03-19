@@ -1,14 +1,15 @@
 use std::any::Any;
 
 use espionox::{
-    agents::memory::{Message, MessageStack},
-    environment::agent_handle::EndpointCompletionHandler,
+    agents::{
+        memory::{Message, MessageStack},
+        Agent,
+    },
+    environment::agent_handle::InferenceEndpointHandler,
     language_models::{
         anthropic::{self, AnthropicCompletionHandler},
-        openai::{
-            completions::OpenAiCompletionHandler,
-            embeddings::{get_embedding, OpenAiEmbeddingModel},
-        },
+        inference::LLMEmbeddingHandler,
+        openai::{completions::OpenAiCompletionHandler, embeddings::OpenAiEmbeddingModel},
         LLM,
     },
 };
@@ -18,13 +19,15 @@ use crate::init_test;
 
 #[ignore]
 #[tokio::test]
-async fn openai_embedding_works() {
+async fn embedding_handlers_get_embeddings() {
     init_test();
     dotenv::dotenv().ok();
     let text = "Heyyyy this is a test";
     let api_key = std::env::var("OPENAI_KEY").unwrap();
     let client = reqwest::Client::new();
-    let response = get_embedding(&client, &api_key, text, OpenAiEmbeddingModel::Small).await;
+    let embedder =
+        LLM::new_embedding_model(LLMEmbeddingHandler::from(OpenAiEmbeddingModel::Small), None);
+    let response = embedder.get_embedding(text, &api_key, &client).await;
     assert!(response.is_ok())
 }
 

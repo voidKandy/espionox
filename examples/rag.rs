@@ -2,101 +2,95 @@ use std::collections::HashMap;
 
 use espionox::{
     agents::{
+        independent::IndependentAgent,
         memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
-        Agent,
+        Agent, AgentError,
     },
     environment::{
-        agent_handle::EndpointCompletionHandler,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvRequest,
         },
         Environment,
     },
-    language_models::{
-        error::ModelEndpointError,
-        openai::{
-            completions::OpenAiCompletionHandler,
-            embeddings::{get_embedding, OpenAiEmbeddingModel},
-        },
-        ModelProvider, LLM,
-    },
+    language_models::{openai::embeddings::OpenAiEmbeddingModel, ModelProvider, LLM},
 };
 
 #[derive(Debug)]
 pub struct RagListener<'p> {
     agent_id: String,
-    data: DbStruct<'p>,
+    data: Option<DbStruct<'p>>,
+    embedder: IndependentAgent,
 }
 
-async fn embed(str: &str) -> Result<Vec<f32>, ModelEndpointError> {
-    let client = reqwest::Client::new();
-    let api_key = std::env::var("OPENAI_KEY").unwrap();
-    let res = get_embedding(&client, &api_key, str, OpenAiEmbeddingModel::Small).await?;
-    Ok(res.data[0].embedding.clone())
-}
+impl<'p> RagListener<'p> {
+    async fn embed(&self, str: &str) -> Result<Vec<f32>, AgentError> {
+        Ok(self.embedder.get_embedding(str).await?)
+    }
 
-async fn init_products<'p>() -> DbStruct<'p> {
-    DbStruct(vec![
+    async fn init_products(&mut self) {
+        let data = DbStruct(vec![
         Product {
             name: "SmartWatch 2000",
             description: "Stay connected and track your fitness with the SmartWatch 2000. This sleek device features a vibrant touchscreen, heart rate monitoring, and a variety of smart notifications.",
-            desc_embedding: EmbeddingVector::from(embed("Stay connected and track your fitness with the SmartWatch 2000. This sleek device features a vibrant touchscreen, heart rate monitoring, and a variety of smart notifications.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Stay connected and track your fitness with the SmartWatch 2000. This sleek device features a vibrant touchscreen, heart rate monitoring, and a variety of smart notifications.").await.unwrap()),
         },
 
         Product {
             name: "Quantum Laptop Pro",
             description: "Unleash the power of productivity with the Quantum Laptop Pro. Equipped with a high-performance processor, stunning display, and a lightweight design, it's your perfect companion for work and play.",
-            desc_embedding: EmbeddingVector::from(embed("Unleash the power of productivity with the Quantum Laptop Pro. Equipped with a high-performance processor, stunning display, and a lightweight design, it's your perfect companion for work and play.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Unleash the power of productivity with the Quantum Laptop Pro. Equipped with a high-performance processor, stunning display, and a lightweight design, it's your perfect companion for work and play.").await.unwrap()),
         },
 
         Product {
             name: "ZenAir Noise-Canceling Headphones",
             description: "Immerse yourself in crystal-clear sound with the ZenAir Noise-Canceling Headphones. These wireless over-ear headphones offer premium comfort and cutting-edge noise-canceling technology for an unparalleled audio experience.",
-            desc_embedding: EmbeddingVector::from(embed("Immerse yourself in crystal-clear sound with the ZenAir Noise-Canceling Headphones. These wireless over-ear headphones offer premium comfort and cutting-edge noise-canceling technology for an unparalleled audio experience.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Immerse yourself in crystal-clear sound with the ZenAir Noise-Canceling Headphones. These wireless over-ear headphones offer premium comfort and cutting-edge noise-canceling technology for an unparalleled audio experience.").await.unwrap()),
         },
 
         Product {
             name: "Eco-Friendly Bamboo Water Bottle",
             description: "Make a statement while staying eco-friendly with our Bamboo Water Bottle. Crafted from sustainable bamboo, this stylish and reusable bottle is perfect for staying hydrated on the go.",
-            desc_embedding: EmbeddingVector::from(embed("Make a statement while staying eco-friendly with our Bamboo Water Bottle. Crafted from sustainable bamboo, this stylish and reusable bottle is perfect for staying hydrated on the go.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Make a statement while staying eco-friendly with our Bamboo Water Bottle. Crafted from sustainable bamboo, this stylish and reusable bottle is perfect for staying hydrated on the go.").await.unwrap()),
         },
 
         Product {
             name: "Stellar Telescope 4000X",
             description: "Explore the wonders of the night sky with the Stellar Telescope 4000X. This high-powered telescope is perfect for astronomy enthusiasts, featuring advanced optics and a sturdy mount for clear and detailed views.",
-            desc_embedding: EmbeddingVector::from(embed("Explore the wonders of the night sky with the Stellar Telescope 4000X. This high-powered telescope is perfect for astronomy enthusiasts, featuring advanced optics and a sturdy mount for clear and detailed views.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Explore the wonders of the night sky with the Stellar Telescope 4000X. This high-powered telescope is perfect for astronomy enthusiasts, featuring advanced optics and a sturdy mount for clear and detailed views.").await.unwrap()),
         },
 
         Product {
             name: "Gourmet Coffee Sampler Pack",
             description: "Indulge your taste buds with our Gourmet Coffee Sampler Pack. This curated collection includes a variety of premium coffee blends from around the world, offering a delightful coffee experience.",
-            desc_embedding: EmbeddingVector::from(embed("Indulge your taste buds with our Gourmet Coffee Sampler Pack. This curated collection includes a variety of premium coffee blends from around the world, offering a delightful coffee experience.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Indulge your taste buds with our Gourmet Coffee Sampler Pack. This curated collection includes a variety of premium coffee blends from around the world, offering a delightful coffee experience.").await.unwrap()),
         },
 
         Product {
             name: "Fitness Tracker Pro",
             description: "Achieve your fitness goals with the Fitness Tracker Pro. Monitor your steps, heart rate, and sleep patterns while receiving real-time notifications. Sleek design and long battery life make it an essential companion for an active lifestyle.",
-            desc_embedding: EmbeddingVector::from(embed("Achieve your fitness goals with the Fitness Tracker Pro. Monitor your steps, heart rate, and sleep patterns while receiving real-time notifications. Sleek design and long battery life make it an essential companion for an active lifestyle.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Achieve your fitness goals with the Fitness Tracker Pro. Monitor your steps, heart rate, and sleep patterns while receiving real-time notifications. Sleek design and long battery life make it an essential companion for an active lifestyle.").await.unwrap()),
         },
 
         Product {
             name: "Retro Arcade Gaming Console",
             description: "Relive the nostalgia of classic arcade games with our Retro Arcade Gaming Console. Packed with your favorite titles, this compact console brings back the joy of retro gaming in a modern and portable design.",
-            desc_embedding: EmbeddingVector::from(embed("Relive the nostalgia of classic arcade games with our Retro Arcade Gaming Console. Packed with your favorite titles, this compact console brings back the joy of retro gaming in a modern and portable design.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Relive the nostalgia of classic arcade games with our Retro Arcade Gaming Console. Packed with your favorite titles, this compact console brings back the joy of retro gaming in a modern and portable design.").await.unwrap()),
         },
 
         Product {
             name: "Luxe Leather Messenger Bag",
             description: "Elevate your style with the Luxe Leather Messenger Bag. Crafted from premium leather, this sophisticated bag combines fashion and functionality, offering ample space for your essentials in a timeless design.",
-            desc_embedding: EmbeddingVector::from(embed("Elevate your style with the Luxe Leather Messenger Bag. Crafted from premium leather, this sophisticated bag combines fashion and functionality, offering ample space for your essentials in a timeless design.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Elevate your style with the Luxe Leather Messenger Bag. Crafted from premium leather, this sophisticated bag combines fashion and functionality, offering ample space for your essentials in a timeless design.").await.unwrap()),
         },
 
-        Product {
+       Product {
             name: "Herbal Infusion Tea Set",
             description: "Unwind and savor the soothing flavors of our Herbal Infusion Tea Set. This carefully curated collection features a blend of herbal teas, each with unique health benefits and delightful aromas.",
-            desc_embedding: EmbeddingVector::from(embed("Unwind and savor the soothing flavors of our Herbal Infusion Tea Set. This carefully curated collection features a blend of herbal teas, each with unique health benefits and delightful aromas.").await.unwrap()),
+            desc_embedding: EmbeddingVector::from(self.embed("Unwind and savor the soothing flavors of our Herbal Infusion Tea Set. This carefully curated collection features a blend of herbal teas, each with unique health benefits and delightful aromas.").await.unwrap()),
         }
-    ])
+    ]);
+        self.data = Some(data);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -123,8 +117,13 @@ impl<'p> ToMessage for DbStruct<'p> {
 }
 
 impl<'p> DbStruct<'p> {
-    async fn get_close_embeddings_from_query(&self, amt: usize, query: &str) -> DbStruct<'p> {
-        let qembed = EmbeddingVector::from(embed(query).await.unwrap());
+    async fn get_close_embeddings_from_query_embedding(
+        &self,
+        qembed: EmbeddingVector,
+        amt: usize,
+        // query: &str,
+    ) -> DbStruct<'p> {
+        // let qembed = EmbeddingVector::from(self.embed(query).await.unwrap());
         let mut map = HashMap::new();
         let mut scores: Vec<f32> = self
             .0
@@ -174,9 +173,13 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
                 .filter(|m| m.role == MessageRole::User)
                 .last()
             {
+                let qembed =
+                    EmbeddingVector::from(self.embed(&latest_user_message.content).await.unwrap());
                 let strcts = self
                     .data
-                    .get_close_embeddings_from_query(5, &latest_user_message.content)
+                    .as_ref()
+                    .unwrap()
+                    .get_close_embeddings_from_query_embedding(qembed, 5)
                     .await;
                 println!(
                     "STRUCTS PUSHING: {:?}",
@@ -196,13 +199,25 @@ async fn main() {
     let mut map = HashMap::new();
     map.insert(ModelProvider::OpenAi, api_key);
     let mut env = Environment::new(Some("testing"), map);
-    let agent = Agent::new("You are jerry!!", LLM::default_openai());
+
+    let embedder = Agent::new(
+        None,
+        LLM::new_embedding_model(OpenAiEmbeddingModel::Small.into(), None),
+    );
+    let embedder = env
+        .make_agent_independent(embedder)
+        .await
+        .expect("Couldn't make indi agent");
+
+    let agent = Agent::new(Some("You are jerry!!"), LLM::default_openai());
     let mut handle = env.insert_agent(None, agent).await.unwrap();
-    let data = init_products().await;
-    let listener = RagListener {
+    let mut listener = RagListener {
+        embedder,
         agent_id: handle.id.clone(),
-        data,
+        data: None,
     };
+
+    listener.init_products().await;
     let _ = env.insert_listener(listener).await;
 
     let mut env_handle = env.spawn_handle().unwrap();

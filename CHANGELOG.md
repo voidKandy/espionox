@@ -148,8 +148,24 @@ Environment::new(Some("testing"), keys)
 
 # v0.1.24
 
-## `H` removed
-LLMCompletionHandler is now an enum, no need for type generics
+## Model Endpoint handler changed
+`H` removed LLMCompletionHandler is now an enum, no need for type generics
+`LLM` struct can get either completions or embeddings, and eventually will support vision models
+The interface has been built to easily add new models
+EndpointCompletionHandler now InferenceEndpointHandler, Which stores 
+CompletionEndpointHandler and EmbeddingEndpointHandler
+Agents which get embeddings is now possible, though Dispatch channel hasn't been updated to use
+embedding agents, As i currently see little user for that. So for now, only IndependantAgents can be used for Embedding agents
+
+## Agents 
+Agent::new now takes an optional system prompt str instead of forcing you to provide one
+`completion_handler` has been made public only to the crate
+
+## Independent Agents
+`agent` field has been made private. New `mutate_agent_cache` function allows you 
+to pass a closure to mutate the cache of the inner agent.
+Supported endpoint response getters are their own methods
+
 
 ## Messages/MessageStack
 Removed general `Into<Vec<Value>>` for MessageStack to allow each provider to have it's own implementation

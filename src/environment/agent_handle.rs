@@ -6,8 +6,8 @@ pub use crate::{
         memory::{Message, MessageRole, MessageStack, ToMessage},
     },
     language_models::{
-        completion_handler::EndpointCompletionHandler,
-        openai::{completions::OpenAiResponse, functions::CustomFunction},
+        inference::InferenceEndpointHandler,
+        openai::completions::{functions::CustomFunction, OpenAiResponse},
     },
 };
 

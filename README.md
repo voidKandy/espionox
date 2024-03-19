@@ -12,17 +12,23 @@ Espionox is an attempt to make building Ai applications in Rust just as approach
 First, you'll want to create an environment.
 
 ```
-use espionox::environment::Environment;
-let env_name = "demo-env";
-let api_key: &str = "your-openai-api-key";
-let env = Environment::new(Some(env_name), Some(api_key));
+let open_key = std::env::var("OPENAI_KEY").unwrap();
+let anth_key = std::env::var("ANTHROPIC_KEY").unwrap();
+
+let mut keys = HashMap::new();
+keys.insert(ModelProvider::OpenAi, api_key);
+keys.insert(ModelProvider::Anthropic, api_key);
+
+let env_name = "MyEnv";
+
+Environment::new(Some(env_name), keys)
 ```
 
 Once an `Environment` has been instantiated, you can add agents to it
 
 ```
 use espionox::environment::Agent;
-let agent = Agent::default();
+let agent = Agent::new(Some("This is the system message"), LLM::default_openai());
 let agent_name = "my agent";
 let agent_handle = env.insert_agent(Some(agent_name), agent).await.unwrap();
 ```
@@ -31,7 +37,7 @@ When `insert_agent` returns Ok, it will return an `AgentHandler`
 After inserting any Agents or EnvListeners run this command to start running the environment:
 
 ```
-env.spawn().await.unwrap()
+let mut env_handle = env.spawn_handle().await.unwrap()
 ```
 
 Once the environment is running, the `AgentHandler` can be used to make completion requests
@@ -41,12 +47,20 @@ let message = Message::new_user("Hello!");
 let ticket = agent_handle.request_io_completion(message).await.unwrap();
 ```
 
-Get the response to your completion requests with the returned `ticket` UUid
 
+There are two ways to Get the response to your completion requests with the returned `ticket` UUid: 
+1. Join the env thread and get the notification from the returned stack: 
 ```
-let noti = env.notifications.wait_for_notification(&ticket).await.unwrap();
+let stack = env_handle.finish_current_job().await?;
+let noti = stack.take_by_ticket(ticket)?;
 let message: &Message = noti.extract_body().try_into().unwrap();
 ```
+2. Wait for the message to appear on the notification stack without joining the thread
+```
+let noti = env_handle.wait_for_noticiation(&ticket).await?;
+let message: &Message = noti.extract_body().try_into().unwrap();
+```
+
 
 Completions can also be returned as streams if the `request_stream_completion` method is used:
 
@@ -79,8 +93,10 @@ pub trait EnvListener: std::fmt::Debug + Send + Sync + 'static {
     ) -> ListenerMethodReturn;
 }
 ```
+It looks simple, but this trait will allow you to create RAG pipelines,
+add tool use, and create self reflection techniques.
+Think of the EnvMessages as events that can trigger specific things to happen to your agents.
 
-Any struct implementing this trait can be added to an Environment using the `insert_listener` method. EnvListeners can be used to enforce self consistency in creative ways. Check the examples directory for examples of listeners in action.
+Check the examples directory for more information on `EnvListener`
 
-espionox is very early in development and everything in the API may be subject to change
-Please feel free to reach out with any questions, suggestions, issues or anything else :)
+espionox is very early in development and everything in the API may be subject to change Please feel free to reach out with any questions, suggestions, issues or anything else :)

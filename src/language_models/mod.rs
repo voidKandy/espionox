@@ -3,8 +3,8 @@ pub mod huggingface;
 
 pub mod anthropic;
 
-pub mod completion_handler;
 pub mod error;
+pub mod inference;
 pub mod openai;
 
 use anyhow::anyhow;
@@ -21,11 +21,13 @@ use std::{fmt::Debug, time::Duration};
 
 use self::{
     anthropic::AnthropicCompletionHandler,
-    completion_handler::{EndpointCompletionHandler, LLMCompletionHandler},
     error::ModelEndpointError,
-    openai::{
-        completions::{streaming::CompletionStream, OpenAiCompletionHandler},
-        functions::Function,
+    inference::{
+        CompletionEndpointHandler, EmbeddingEndpointHandler, LLMCompletionHandler,
+        LLMEmbeddingHandler, LLMInferenceHandler,
+    },
+    openai::completions::{
+        functions::Function, streaming::CompletionStream, OpenAiCompletionHandler,
     },
 };
 
@@ -37,41 +39,94 @@ pub enum ModelProvider {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LLM {
-    handler: LLMCompletionHandler,
+    handler: LLMInferenceHandler,
     /// Temperature is computed to a number between 0 and 1 by dividing this value by 100
-    temperature: i32,
-    token_count: i32,
+    params: ModelParameters,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelParameters {
+    /// Total token usage count of the model
+    total_token_count: u32,
+    /// What sampling temperature to use, between 0 and 2.
+    /// Higher values like 0.8 will make the output more random,
+    /// while lower values like 0.2 will make it more focused and deterministic.
+    /// Input as a value between 0 and 200. Will be turned into float.
+    temperature: Option<u8>,
+    /// Number between -2.0 and 2.0.
+    /// Positive values penalize new tokens based on their existing frequency in the text so far,
+    /// decreasing the model's likelihood to repeat the same line verbatim.
+    frequency_penalty: Option<i8>,
+    /// The maximum number of tokens that can be generated in the chat completion.
+    /// The total length of input tokens and generated tokens is limited by the model's context length.
+    max_tokens: Option<u32>,
+    /// How many chat completion choices to generate for each input message.
+    /// Note that you will be charged based on the number of generated tokens across all of the choices.
+    /// Keep n as 1 to minimize costs.
+    n: Option<u32>,
+    /// Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far,
+    /// increasing the model's likelihood to talk about new topics.
+    presence_penalty: Option<i8>,
+}
+
+impl Default for ModelParameters {
+    fn default() -> Self {
+        Self {
+            total_token_count: 0,
+            temperature: Some(70),
+            frequency_penalty: None,
+            max_tokens: None,
+            n: Some(1),
+            presence_penalty: None,
+        }
+    }
+}
+
+impl ModelParameters {
+    fn temperature(&self) -> Result<f32, anyhow::Error> {
+        Ok((self.temperature.ok_or(anyhow!("No temperature"))? / 100) as f32)
+    }
 }
 
 impl LLM {
     pub fn provider(&self) -> ModelProvider {
-        match self.handler {
-            LLMCompletionHandler::OpenAi(_) => ModelProvider::OpenAi,
-            LLMCompletionHandler::Anthropic(_) => ModelProvider::Anthropic,
-        }
+        self.handler.provider()
     }
 
-    pub fn new(handler: LLMCompletionHandler, temperature: i32) -> LLM {
-        Self {
-            handler,
-            temperature,
-            token_count: 0,
-        }
+    pub fn new_completion_model(
+        handler: LLMCompletionHandler,
+        params: Option<ModelParameters>,
+    ) -> LLM {
+        let params = match params {
+            None => ModelParameters::default(),
+            Some(p) => p,
+        };
+        let handler = handler.into();
+        Self { handler, params }
     }
 
-    fn temperature(&self) -> f32 {
-        (self.temperature / 100) as f32
+    pub fn new_embedding_model(
+        handler: LLMEmbeddingHandler,
+        params: Option<ModelParameters>,
+    ) -> LLM {
+        let params = match params {
+            None => ModelParameters::default(),
+            Some(p) => p,
+        };
+        let handler = handler.into();
+        Self { handler, params }
     }
+
     /// Default openai handler with 0.7 temp
     pub fn default_openai() -> LLM {
         let handler = OpenAiCompletionHandler::default().into();
-        LLM::new(handler, 70)
+        LLM::new_completion_model(handler, None)
     }
 
     /// Default anthropic handler with 0.7 temp
     pub fn default_anthropic() -> LLM {
         let handler = AnthropicCompletionHandler::default().into();
-        LLM::new(handler, 70)
+        LLM::new_completion_model(handler, None)
     }
 
     pub async fn get_io_completion(
@@ -80,9 +135,9 @@ impl LLM {
         api_key: &str,
         client: &Client,
     ) -> Result<String, ModelEndpointError> {
-        let comp_handler: Box<dyn EndpointCompletionHandler> = self.handler.comp_handler();
+        let comp_handler: Box<dyn CompletionEndpointHandler> = self.handler.comp_handler()?;
         let headers = comp_handler.request_headers(api_key);
-        let body = comp_handler.io_request_body(messages, self.temperature());
+        let body = comp_handler.io_request_body(messages, self.params.temperature()?);
         let response = client
             .post(comp_handler.completion_url())
             .headers(headers)
@@ -99,9 +154,9 @@ impl LLM {
         api_key: &str,
         client: &Client,
     ) -> Result<CompletionStream, ModelEndpointError> {
-        let comp_handler: Box<dyn EndpointCompletionHandler> = self.handler.comp_handler();
+        let comp_handler: Box<dyn CompletionEndpointHandler> = self.handler.comp_handler()?;
         let headers = comp_handler.request_headers(api_key);
-        let body = comp_handler.stream_request_body(messages, self.temperature())?;
+        let body = comp_handler.stream_request_body(messages, self.params.temperature()?)?;
         let request = client
             .post(comp_handler.completion_url())
             .headers(headers)
@@ -127,7 +182,7 @@ impl LLM {
         client: &Client,
         function: Function,
     ) -> Result<Value, ModelEndpointError> {
-        let comp_handler: Box<dyn EndpointCompletionHandler> = self.handler.comp_handler();
+        let comp_handler: Box<dyn CompletionEndpointHandler> = self.handler.comp_handler()?;
         let headers = comp_handler.request_headers(api_key);
         let body = comp_handler.fn_request_body(messages, function)?;
         let response = client
@@ -138,5 +193,24 @@ impl LLM {
             .await?;
         let json = response.json().await?;
         Ok(comp_handler.handle_fn_response(json)?)
+    }
+
+    pub async fn get_embedding(
+        &self,
+        text: &str,
+        api_key: &str,
+        client: &Client,
+    ) -> Result<Vec<f32>, ModelEndpointError> {
+        let emb_handler: Box<dyn EmbeddingEndpointHandler> = self.handler.emb_handler()?;
+        let headers = emb_handler.request_headers(api_key);
+        let body = emb_handler.request_body(text);
+        let response = client
+            .post(emb_handler.completion_url())
+            .headers(headers)
+            .json(&body)
+            .send()
+            .await?;
+        let json = response.json().await?;
+        Ok(emb_handler.handle_response(json)?)
     }
 }

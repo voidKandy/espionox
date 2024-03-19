@@ -4,7 +4,10 @@ use serde_json::{json, Value};
 
 use crate::environment::agent_handle::{Message, MessageRole, MessageStack};
 
-use super::{completion_handler::EndpointCompletionHandler, error::ModelEndpointError};
+use super::{
+    error::{InferenceHandlerError, ModelEndpointError},
+    inference::{CompletionEndpointHandler, InferenceEndpointHandler},
+};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum AnthropicCompletionHandler {
@@ -18,7 +21,7 @@ const OPUS_MODEL_STR: &str = "claude-3-opus-20240229";
 const SONNET_MODEL_STR: &str = "claude-3-sonnet-20240229";
 const HAIKU_MODEL_STR: &str = "claude-3-haiku-20240307";
 
-impl EndpointCompletionHandler for AnthropicCompletionHandler {
+impl InferenceEndpointHandler for AnthropicCompletionHandler {
     fn name(&self) -> &str {
         match self {
             Self::Opus => OPUS_MODEL_STR,
@@ -26,13 +29,21 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
             Self::Haiku => HAIKU_MODEL_STR,
         }
     }
-
-    fn context_window(&self) -> i64 {
-        200000
-    }
-
     fn completion_url(&self) -> &str {
         "https://api.anthropic.com/v1/messages"
+    }
+    fn request_headers(&self, api_key: &str) -> HeaderMap {
+        let mut map = HeaderMap::new();
+        map.insert("x-api-key", format!("{}", api_key).parse().unwrap());
+        map.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        map.insert("content-type", "application/json".parse().unwrap());
+        map
+    }
+}
+
+impl CompletionEndpointHandler for AnthropicCompletionHandler {
+    fn context_window(&self) -> i64 {
+        200000
     }
 
     fn agent_cache_to_json(&self, cache: &MessageStack) -> Vec<Value> {
@@ -63,14 +74,6 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
         val_vec
     }
 
-    fn request_headers(&self, api_key: &str) -> HeaderMap {
-        let mut map = HeaderMap::new();
-        map.insert("x-api-key", format!("{}", api_key).parse().unwrap());
-        map.insert("anthropic-version", "2023-06-01".parse().unwrap());
-        map.insert("content-type", "application/json".parse().unwrap());
-        map
-    }
-
     fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value {
         let system_stack: MessageStack = messages.ref_filter_by(MessageRole::System, true).into();
         let sans_system_stack: MessageStack =
@@ -91,7 +94,7 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
         }
     }
 
-    fn handle_io_response(&self, response: Value) -> Result<String, ModelEndpointError> {
+    fn handle_io_response(&self, response: Value) -> Result<String, InferenceHandlerError> {
         // println!("value: {:?}", response);
         let response = AnthropicResponse::try_from(response).unwrap();
         Ok(response.content[0].text.to_owned())
