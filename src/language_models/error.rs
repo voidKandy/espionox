@@ -7,10 +7,19 @@ pub enum ModelEndpointError {
     Undefined(#[from] anyhow::Error),
     NetRequest(#[from] reqwest::Error),
     SerdeJson(#[from] serde_json::Error),
-    CouldNotParseResponse,
-    MethodUnimplemented,
+    Inference(#[from] InferenceHandlerError),
     Recoverable,
     NoApiKey,
+}
+
+#[derive(thiserror::Error)]
+pub enum InferenceHandlerError {
+    #[error(transparent)]
+    Undefined(#[from] anyhow::Error),
+    SerdeJson(#[from] serde_json::Error),
+    CouldNotParseResponse,
+    MethodUnimplemented,
+    IncorrectHandler,
 }
 
 impl Debug for ModelEndpointError {
@@ -20,6 +29,18 @@ impl Debug for ModelEndpointError {
 }
 
 impl Display for ModelEndpointError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Debug for InferenceHandlerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl Display for InferenceHandlerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{:?}", self)
     }

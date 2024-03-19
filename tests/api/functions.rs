@@ -1,5 +1,5 @@
 use super::helpers::init_test;
-use espionox::language_models::openai::functions::{
+use espionox::language_models::openai::completions::functions::{
     CustomFunction, Function, Property, PropertyInfo,
 };
 use serde_json::json;

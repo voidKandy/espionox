@@ -1,7 +1,7 @@
 use crate::{
     agents::memory::{Message, MessageStack},
-    language_models::openai::{
-        completions::streaming::StreamedCompletionHandler, functions::Function,
+    language_models::openai::completions::{
+        functions::Function, streaming::StreamedCompletionHandler,
     },
 };
 use anyhow::anyhow;
@@ -67,16 +67,22 @@ pub enum EnvNotification {
         agent_id: String,
         cache: MessageStack,
     },
+
+    /// Returned by a request for an io completion
     GotCompletionResponse {
         ticket: Uuid,
         agent_id: String,
         message: Message,
     },
+
+    /// Returned by a request for a function completion
     GotFunctionResponse {
         ticket: Uuid,
         agent_id: String,
         json: Value,
     },
+
+    /// Returned by a request for a stream completion
     GotStreamHandle {
         ticket: Uuid,
         agent_id: String,
@@ -185,7 +191,7 @@ impl EnvNotification {
     }
     pub fn ticket_number(&self) -> Option<Uuid> {
         match self {
-            EnvNotification::AgentStateUpdate { .. } => None,
+            EnvNotification::AgentStateUpdate { ticket, .. } => Some(*ticket),
             EnvNotification::GotStreamHandle { ticket, .. } => Some(*ticket),
             EnvNotification::GotCompletionResponse { ticket, .. } => Some(*ticket),
             EnvNotification::GotFunctionResponse { ticket, .. } => Some(*ticket),

@@ -1,9 +1,11 @@
+pub mod functions;
 pub mod streaming;
 
 use crate::{
     environment::agent_handle::MessageStack,
     language_models::{
-        endpoint_completions::EndpointCompletionHandler, error::ModelEndpointError,
+        error::InferenceHandlerError,
+        inference::{CompletionEndpointHandler, InferenceEndpointHandler},
         openai::OpenAiUsage,
     },
 };
@@ -22,32 +24,13 @@ pub enum OpenAiCompletionHandler {
 const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-0125";
 const GPT4_MODEL_STR: &str = "gpt-4-0125-preview";
 
-impl EndpointCompletionHandler for OpenAiCompletionHandler {
-    fn provider(&self) -> crate::language_models::ModelProvider {
-        crate::language_models::ModelProvider::OpenAi
-    }
-    fn from_str(str: &str) -> Option<Self> {
-        match str {
-            GPT3_MODEL_STR => Some(Self::Gpt3),
-            GPT4_MODEL_STR => Some(Self::Gpt4),
-            _ => None,
-        }
-    }
-
+impl InferenceEndpointHandler for OpenAiCompletionHandler {
     fn name(&self) -> &str {
         match self {
             Self::Gpt3 => GPT3_MODEL_STR,
             Self::Gpt4 => GPT4_MODEL_STR,
         }
     }
-
-    fn context_window(&self) -> i64 {
-        match self {
-            Self::Gpt3 => 16385,
-            Self::Gpt4 => 128000,
-        }
-    }
-
     fn completion_url(&self) -> &str {
         "https://api.openai.com/v1/chat/completions"
     }
@@ -61,17 +44,35 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         map.insert("Content-Type", "application/json".parse().unwrap());
         map
     }
+}
+
+impl CompletionEndpointHandler for OpenAiCompletionHandler {
+    fn context_window(&self) -> i64 {
+        match self {
+            Self::Gpt3 => 16385,
+            Self::Gpt4 => 128000,
+        }
+    }
+
+    fn agent_cache_to_json(&self, cache: &MessageStack) -> Vec<Value> {
+        cache
+            .as_ref()
+            .to_owned()
+            .into_iter()
+            .map(|m| m.into())
+            .collect::<Vec<Value>>()
+    }
+
     fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value {
-        let context: Vec<Value> = messages.into();
+        let context = self.agent_cache_to_json(messages);
         json!({"model": self.name(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null})
     }
     fn fn_request_body(
         &self,
         messages: &MessageStack,
-        function: super::functions::Function,
-        temperature: f32,
-    ) -> Result<Value, ModelEndpointError> {
-        let context: Vec<Value> = messages.into();
+        function: functions::Function,
+    ) -> Result<Value, InferenceHandlerError> {
+        let context = self.agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,
@@ -83,8 +84,8 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         &self,
         messages: &MessageStack,
         temperature: f32,
-    ) -> Result<Value, ModelEndpointError> {
-        let context: Vec<Value> = messages.into();
+    ) -> Result<Value, InferenceHandlerError> {
+        let context = self.agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,
@@ -95,14 +96,14 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
             "stop": null,
         }))
     }
-    fn handle_io_response(&self, response: Value) -> Result<String, ModelEndpointError> {
+    fn handle_io_response(&self, response: Value) -> Result<String, InferenceHandlerError> {
         let response = OpenAiResponse::try_from(response).unwrap();
         match response.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
-            None => Err(ModelEndpointError::CouldNotParseResponse),
+            None => Err(InferenceHandlerError::CouldNotParseResponse),
         }
     }
-    fn handle_fn_response(&self, response: Value) -> Result<Value, ModelEndpointError> {
+    fn handle_fn_response(&self, response: Value) -> Result<Value, InferenceHandlerError> {
         let response = OpenAiResponse::try_from(response).unwrap();
 
         match response
@@ -137,7 +138,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
                 tracing::info!("Args output: {:?}", args_output);
                 Ok(args_output)
             }
-            None => Err(ModelEndpointError::CouldNotParseResponse),
+            None => Err(InferenceHandlerError::CouldNotParseResponse),
         }
     }
 }

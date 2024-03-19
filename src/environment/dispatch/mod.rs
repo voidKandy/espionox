@@ -4,7 +4,7 @@ pub use channel::*;
 pub use listeners::EnvListener;
 use tokio::sync::Mutex;
 
-use super::{agent_handle::EndpointCompletionHandler, AgentHandle};
+use super::{agent_handle::InferenceEndpointHandler, AgentHandle};
 use reqwest::Client;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -30,30 +30,29 @@ pub enum ApiKey {
     Anthropic(String),
 }
 
-pub type AgentHashMap<H> = HashMap<String, Agent<H>>;
+pub type AgentHashMap = HashMap<String, Agent>;
 
 #[derive(Debug)]
-pub struct Dispatch<H: EndpointCompletionHandler> {
+pub struct Dispatch {
     api_keys: HashMap<ModelProvider, String>,
     pub client: Client,
     pub(super) requests: VecDeque<EnvRequest>,
-    // pub(super) listeners: Vec<Box<dyn EnvListener>>,
     pub(super) channel: EnvChannel,
-    pub(super) agents: AgentHashMap<H>,
+    pub(super) agents: AgentHashMap,
 }
 
-impl<H: EndpointCompletionHandler> Dispatch<H> {
+impl Dispatch {
     /// Using the api key and client already in dispatch, make an agent independent
     pub async fn make_agent_independent(
         &self,
-        agent: Agent<H>,
-    ) -> Result<IndependentAgent<H>, DispatchError> {
+        agent: Agent,
+    ) -> Result<IndependentAgent, DispatchError> {
         let api_key = self.api_key(agent.provider())?;
         let client = self.client.clone();
         Ok(IndependentAgent::new(agent, client, api_key.to_owned()))
     }
     /// Get a mutable reference to an agent within the dispatch
-    pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent<H>, DispatchError> {
+    pub fn get_agent_mut(&mut self, id: &str) -> Result<&mut Agent, DispatchError> {
         if let Some(agent) = self.agents.get_mut(id) {
             return Ok(agent);
         }
@@ -61,7 +60,7 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
     }
 
     /// Get a immutable reference to an agent within the dispatch
-    pub fn get_agent_ref(&self, id: &str) -> Result<&Agent<H>, DispatchError> {
+    pub fn get_agent_ref(&self, id: &str) -> Result<&Agent, DispatchError> {
         if let Some(agent) = self.agents.get(id) {
             return Ok(agent);
         }
@@ -100,7 +99,7 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
 
     #[tracing::instrument(name = "Push message to agent cache")]
     async fn push_to_agent_cache(
-        agent: &mut Agent<H>,
+        agent: &mut Agent,
         agent_id: &str,
         message: &Message,
         sender: &EnvMessageSender,
@@ -174,7 +173,7 @@ impl<H: EndpointCompletionHandler> Dispatch<H> {
             EnvRequest::Finish => self.finish().await,
 
             EnvRequest::GetAgentState { ticket, agent_id } => {
-                let agent = self.get_agent_ref(&agent_id)?;
+                let agent: &Agent = self.get_agent_ref(&agent_id)?;
                 let cache = agent.cache.clone();
                 let sender = &self.channel.sender.lock().await;
                 let response = EnvNotification::AgentStateUpdate {

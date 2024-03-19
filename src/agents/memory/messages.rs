@@ -22,7 +22,7 @@ pub trait ToMessage: std::fmt::Debug + Send + Sync {
 }
 
 pub trait ToMessageStack {
-    fn to_message_vector(&self) -> MessageStack;
+    fn to_message_stack(&self) -> MessageStack;
 }
 
 impl ToMessage for String {

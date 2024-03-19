@@ -146,3 +146,50 @@ keys.insert(ModelProvider::Anthropic, api_key);
 Environment::new(Some("testing"), keys)
 ```
 
+# v0.1.24
+
+## Model Endpoint handler changed
+`H` removed LLMCompletionHandler is now an enum, no need for type generics
+`LLM` struct can get either completions or embeddings, and eventually will support vision models
+The interface has been built to easily add new models
+EndpointCompletionHandler now InferenceEndpointHandler, Which stores 
+CompletionEndpointHandler and EmbeddingEndpointHandler
+Agents which get embeddings is now possible, though Dispatch channel hasn't been updated to use
+embedding agents, As i currently see little user for that. So for now, only IndependantAgents can be used for Embedding agents
+
+## Agents 
+Agent::new now takes an optional system prompt str instead of forcing you to provide one
+`completion_handler` has been made public only to the crate
+
+## Independent Agents
+`agent` field has been made private. New `mutate_agent_cache` function allows you 
+to pass a closure to mutate the cache of the inner agent.
+Supported endpoint response getters are their own methods
+
+
+## Messages/MessageStack
+Removed general `Into<Vec<Value>>` for MessageStack to allow each provider to have it's own implementation
+Added `IntoIter` to MessageStack
+Added `From<Vec<Value>>` to MessageStack
+
+### Change to `request_cache_push`
+Now takes a `Message` instead of a `ToMessage` and a Role
+
+## Notification stack
+Now has async `pop_front` and `pop_back` methods. These simply aquire write locks and then pop either front or back from the inner 
+`VecDeque`.
+`NotificationStack` is also no longer a wrapper for `Arc<RwLock`, it is simply a wrapper for `VecDeque`. There is a named type `RefCountedNotificationStack` which is an alias for 
+`Arc<RwLock`NotificationStack>>` 
+
+## EnvHandle
+New `EnvHandle` struct added to modularize making requests to a running environment
+`Environment::spawn_handle` returns `EnvHandle`. When this method is run, the `EnvHandle` takes ownership of `Dispatch` and `Listeners` Vector.
+Rather than `finalize_dispatch`, `EnvHandle` has a method called `finish_current_job`, which joins the thread handle and returns an owned NotificationStack.
+
+## AgentStateUpdate 
+Agent state update now returns a ticket number from the `ticket_number` method.
+
+## Anthropic Handler
+Because anthropic needs user/assistant pairs, `agent_cache_to_json` has been added for each completion handler to have it's own way of getting a vec of values from `MessageStack`
+
+

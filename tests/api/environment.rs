@@ -6,12 +6,12 @@ use espionox::{
     },
     environment::{
         dispatch::{EnvNotification, ThreadSafeStreamCompletionHandler},
-        NotificationStack,
+        notification_stack::NotificationStack,
     },
     language_models::{
         anthropic::AnthropicCompletionHandler,
-        endpoint_completions::LLMCompletionHandler,
         openai::completions::{streaming::CompletionStreamStatus, OpenAiCompletionHandler},
+        LLM,
     },
 };
 use serde_json::Value;
@@ -19,10 +19,7 @@ use tokio;
 
 #[tokio::test]
 async fn insert_agent_works() {
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new(None, LLM::default_openai());
     let mut environment = helpers::test_env();
     let handle = environment.insert_agent(None, agent).await;
     assert!(handle.is_ok());
@@ -32,25 +29,18 @@ async fn insert_agent_works() {
 #[tokio::test]
 async fn io_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
-    );
+    let agent = Agent::new(None, LLM::default_anthropic());
     let mut environment = helpers::test_env_with_keys();
-    let mut handle = environment
+    let mut a_handle = environment
         .insert_agent(Some("jerry"), agent)
         .await
         .unwrap();
 
-    environment.spawn().await.expect("Failed to spawn");
+    let mut env_handle = environment.spawn_handle().expect("Failed to spawn");
 
     let message = Message::new_user("Hello!");
-    let ticket = handle.request_io_completion(message).await.unwrap();
-    let noti: EnvNotification = environment
-        .notifications
-        .wait_for_notification(&ticket)
-        .await
-        .unwrap();
+    let ticket = a_handle.request_io_completion(message).await.unwrap();
+    let noti: EnvNotification = env_handle.wait_for_notification(&ticket).await.unwrap();
     let message: &Message = noti.extract_body().try_into().unwrap();
 
     assert_eq!(message.role, MessageRole::Assistant);
@@ -60,17 +50,14 @@ async fn io_prompt_agent_works() {
 #[tokio::test]
 async fn stream_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new(None, LLM::default_openai());
     let mut environment = helpers::test_env_with_keys();
     let mut handle = environment
         .insert_agent(Some("jerry"), agent)
         .await
         .unwrap();
 
-    environment.spawn().await.expect("Failed to spawn");
+    let mut env_handle = environment.spawn_handle().expect("Failed to spawn");
 
     let message = Message::new_user("Hello!");
     let ticket = &handle
@@ -78,19 +65,14 @@ async fn stream_prompt_agent_works() {
         .await
         .unwrap();
     tracing::error!("TEST GOT TICKET: {}", ticket);
-    let noti: EnvNotification = environment
-        .notifications
-        .wait_for_notification(ticket)
-        .await
-        .unwrap();
+    let noti: EnvNotification = env_handle.wait_for_notification(&ticket).await.unwrap();
     tracing::error!("TEST GOT NOTI: {:?}", noti);
     let handler: &ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
     let mut handler = handler.lock().await;
 
     let mut whole_message = String::new();
-    while let Some(CompletionStreamStatus::Working(token)) = handler
-        .receive(&handle.id, environment.clone_sender())
-        .await
+    while let Some(CompletionStreamStatus::Working(token)) =
+        handler.receive(&handle.id, env_handle.new_sender()).await
     {
         tracing::info!("TEST LOOPING");
         whole_message.push_str(&token);
@@ -98,10 +80,13 @@ async fn stream_prompt_agent_works() {
     }
     tracing::info!("TEST GOT WHOLE MESSAGE: {}", whole_message);
 
-    environment.finalize_dispatch().await.unwrap();
-    let mut stack = environment.notifications.0.write().await;
+    let mut stack = env_handle
+        .finish_current_job()
+        .await
+        .expect("Couldn't finish thread");
 
-    let stack = NotificationStack::take_by_agent(&mut stack, &handle.id)
+    let stack = stack
+        .take_by_agent(&handle.id)
         .expect("Failed to get stack of agent notis");
     println!("{:?}", stack);
 }
@@ -110,29 +95,24 @@ async fn stream_prompt_agent_works() {
 #[tokio::test]
 async fn function_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new(None, LLM::default_openai());
     let mut environment = helpers::test_env_with_keys();
-    let mut handle = environment
+    let mut a_handle = environment
         .insert_agent(Some("fn jerry"), agent)
         .await
         .unwrap();
     let function = weather_test_function();
     let message = Message::new_user("What's the weather like in Detroit michigan in celcius?");
-    environment.spawn().await.unwrap();
-    let ticket = handle
+
+    let mut env_handle = environment.spawn_handle().expect("Failed to spawn");
+    let ticket = a_handle
         .request_function_prompt(function, message)
         .await
         .unwrap();
 
-    environment.finalize_dispatch().await.unwrap();
-    let noti: EnvNotification = environment
-        .notifications
-        .wait_for_notification(&ticket)
-        .await
-        .unwrap();
+    let mut stack = env_handle.finish_current_job().await.unwrap();
+
+    let noti: EnvNotification = stack.take_by_ticket(ticket).unwrap();
     println!("Got noti: {:?}", noti);
     let json: &Value = noti.extract_body().try_into().unwrap();
     if let Some(location) = json
