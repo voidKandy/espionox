@@ -156,6 +156,9 @@ Removed general `Into<Vec<Value>>` for MessageStack to allow each provider to ha
 Added `IntoIter` to MessageStack
 Added `From<Vec<Value>>` to MessageStack
 
+### Change to `request_cache_push`
+Now takes a `Message` instead of a `ToMessage` and a Role
+
 ## Notification stack
 Now has async `pop_front` and `pop_back` methods. These simply aquire write locks and then pop either front or back from the inner 
 `VecDeque`.

@@ -102,13 +102,11 @@ async fn main() {
 
     env.insert_listener(sal).await.unwrap();
     let mut env_handle = env.spawn_handle().unwrap();
+    let message = Message::new_user("im saying things to fill space");
 
     for _ in 0..=5 {
         jerry_handle
-            .request_cache_push(
-                "im saying things to fill space".to_owned(),
-                MessageRole::User,
-            )
+            .request_cache_push(message.clone())
             .await
             .expect("failed to request cache push");
         tokio::time::sleep(Duration::from_millis(200)).await;

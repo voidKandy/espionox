@@ -36,12 +36,13 @@ impl AgentHandle {
     #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
     pub async fn request_cache_push(
         &mut self,
-        to_message: impl ToMessage,
-        role: MessageRole,
+        message: Message,
+        // to_message: impl ToMessage,
+        // role: MessageRole,
     ) -> Result<(), AgentError> {
         let request = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
-            message: to_message.to_message(role),
+            message,
         };
         self.sender
             .lock()
