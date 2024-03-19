@@ -3,7 +3,7 @@ pub mod streaming;
 use crate::{
     environment::agent_handle::MessageStack,
     language_models::{
-        endpoint_completions::EndpointCompletionHandler, error::ModelEndpointError,
+        completion_handler::EndpointCompletionHandler, error::ModelEndpointError,
         openai::OpenAiUsage,
     },
 };
@@ -23,17 +23,6 @@ const GPT3_MODEL_STR: &str = "gpt-3.5-turbo-0125";
 const GPT4_MODEL_STR: &str = "gpt-4-0125-preview";
 
 impl EndpointCompletionHandler for OpenAiCompletionHandler {
-    fn provider(&self) -> crate::language_models::ModelProvider {
-        crate::language_models::ModelProvider::OpenAi
-    }
-    fn from_str(str: &str) -> Option<Self> {
-        match str {
-            GPT3_MODEL_STR => Some(Self::Gpt3),
-            GPT4_MODEL_STR => Some(Self::Gpt4),
-            _ => None,
-        }
-    }
-
     fn name(&self) -> &str {
         match self {
             Self::Gpt3 => GPT3_MODEL_STR,
@@ -48,7 +37,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         }
     }
 
-    fn agent_cache_to_json(cache: &MessageStack) -> Vec<Value> {
+    fn agent_cache_to_json(&self, cache: &MessageStack) -> Vec<Value> {
         cache
             .as_ref()
             .to_owned()
@@ -71,7 +60,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         map
     }
     fn io_request_body(&self, messages: &MessageStack, temperature: f32) -> Value {
-        let context = Self::agent_cache_to_json(messages);
+        let context = self.agent_cache_to_json(messages);
         json!({"model": self.name(), "messages": context, "temperature": temperature, "max_tokens": 1000, "n": 1, "stop": null})
     }
     fn fn_request_body(
@@ -79,7 +68,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         messages: &MessageStack,
         function: super::functions::Function,
     ) -> Result<Value, ModelEndpointError> {
-        let context = Self::agent_cache_to_json(messages);
+        let context = self.agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,
@@ -92,7 +81,7 @@ impl EndpointCompletionHandler for OpenAiCompletionHandler {
         messages: &MessageStack,
         temperature: f32,
     ) -> Result<Value, ModelEndpointError> {
-        let context = Self::agent_cache_to_json(messages);
+        let context = self.agent_cache_to_json(messages);
         Ok(json!({
             "model": self.name(),
             "messages": context,

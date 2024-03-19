@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::environment::agent_handle::{Message, MessageRole, MessageStack};
 
-use super::{endpoint_completions::EndpointCompletionHandler, error::ModelEndpointError};
+use super::{completion_handler::EndpointCompletionHandler, error::ModelEndpointError};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum AnthropicCompletionHandler {
@@ -19,9 +19,6 @@ const SONNET_MODEL_STR: &str = "claude-3-sonnet-20240229";
 const HAIKU_MODEL_STR: &str = "claude-3-haiku-20240307";
 
 impl EndpointCompletionHandler for AnthropicCompletionHandler {
-    fn provider(&self) -> super::ModelProvider {
-        super::ModelProvider::Anthropic
-    }
     fn name(&self) -> &str {
         match self {
             Self::Opus => OPUS_MODEL_STR,
@@ -34,19 +31,11 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
         200000
     }
 
-    fn from_str(str: &str) -> Option<Self> {
-        match str {
-            OPUS_MODEL_STR => Some(Self::Opus),
-            SONNET_MODEL_STR => Some(Self::Sonnet),
-            HAIKU_MODEL_STR => Some(Self::Haiku),
-            _ => None,
-        }
-    }
     fn completion_url(&self) -> &str {
         "https://api.anthropic.com/v1/messages"
     }
 
-    fn agent_cache_to_json(cache: &MessageStack) -> Vec<Value> {
+    fn agent_cache_to_json(&self, cache: &MessageStack) -> Vec<Value> {
         // Anthropic model requires that messages alternate from User to assistant. So we'll
         // concatenate all adjacent messages to one
         let mut val_vec: Vec<Value> = vec![];
@@ -86,7 +75,7 @@ impl EndpointCompletionHandler for AnthropicCompletionHandler {
         let system_stack: MessageStack = messages.ref_filter_by(MessageRole::System, true).into();
         let sans_system_stack: MessageStack =
             messages.ref_filter_by(MessageRole::System, false).into();
-        let context = Self::agent_cache_to_json(&sans_system_stack);
+        let context = self.agent_cache_to_json(&sans_system_stack);
         let system_content = system_stack
             .as_ref()
             .into_iter()

@@ -8,27 +8,23 @@ use espionox::{
         Agent,
     },
     environment::{
-        agent_handle::EndpointCompletionHandler,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvNotification,
         },
         Environment,
     },
-    language_models::{
-        anthropic::AnthropicCompletionHandler, endpoint_completions::LLMCompletionHandler,
-        ModelProvider,
-    },
+    language_models::{anthropic::AnthropicCompletionHandler, ModelProvider, LLM},
 };
 
 #[derive(Debug)]
-pub struct SummarizeAtLimit<H: EndpointCompletionHandler> {
+pub struct SummarizeAtLimit {
     limit: usize,
-    summarizer: IndependentAgent<H>,
+    summarizer: IndependentAgent,
     watched_agent_id: String,
 }
 
-impl<H: EndpointCompletionHandler> SummarizeAtLimit<H> {
-    fn new(limit: usize, watched_agent_id: &str, summarizer: IndependentAgent<H>) -> Self {
+impl SummarizeAtLimit {
+    fn new(limit: usize, watched_agent_id: &str, summarizer: IndependentAgent) -> Self {
         Self {
             limit,
             watched_agent_id: watched_agent_id.to_owned(),
@@ -37,7 +33,7 @@ impl<H: EndpointCompletionHandler> SummarizeAtLimit<H> {
     }
 }
 
-impl<H: EndpointCompletionHandler> EnvListener<H> for SummarizeAtLimit<H> {
+impl EnvListener for SummarizeAtLimit {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Response(noti) = env_message {
             if let EnvNotification::AgentStateUpdate {
@@ -57,7 +53,7 @@ impl<H: EndpointCompletionHandler> EnvListener<H> for SummarizeAtLimit<H> {
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch<H>,
+        dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let cache_to_summarize = match trigger_message {
@@ -92,17 +88,13 @@ async fn main() {
     let mut map = HashMap::new();
     map.insert(ModelProvider::Anthropic, api_key);
     let mut env = Environment::new(Some("testing"), map);
-    let agent = Agent::new(
-        "You are jerry!!",
-        LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
-    );
+    let agent = Agent::new("You are jerry!!", LLM::default_anthropic());
     let mut jerry_handle = env.insert_agent(Some("jerry"), agent).await.unwrap();
 
     let summarizer = env
         .make_agent_independent(Agent {
             cache: MessageStack::new("Your job is to summarize chunks of a conversation"),
-            completion_handler:
-                LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
+            completion_handler: LLM::default_anthropic(),
         })
         .await
         .unwrap();

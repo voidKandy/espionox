@@ -6,16 +6,13 @@ use espionox::{
         Agent,
     },
     environment::{
-        agent_handle::{EndpointCompletionHandler, MessageRole},
+        agent_handle::MessageRole,
         dispatch::{
             listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvRequest,
         },
         Environment,
     },
-    language_models::{
-        endpoint_completions::LLMCompletionHandler, openai::completions::OpenAiCompletionHandler,
-        ModelProvider,
-    },
+    language_models::{openai::completions::OpenAiCompletionHandler, ModelProvider, LLM},
 };
 use tokio::time::sleep;
 
@@ -31,7 +28,7 @@ impl From<&str> for Forgetful {
     }
 }
 
-impl<H: EndpointCompletionHandler> EnvListener<H> for Forgetful {
+impl EnvListener for Forgetful {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
         if let EnvMessage::Request(req) = env_message {
             if let EnvRequest::GetCompletion { agent_id, .. } = req {
@@ -46,7 +43,7 @@ impl<H: EndpointCompletionHandler> EnvListener<H> for Forgetful {
     fn method<'l>(
         &'l mut self,
         trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch<H>,
+        dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
             let watched_agent = dispatch
@@ -65,10 +62,7 @@ async fn main() {
     let mut map = HashMap::new();
     map.insert(ModelProvider::OpenAi, api_key);
     let mut env = Environment::new(Some("testing"), map);
-    let agent = Agent::new(
-        "You are jerry!!",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new("You are jerry!!", LLM::default_openai());
     let mut jerry_handle = env
         .insert_agent(Some("jerry"), agent.clone())
         .await

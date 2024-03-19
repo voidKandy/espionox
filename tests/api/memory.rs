@@ -58,7 +58,8 @@ mod tests {
         stack.push(Message::new_assistant("ASS1"));
         stack.push(Message::new_user("USE1"));
         stack.push(Message::new_user("USE2"));
-        let vals = AnthropicCompletionHandler::agent_cache_to_json(&stack);
+        let handler = AnthropicCompletionHandler::default();
+        let vals = handler.agent_cache_to_json(&stack);
         println!("VALS: {:?}", vals);
         let stack: MessageStack = MessageStack::from(vals);
         assert_eq!(4, stack.len());

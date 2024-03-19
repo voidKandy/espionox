@@ -10,8 +10,8 @@ use espionox::{
     },
     language_models::{
         anthropic::AnthropicCompletionHandler,
-        endpoint_completions::LLMCompletionHandler,
         openai::completions::{streaming::CompletionStreamStatus, OpenAiCompletionHandler},
+        LLM,
     },
 };
 use serde_json::Value;
@@ -19,10 +19,7 @@ use tokio;
 
 #[tokio::test]
 async fn insert_agent_works() {
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new("test", LLM::default_openai());
     let mut environment = helpers::test_env();
     let handle = environment.insert_agent(None, agent).await;
     assert!(handle.is_ok());
@@ -32,10 +29,7 @@ async fn insert_agent_works() {
 #[tokio::test]
 async fn io_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<AnthropicCompletionHandler>::default_anthropic(),
-    );
+    let agent = Agent::new("test", LLM::default_anthropic());
     let mut environment = helpers::test_env_with_keys();
     let mut a_handle = environment
         .insert_agent(Some("jerry"), agent)
@@ -56,10 +50,7 @@ async fn io_prompt_agent_works() {
 #[tokio::test]
 async fn stream_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new("test", LLM::default_openai());
     let mut environment = helpers::test_env_with_keys();
     let mut handle = environment
         .insert_agent(Some("jerry"), agent)
@@ -104,10 +95,7 @@ async fn stream_prompt_agent_works() {
 #[tokio::test]
 async fn function_prompt_agent_works() {
     init_test();
-    let agent = Agent::new(
-        "test",
-        LLMCompletionHandler::<OpenAiCompletionHandler>::default_openai(),
-    );
+    let agent = Agent::new("test", LLM::default_openai());
     let mut environment = helpers::test_env_with_keys();
     let mut a_handle = environment
         .insert_agent(Some("fn jerry"), agent)

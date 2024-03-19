@@ -148,6 +148,9 @@ Environment::new(Some("testing"), keys)
 
 # v0.1.24
 
+## `H` removed
+LLMCompletionHandler is now an enum, no need for type generics
+
 ## Messages/MessageStack
 Removed general `Into<Vec<Value>>` for MessageStack to allow each provider to have it's own implementation
 Added `IntoIter` to MessageStack
@@ -166,7 +169,6 @@ Rather than `finalize_dispatch`, `EnvHandle` has a method called `finish_current
 
 ## AgentStateUpdate 
 Agent state update now returns a ticket number from the `ticket_number` method.
-
 
 ## Anthropic Handler
 Because anthropic needs user/assistant pairs, `agent_cache_to_json` has been added for each completion handler to have it's own way of getting a vec of values from `MessageStack`

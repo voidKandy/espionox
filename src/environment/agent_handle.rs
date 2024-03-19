@@ -6,7 +6,7 @@ pub use crate::{
         memory::{Message, MessageRole, MessageStack, ToMessage},
     },
     language_models::{
-        endpoint_completions::EndpointCompletionHandler,
+        completion_handler::EndpointCompletionHandler,
         openai::{completions::OpenAiResponse, functions::CustomFunction},
     },
 };

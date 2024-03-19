@@ -10,24 +10,16 @@ use super::{notification_stack::NotificationStack, EnvRequest};
 use super::{notification_stack::RefCountedNotificationStack, HandleRequiredData};
 use super::{EnvNotification, Environment};
 
-use super::agent_handle::EndpointCompletionHandler;
-
 /// Takes write ownership of dispatch when the Environment is spawned
 #[derive(Debug)]
-pub struct EnvHandle<H>
-where
-    H: EndpointCompletionHandler,
-{
+pub struct EnvHandle {
     pub notifications: Option<RefCountedNotificationStack>,
-    pub(super) handle_data: Option<HandleRequiredData<H>>,
+    pub(super) handle_data: Option<HandleRequiredData>,
     thread_handle: Option<JoinHandle<Result<(), EnvError>>>,
     sender: EnvMessageSender,
 }
 
-impl<H> EnvHandle<H>
-where
-    H: EndpointCompletionHandler,
-{
+impl EnvHandle {
     /// Returns boolean if environment thread handle has already been spawned
     pub fn is_running(&self) -> bool {
         self.thread_handle.is_some()
@@ -150,7 +142,7 @@ where
         }
     }
 
-    pub(super) fn from_env(env: &mut Environment<H>) -> Result<Self, EnvHandleError> {
+    pub(super) fn from_env(env: &mut Environment) -> Result<Self, EnvHandleError> {
         let sender = env.clone_sender();
         let handle_data = env
             .handle_data
@@ -167,9 +159,9 @@ where
 
     #[tracing::instrument(name = "Dispatch main loop", skip_all)]
     async fn main_loop(
-        mut dispatch: RwLockWriteGuard<'_, Dispatch<H>>,
+        mut dispatch: RwLockWriteGuard<'_, Dispatch>,
         noti_stack: RefCountedNotificationStack,
-        listeners: Arc<RwLock<Vec<Box<dyn EnvListener<H>>>>>,
+        listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
     ) -> Result<(), EnvError> {
         let receiver: EnvMessageReceiver = Arc::clone(&dispatch.channel.receiver);
         loop {

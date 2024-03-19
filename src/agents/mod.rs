@@ -5,28 +5,19 @@ use std::fmt::Debug;
 
 use memory::MessageStack;
 
-use crate::language_models::{
-    endpoint_completions::{EndpointCompletionHandler, LLMCompletionHandler},
-    ModelProvider,
-};
+use crate::language_models::{ModelProvider, LLM};
 pub use error::AgentError;
 
 /// Agent struct for interracting with LLM
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Agent<H>
-where
-    H: EndpointCompletionHandler,
-{
+pub struct Agent {
     pub cache: MessageStack,
-    pub completion_handler: LLMCompletionHandler<H>,
+    pub completion_handler: LLM,
 }
 
-impl<H> Agent<H>
-where
-    H: EndpointCompletionHandler,
-{
+impl Agent {
     /// For creating an Agent given system prompt content and model
-    pub fn new(init_prompt: &str, completion_handler: LLMCompletionHandler<H>) -> Self {
+    pub fn new(init_prompt: &str, completion_handler: LLM) -> Self {
         let cache = MessageStack::new(init_prompt);
         Agent {
             cache,
@@ -35,6 +26,6 @@ where
     }
 
     pub fn provider(&self) -> ModelProvider {
-        self.completion_handler.inner_ref().provider()
+        self.completion_handler.provider()
     }
 }

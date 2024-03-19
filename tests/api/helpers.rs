@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use espionox::{
-    environment::{agent_handle::EndpointCompletionHandler, Environment},
+    environment::Environment,
     language_models::ModelProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -23,12 +23,12 @@ pub fn init_test() {
     Lazy::force(&TRACING);
 }
 
-pub fn test_env<H: EndpointCompletionHandler>() -> Environment<H> {
+pub fn test_env() -> Environment {
     dotenv::dotenv().ok();
     Environment::new(Some("testing"), HashMap::new())
 }
 
-pub fn test_env_with_keys<H: EndpointCompletionHandler>() -> Environment<H> {
+pub fn test_env_with_keys() -> Environment {
     dotenv::dotenv().ok();
     let api_key = std::env::var("OPENAI_KEY").unwrap();
     let mut keys = HashMap::new();

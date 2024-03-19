@@ -1,10 +1,7 @@
 use reqwest::Client;
 use serde_json::Value;
 
-use crate::{
-    agents::Agent, environment::agent_handle::CustomFunction,
-    language_models::endpoint_completions::EndpointCompletionHandler,
-};
+use crate::{agents::Agent, environment::agent_handle::CustomFunction};
 
 use super::AgentError;
 
@@ -12,21 +9,15 @@ use super::AgentError;
 /// can be built from an environment or dispatch using `make_agent_independent` or
 /// with `new`. Needs a `reqwest::Client` and valid api key
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct IndependentAgent<H>
-where
-    H: EndpointCompletionHandler,
-{
-    pub agent: Agent<H>,
+pub struct IndependentAgent {
+    pub agent: Agent,
     #[serde(skip)]
     client: Client,
     api_key: String,
 }
 
-impl<H> IndependentAgent<H>
-where
-    H: EndpointCompletionHandler,
-{
-    pub fn new(agent: Agent<H>, client: Client, api_key: String) -> Self {
+impl IndependentAgent {
+    pub fn new(agent: Agent, client: Client, api_key: String) -> Self {
         Self {
             agent,
             client,
