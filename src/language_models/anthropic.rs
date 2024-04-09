@@ -55,7 +55,7 @@ impl CompletionEndpointHandler for AnthropicCompletionHandler {
         for message in cache.clone().into_iter() {
             match last_message.take() {
                 Some(mut m) => {
-                    if message.role == m.role {
+                    if message.role.to_string() == m.role.to_string() {
                         m.content = format!("{}. {}", m.content, message.content);
                         last_message = Some(m);
                     } else {

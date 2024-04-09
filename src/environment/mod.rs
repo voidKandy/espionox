@@ -25,8 +25,6 @@ pub use errors::*;
 pub struct Environment {
     pub id: String,
     handle_data: Option<HandleRequiredData>,
-    // pub dispatch: Arc<RwLock<Dispatch>>,
-    // listeners: Arc<RwLock<Vec<Box<dyn EnvListener>>>>,
     sender: EnvMessageSender,
 }
 

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use espionox::{
     agents::{
         independent::IndependentAgent,
@@ -14,13 +12,28 @@ use espionox::{
     },
     language_models::{openai::embeddings::OpenAiEmbeddingModel, ModelProvider, LLM},
 };
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct RagListener<'p> {
     agent_id: String,
+    /// RAG listeners can be used as long as they have some connection to a data source. In this
+    /// example we use a vector, but it could be anything, including a Database pool.
     data: Option<DbStruct<'p>>,
+    /// It depends on your implementation and Data source, but in this example, our RAG listener
+    /// will require access to an embedderr    
     embedder: IndependentAgent,
 }
+
+#[derive(Debug, Clone)]
+pub struct Product<'p> {
+    name: &'p str,
+    description: &'p str,
+    desc_embedding: EmbeddingVector,
+}
+
+#[derive(Debug)]
+pub struct DbStruct<'p>(Vec<Product<'p>>);
 
 impl<'p> RagListener<'p> {
     async fn embed(&self, str: &str) -> Result<Vec<f32>, AgentError> {
@@ -93,16 +106,8 @@ impl<'p> RagListener<'p> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Product<'p> {
-    name: &'p str,
-    description: &'p str,
-    desc_embedding: EmbeddingVector,
-}
-
-#[derive(Debug)]
-pub struct DbStruct<'p>(Vec<Product<'p>>);
-
+/// We'll implement ToMessage for our DbStruct so we have control over how the model sees the data
+/// it's given
 impl<'p> ToMessage for DbStruct<'p> {
     fn to_message(&self, role: MessageRole) -> Message {
         let mut content = String::from("Answer the user's query based on the provided data:");
@@ -117,13 +122,14 @@ impl<'p> ToMessage for DbStruct<'p> {
 }
 
 impl<'p> DbStruct<'p> {
+    /// A simple helper function to get similar data given a query embedding
+    /// KEEP IN MIND THIS IS JUST FOR AN EXAMPLE, I DO NOT RECCOMEND VECTOR QUERYING AN ARRAY LIKE
+    /// THIS IN PROD
     async fn get_close_embeddings_from_query_embedding(
         &self,
         qembed: EmbeddingVector,
         amt: usize,
-        // query: &str,
     ) -> DbStruct<'p> {
-        // let qembed = EmbeddingVector::from(self.embed(query).await.unwrap());
         let mut map = HashMap::new();
         let mut scores: Vec<f32> = self
             .0
@@ -149,6 +155,8 @@ impl<'p> DbStruct<'p> {
 
 impl<'p: 'static> EnvListener for RagListener<'p> {
     fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
+        // We'll have our RAG trigger everytime a completion is requested. This could also be applied
+        // to `EnvRequest::GetCompletionStreamHandle`
         if let EnvMessage::Request(req) = env_message {
             if let EnvRequest::GetCompletion { agent_id, .. } = req {
                 if agent_id == &self.agent_id {
@@ -165,7 +173,9 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
         dispatch: &'l mut Dispatch,
     ) -> ListenerMethodReturn {
         Box::pin(async move {
+            // Once the listener is triggered we'll get mutable access to the watched agent
             let agent = dispatch.get_agent_mut(&self.agent_id).unwrap();
+            // We'll grab the last user message sent, so we can have something to embed
             if let Some(latest_user_message) = agent
                 .cache
                 .as_ref()
@@ -185,8 +195,10 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
                     "STRUCTS PUSHING: {:?}",
                     strcts.0.iter().map(|p| p.name).collect::<Vec<&str>>()
                 );
+                // We use the embedding to push relevant structs to our agent's memory
                 agent.cache.push(strcts.to_message(MessageRole::System));
             }
+            // Return the trigger message unchanged
             Ok(trigger_message)
         })
     }

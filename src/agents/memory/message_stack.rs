@@ -1,3 +1,5 @@
+use std::option::IterMut;
+
 use super::messages::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,14 +16,15 @@ impl<'stack> From<Vec<&'stack Message>> for MessageStackRef<'stack> {
     }
 }
 
-impl From<Vec<Value>> for MessageStack {
-    fn from(json_vec: Vec<Value>) -> Self {
+impl TryFrom<Vec<Value>> for MessageStack {
+    type Error = anyhow::Error;
+    fn try_from(json_vec: Vec<Value>) -> Result<Self, Self::Error> {
         let mut vec: Vec<Message> = vec![];
         for val in json_vec.into_iter() {
-            let m = Message::from(val);
+            let m = Message::try_from(val)?;
             vec.push(m);
         }
-        Self(vec)
+        Ok(Self(vec))
     }
 }
 

@@ -31,7 +31,7 @@ use self::{
     },
 };
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModelProvider {
     OpenAi,
     Anthropic,
@@ -47,26 +47,26 @@ pub struct LLM {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelParameters {
     /// Total token usage count of the model
-    total_token_count: u32,
+    pub total_token_count: u32,
     /// What sampling temperature to use, between 0 and 2.
     /// Higher values like 0.8 will make the output more random,
     /// while lower values like 0.2 will make it more focused and deterministic.
     /// Input as a value between 0 and 200. Will be turned into float.
-    temperature: Option<u8>,
+    pub temperature: Option<u8>,
     /// Number between -2.0 and 2.0.
     /// Positive values penalize new tokens based on their existing frequency in the text so far,
     /// decreasing the model's likelihood to repeat the same line verbatim.
-    frequency_penalty: Option<i8>,
+    pub frequency_penalty: Option<i8>,
     /// The maximum number of tokens that can be generated in the chat completion.
     /// The total length of input tokens and generated tokens is limited by the model's context length.
-    max_tokens: Option<u32>,
+    pub max_tokens: Option<u32>,
     /// How many chat completion choices to generate for each input message.
     /// Note that you will be charged based on the number of generated tokens across all of the choices.
     /// Keep n as 1 to minimize costs.
-    n: Option<u32>,
+    pub n: Option<u32>,
     /// Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far,
     /// increasing the model's likelihood to talk about new topics.
-    presence_penalty: Option<i8>,
+    pub presence_penalty: Option<i8>,
 }
 
 impl Default for ModelParameters {

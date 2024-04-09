@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use espionox::{
+        agents::memory::OtherRoleTo,
         environment::agent_handle::{Message, MessageRole, MessageStack},
         language_models::{
             anthropic::AnthropicCompletionHandler, inference::CompletionEndpointHandler,
@@ -58,10 +59,16 @@ mod tests {
         stack.push(Message::new_assistant("ASS1"));
         stack.push(Message::new_user("USE1"));
         stack.push(Message::new_user("USE2"));
+        stack.push(Message::new_other("some_other", "USE2", OtherRoleTo::User));
+        stack.push(Message::new_other(
+            "some_other",
+            "ASS",
+            OtherRoleTo::Assistant,
+        ));
         let handler = AnthropicCompletionHandler::default();
         let vals = handler.agent_cache_to_json(&stack);
         println!("VALS: {:?}", vals);
-        let stack: MessageStack = MessageStack::from(vals);
-        assert_eq!(4, stack.len());
+        let stack: MessageStack = MessageStack::try_from(vals).unwrap();
+        assert_eq!(5, stack.len());
     }
 }

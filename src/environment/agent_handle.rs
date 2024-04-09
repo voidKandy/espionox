@@ -35,7 +35,7 @@ impl AgentHandle {
     /// Requests an update to the handle's agent's cache
     #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
     pub async fn request_cache_push(
-        &mut self,
+        &self,
         message: Message,
         // to_message: impl ToMessage,
         // role: MessageRole,
@@ -55,7 +55,7 @@ impl AgentHandle {
 
     /// Requests the status of the given agent in the form of a cache update
     #[tracing::instrument(name = "Send request for current state of the agent", skip(self))]
-    pub async fn request_state(&mut self) -> Result<Uuid, AgentError> {
+    pub async fn request_state(&self) -> Result<Uuid, AgentError> {
         let ticket = Uuid::new_v4();
         let request = EnvRequest::GetAgentState {
             ticket,
@@ -71,7 +71,7 @@ impl AgentHandle {
     }
     /// Requests a cache update and a completion for agent, returns ticket number
     #[tracing::instrument(name = "Send request to prompt agent to env", skip(self))]
-    pub async fn request_io_completion(&mut self, message: Message) -> Result<Uuid, AgentError> {
+    pub async fn request_io_completion(&self, message: Message) -> Result<Uuid, AgentError> {
         let cache_change = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
             message,
@@ -101,10 +101,7 @@ impl AgentHandle {
 
     /// Requests env for streamed response, returns ticket number
     #[tracing::instrument(name = "Send request for a stream handle to env", skip(self))]
-    pub async fn request_stream_completion(
-        &mut self,
-        message: Message,
-    ) -> Result<Uuid, AgentError> {
+    pub async fn request_stream_completion(&self, message: Message) -> Result<Uuid, AgentError> {
         let cache_change = EnvRequest::PushToCache {
             agent_id: self.id.clone(),
             message,
@@ -134,7 +131,7 @@ impl AgentHandle {
 
     #[tracing::instrument(name = "Function prompt GPT API for response" skip(message, custom_function))]
     pub async fn request_function_prompt(
-        &mut self,
+        &self,
         custom_function: CustomFunction,
         message: Message,
     ) -> Result<Uuid, AgentError> {

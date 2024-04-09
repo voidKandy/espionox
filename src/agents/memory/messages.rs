@@ -1,5 +1,6 @@
 use super::MessageStack;
 use crate::language_models::openai::completions::GptMessage;
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
@@ -35,11 +36,21 @@ impl ToMessage for String {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum OtherRoleTo {
+    Assistant,
+    User,
+    System,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum MessageRole {
     Assistant,
     User,
     System,
-    Other(String),
+    Other {
+        alias: String,
+        coerce_to: OtherRoleTo,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -55,33 +66,50 @@ pub struct FunctionCall {
 
 impl ToString for MessageRole {
     fn to_string(&self) -> String {
-        String::from(match self {
-            Self::System => "system",
-            Self::User => "user",
-            Self::Assistant => "assistant",
-            Self::Other(other) => other,
-        })
-    }
-}
-
-impl From<String> for MessageRole {
-    fn from(value: String) -> Self {
-        let value = value.to_lowercase();
-        match value.as_str() {
-            "user" => MessageRole::User,
-            "assistant" => MessageRole::Assistant,
-            "system" => MessageRole::System,
-            other => MessageRole::Other(other.to_string()),
+        match self.actual() {
+            &Self::System => String::from("system"),
+            &Self::User => String::from("user"),
+            &Self::Assistant => String::from("assistant"),
+            _ => unreachable!(),
         }
     }
 }
 
+impl TryFrom<String> for MessageRole {
+    type Error = anyhow::Error;
+    fn try_from(string: String) -> Result<Self, Self::Error> {
+        let value = string.to_lowercase();
+        match value.as_str() {
+            "user" => Ok(MessageRole::User),
+            "assistant" => Ok(MessageRole::Assistant),
+            "system" => Ok(MessageRole::System),
+            e => Err(anyhow!("Cannot coerce string: [{}] to MessageRole", e)),
+        }
+    }
+}
+
+impl MessageRole {
+    /// Returns `actual` role of message. Either User, Assistant or System
+    pub fn actual(&self) -> &Self {
+        if let MessageRole::Other { coerce_to, .. } = &self {
+            return match coerce_to {
+                OtherRoleTo::User => &MessageRole::User,
+                OtherRoleTo::System => &MessageRole::System,
+                OtherRoleTo::Assistant => &MessageRole::Assistant,
+            };
+        }
+        &self
+    }
+}
+
 impl Message {
-    pub fn new_other(role: &str, content: &str) -> Self {
+    pub fn new_other(alias: &str, content: &str, coerce_to: OtherRoleTo) -> Self {
         Message {
-            role: MessageRole::Other(role.to_string()),
+            role: MessageRole::Other {
+                alias: alias.to_owned(),
+                coerce_to,
+            },
             content: content.to_string(),
-            // embeddings: None,
         }
     }
 
@@ -89,7 +117,6 @@ impl Message {
         Message {
             role: MessageRole::System,
             content: content.to_string(),
-            // embeddings: MessageMetadata::default(),
         }
     }
 
@@ -97,7 +124,6 @@ impl Message {
         Message {
             role: MessageRole::User,
             content: content.to_string(),
-            // metadata: MessageMetadata::default(),
         }
     }
 
@@ -105,7 +131,6 @@ impl Message {
         Message {
             role: MessageRole::Assistant,
             content: content.to_string(),
-            // metadata: MessageMetadata::default(),
         }
     }
 }
@@ -141,45 +166,43 @@ impl TryFrom<GptMessage> for FunctionMessage {
     }
 }
 
-impl From<GptMessage> for Message {
-    fn from(value: GptMessage) -> Self {
-        let content = value.content.expect("Value has no content");
-        Message {
-            role: value.role.into(),
+impl TryFrom<GptMessage> for Message {
+    type Error = anyhow::Error;
+    fn try_from(value: GptMessage) -> Result<Self, Self::Error> {
+        let content = value.content.ok_or(anyhow!("GptMessage has no content"))?;
+        Ok(Message {
+            role: value.role.try_into()?,
             content,
-        }
+        })
     }
 }
 
-impl From<Value> for Message {
-    fn from(json: Value) -> Self {
+impl TryFrom<Value> for Message {
+    type Error = anyhow::Error;
+    fn try_from(json: Value) -> Result<Self, Self::Error> {
         let role = json
             .get("role")
             .expect("Couldn't get role")
             .to_string()
-            .into();
+            .replace('"', "")
+            .try_into()?;
         let content = json
             .get("content")
             .expect("Couldn't get content")
             .to_string();
-        Message { role, content }
+        Ok(Message { role, content })
     }
 }
 
 impl Into<Value> for Message {
     fn into(self) -> Value {
-        let role = match self.role {
-            MessageRole::Other(_) => MessageRole::System.to_string(),
-            other => other.to_string(),
-        };
-
         let content = self
             .content
             .split_whitespace()
             .collect::<Vec<&str>>()
             .join(" ")
             .replace('\n', " ");
-        json!({"role": role, "content": content})
+        json!({"role": self.role.to_string(), "content": content})
     }
 }
 
