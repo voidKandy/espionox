@@ -4,7 +4,7 @@ pub mod error;
 pub use error::*;
 
 use crate::agents::memory::Message;
-use crate::environment::dispatch::{EnvMessageSender, EnvRequest};
+use crate::agents::Agent;
 use crate::language_models::error::ModelEndpointError;
 use anyhow::anyhow;
 use futures::Stream;
@@ -12,28 +12,28 @@ use futures_util::StreamExt;
 use reqwest_streams::error::StreamBodyError;
 use serde::Deserialize;
 
-pub type CompletionStream =
+pub(in crate::language_models) type CompletionStream =
     Box<dyn Stream<Item = Result<StreamResponse, StreamBodyError>> + Send + Unpin>;
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct StreamResponse {
+pub(in crate::language_models) struct StreamResponse {
     pub choices: Vec<StreamChoice>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct StreamChoice {
+struct StreamChoice {
     pub delta: StreamDelta,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct StreamDelta {
+struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
 }
 
-pub type CompletionStreamReceiver =
+pub(in crate::language_models) type CompletionStreamReceiver =
     tokio::sync::mpsc::Receiver<Result<CompletionStreamStatus, StreamError>>;
-pub type CompletionStreamSender =
+pub(in crate::language_models) type CompletionStreamSender =
     tokio::sync::mpsc::Sender<Result<CompletionStreamStatus, StreamError>>;
 
 pub struct StreamedCompletionHandler {
@@ -59,24 +59,14 @@ pub enum CompletionStreamStatus {
     Finished,
 }
 
-impl
-    From<(
-        CompletionStream,
-        CompletionStreamSender,
-        CompletionStreamReceiver,
-    )> for StreamedCompletionHandler
-{
-    fn from(
-        (stream, sender, receiver): (
-            CompletionStream,
-            CompletionStreamSender,
-            CompletionStreamReceiver,
-        ),
-    ) -> Self {
+impl From<CompletionStream> for StreamedCompletionHandler {
+    fn from(stream: CompletionStream) -> Self {
+        let (tx, rx): (CompletionStreamSender, CompletionStreamReceiver) =
+            tokio::sync::mpsc::channel(50);
         Self {
             stream: Some(stream),
-            sender: Some(sender),
-            receiver,
+            sender: Some(tx),
+            receiver: rx,
             message_content: String::new(),
         }
     }
@@ -88,12 +78,8 @@ pub struct CompletionStreamingThread;
 impl StreamedCompletionHandler {
     /// Returns tokens until finished, when finished, sends an update cache request with the full
     /// message. Best used in a while loop
-    #[tracing::instrument("Receive tokens from completion stream", skip(self, sender))]
-    pub async fn receive(
-        &mut self,
-        agent_id: &str,
-        sender: EnvMessageSender,
-    ) -> Option<CompletionStreamStatus> {
+    #[tracing::instrument("Receive tokens from completion stream", skip(self))]
+    pub async fn receive(&mut self, agent: &mut Agent) -> Option<CompletionStreamStatus> {
         if self.sender.is_some() && self.stream.is_some() {
             self.spawn().ok()?;
         }
@@ -112,19 +98,7 @@ impl StreamedCompletionHandler {
                 CompletionStreamStatus::Finished => {
                     tracing::info!("Stream finished with content: {}", self.message_content);
                     let message = Message::new_assistant(&self.message_content);
-                    sender
-                        .lock()
-                        .await
-                        .send(
-                            EnvRequest::PushToCache {
-                                agent_id: agent_id.to_string(),
-                                message,
-                            }
-                            .into(),
-                        )
-                        .await
-                        .map_err(|_| StreamError::EnvMessageSenderFail)
-                        .ok()?;
+                    agent.cache.push(message);
                     return Some(CompletionStreamStatus::Finished);
                 }
             }

@@ -221,3 +221,12 @@ A few things had to happen to allow for this.
 added `actual()` method to return actual message role to account for the fact that `Other` is essentially an alias
 `From` implementations are now `TryFrom`
 a new enum `OtherRoleTo` to allow users to pick which the messages get coerced to
+
+# v.0.1.3
+
+Added find by to noti stack
+removed environment system!
+
+`LLM` struct now contains `reqwest::Client` & api key
+
+Listeners are now put on agents directly

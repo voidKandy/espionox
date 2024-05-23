@@ -3,7 +3,7 @@ use super::{
     ModelProvider,
 };
 
-use crate::environment::agent_handle::MessageStack;
+use crate::agents::memory::MessageStack;
 
 use super::openai::completions::{functions::Function, OpenAiCompletionHandler};
 use reqwest::header::HeaderMap;
@@ -40,9 +40,6 @@ pub trait CompletionEndpointHandler: InferenceEndpointHandler {
     fn handle_fn_response(&self, _response: Value) -> Result<Value, InferenceHandlerError> {
         Err(InferenceHandlerError::MethodUnimplemented)
     }
-    // fn handle_stream_response(&mut self, response: Value) -> Result<String, InferenceHandlerError> {
-    //     Err(InferenceHandlerError::MethodUnimplemented)
-    // }
 }
 
 pub trait EmbeddingEndpointHandler: InferenceEndpointHandler {

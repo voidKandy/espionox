@@ -2,7 +2,7 @@ pub mod functions;
 pub mod streaming;
 
 use crate::{
-    environment::agent_handle::MessageStack,
+    agents::memory::MessageStack,
     language_models::{
         error::InferenceHandlerError,
         inference::{CompletionEndpointHandler, InferenceEndpointHandler},
@@ -96,13 +96,16 @@ impl CompletionEndpointHandler for OpenAiCompletionHandler {
             "stop": null,
         }))
     }
+
     fn handle_io_response(&self, response: Value) -> Result<String, InferenceHandlerError> {
+        tracing::warn!("Response from IO request: {:?}", response);
         let response = OpenAiResponse::try_from(response).unwrap();
         match response.choices[0].message.content.to_owned() {
             Some(response) => Ok(response),
             None => Err(InferenceHandlerError::CouldNotParseResponse),
         }
     }
+
     fn handle_fn_response(&self, response: Value) -> Result<Value, InferenceHandlerError> {
         let response = OpenAiResponse::try_from(response).unwrap();
 
@@ -161,6 +164,18 @@ pub struct OpenAiResponse {
     pub usage: OpenAiUsage,
 }
 
+// MAKE THE ABOVE AN ENUM THAT ACCEPTS THESE
+#[derive(Debug, Deserialize, Clone)]
+struct OpenAiSuccess {
+    usage: OpenAiUsage,
+    choices: Vec<Choice>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct OpenAiErr {
+    code: String,
+    message: String,
+}
 impl TryFrom<Value> for OpenAiResponse {
     type Error = anyhow::Error;
     fn try_from(value: Value) -> Result<Self, Self::Error> {

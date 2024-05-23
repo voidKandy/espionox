@@ -1,28 +1,22 @@
 use espionox::{
     agents::{
-        independent::IndependentAgent,
+        actions::{get_embedding, io_completion},
+        listeners::{AgentListener, ListenerTrigger},
         memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
         Agent, AgentError,
     },
-    environment::{
-        dispatch::{
-            listeners::ListenerMethodReturn, Dispatch, EnvListener, EnvMessage, EnvRequest,
-        },
-        Environment,
-    },
-    language_models::{openai::embeddings::OpenAiEmbeddingModel, ModelProvider, LLM},
+    language_models::{openai::embeddings::OpenAiEmbeddingModel, LLM},
 };
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct RagListener<'p> {
-    agent_id: String,
     /// RAG listeners can be used as long as they have some connection to a data source. In this
     /// example we use a vector, but it could be anything, including a Database pool.
     data: Option<DbStruct<'p>>,
     /// It depends on your implementation and Data source, but in this example, our RAG listener
-    /// will require access to an embedderr    
-    embedder: IndependentAgent,
+    /// will require access to an embedderr
+    embedder: Agent,
 }
 
 #[derive(Debug, Clone)]
@@ -36,8 +30,12 @@ pub struct Product<'p> {
 pub struct DbStruct<'p>(Vec<Product<'p>>);
 
 impl<'p> RagListener<'p> {
-    async fn embed(&self, str: &str) -> Result<Vec<f32>, AgentError> {
-        Ok(self.embedder.get_embedding(str).await?)
+    async fn embed(&mut self, str: &str) -> Result<Vec<f32>, AgentError> {
+        let embedding: Vec<f32> = self
+            .embedder
+            .do_action(get_embedding, str, Option::<ListenerTrigger>::None)
+            .await?;
+        Ok(embedding)
     }
 
     async fn init_products(&mut self) {
@@ -153,28 +151,16 @@ impl<'p> DbStruct<'p> {
     }
 }
 
-impl<'p: 'static> EnvListener for RagListener<'p> {
-    fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage> {
-        // We'll have our RAG trigger everytime a completion is requested. This could also be applied
-        // to `EnvRequest::GetCompletionStreamHandle`
-        if let EnvMessage::Request(req) = env_message {
-            if let EnvRequest::GetCompletion { agent_id, .. } = req {
-                if agent_id == &self.agent_id {
-                    return Some(env_message);
-                }
-            }
-        }
-        None
+impl<'p: 'static> AgentListener for RagListener<'p> {
+    fn trigger<'l>(&self) -> espionox::agents::listeners::ListenerTrigger {
+        "RAG".to_owned().into()
     }
 
-    fn method<'l>(
+    fn async_method<'l>(
         &'l mut self,
-        trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
-    ) -> ListenerMethodReturn {
+        agent: &'l mut Agent,
+    ) -> espionox::agents::listeners::ListenerCallReturn<'l> {
         Box::pin(async move {
-            // Once the listener is triggered we'll get mutable access to the watched agent
-            let agent = dispatch.get_agent_mut(&self.agent_id).unwrap();
             // We'll grab the last user message sent, so we can have something to embed
             if let Some(latest_user_message) = agent
                 .cache
@@ -198,8 +184,7 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
                 // We use the embedding to push relevant structs to our agent's memory
                 agent.cache.push(strcts.to_message(MessageRole::System));
             }
-            // Return the trigger message unchanged
-            Ok(trigger_message)
+            Ok(())
         })
     }
 }
@@ -208,40 +193,25 @@ impl<'p: 'static> EnvListener for RagListener<'p> {
 async fn main() {
     dotenv::dotenv().ok();
     let api_key = std::env::var("OPENAI_KEY").unwrap();
-    let mut map = HashMap::new();
-    map.insert(ModelProvider::OpenAi, api_key);
-    let mut env = Environment::new(Some("testing"), map);
-
     let embedder = Agent::new(
         None,
-        LLM::new_embedding_model(OpenAiEmbeddingModel::Small.into(), None),
+        LLM::new_embedding_model(OpenAiEmbeddingModel::Small.into(), None, &api_key),
     );
-    let embedder = env
-        .make_agent_independent(embedder)
-        .await
-        .expect("Couldn't make indi agent");
 
-    let agent = Agent::new(Some("You are jerry!!"), LLM::default_openai());
-    let mut handle = env.insert_agent(None, agent).await.unwrap();
+    let mut agent = Agent::new(Some("You are jerry!!"), LLM::default_openai(&api_key));
     let mut listener = RagListener {
         embedder,
-        agent_id: handle.id.clone(),
         data: None,
     };
 
     listener.init_products().await;
-    let _ = env.insert_listener(listener).await;
+    agent.insert_listener(listener);
 
-    let mut env_handle = env.spawn_handle().unwrap();
-
-    let ticket = handle
-        .request_io_completion(Message::new_user(
-            "I need a new fitness toy, what is the best product for me?",
-        ))
+    let m = Message::new_user("I need a new fitness toy, what is the best product for me?");
+    agent.cache.push(m);
+    let response = agent
+        .do_action(io_completion, (), Some("RAG"))
         .await
         .unwrap();
-
-    let mut stack = env_handle.finish_current_job().await.unwrap();
-    let noti = stack.take_by_ticket(ticket).unwrap();
-    println!("{:?}", noti);
+    println!("{:?}", response);
 }

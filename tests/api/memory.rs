@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
     use espionox::{
-        agents::memory::OtherRoleTo,
-        environment::agent_handle::{Message, MessageRole, MessageStack},
+        agents::memory::{Message, MessageRole, MessageStack, OtherRoleTo},
         language_models::{
             anthropic::AnthropicCompletionHandler, inference::CompletionEndpointHandler,
         },

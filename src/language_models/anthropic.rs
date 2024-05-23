@@ -2,7 +2,7 @@ use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::environment::agent_handle::{Message, MessageRole, MessageStack};
+use crate::agents::memory::{Message, MessageRole, MessageStack};
 
 use super::{
     error::{InferenceHandlerError, ModelEndpointError},

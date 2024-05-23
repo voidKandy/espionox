@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use espionox::{
-    environment::Environment,
     language_models::ModelProvider,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -21,19 +20,4 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 
 pub fn init_test() {
     Lazy::force(&TRACING);
-}
-
-pub fn test_env() -> Environment {
-    dotenv::dotenv().ok();
-    Environment::new(Some("testing"), HashMap::new())
-}
-
-pub fn test_env_with_keys() -> Environment {
-    dotenv::dotenv().ok();
-    let api_key = std::env::var("OPENAI_KEY").unwrap();
-    let mut keys = HashMap::new();
-    keys.insert(ModelProvider::OpenAi, api_key);
-    let api_key = std::env::var("ANTHROPIC_KEY").unwrap();
-    keys.insert(ModelProvider::Anthropic, api_key);
-    Environment::new(Some("testing"), keys)
 }
