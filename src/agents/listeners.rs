@@ -53,8 +53,8 @@ impl From<i64> for ListenerTrigger {
 }
 
 pub type ListenerCallReturn<'l> = Pin<Box<dyn Future<Output = AgentResult<()>> + Send + Sync + 'l>>;
-/// Contains async and sync methods, Both COULD be implemented but that is not reccomended. If both
-/// are implemented, sync will always execute first
+/// Contains async and sync methods, Only implement ONE. If both
+/// are implemented, only sync_method will  execute
 pub trait AgentListener: std::fmt::Debug + Send + Sync + 'static {
     fn trigger<'l>(&self) -> ListenerTrigger;
     /// needs to be wrapped in `Box::pin(async move {})`

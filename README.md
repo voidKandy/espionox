@@ -1,6 +1,6 @@
 # Simplifying Ai Agents in Rust 🕵🏼
 
-Espionox is an attempt to make building Ai applications in Rust just as approachable as it is with other libraries such as LangChain.
+`espionox` is an attempt to make building Ai applications in Rust just as approachable as it is with other libraries such as LangChain.
 
 ## Why would I use Espionox?
 
@@ -9,94 +9,79 @@ Espionox is an attempt to make building Ai applications in Rust just as approach
 
 ## Getting started
 
-First, you'll want to create an environment.
+First you need to initialize an `Agent`
+`Agent::new` accepts two arguments: 
+1. Optional content of a system prompt, if this is left `None` your agent will have no system prompt
+2. An api key for whichever provider you use (As of writing, only OpenAi and Anthropic providers are supported).
 
 ```
-let open_key = std::env::var("OPENAI_KEY").unwrap();
-let anth_key = std::env::var("ANTHROPIC_KEY").unwrap();
-
-let mut keys = HashMap::new();
-keys.insert(ModelProvider::OpenAi, api_key);
-keys.insert(ModelProvider::Anthropic, api_key);
-
-let env_name = "MyEnv";
-
-Environment::new(Some(env_name), keys)
+let api_key = std::env::var("OPENAI_KEY").unwrap();
+let agent = Agent::new(Some("This is the system message"), LLM::default_openai(api_key));
 ```
 
-Once an `Environment` has been instantiated, you can add agents to it
+Now, In order to prompt your agent you will call `do_action` on it (method name WIP)
 
 ```
-use espionox::environment::Agent;
-let agent = Agent::new(Some("This is the system message"), LLM::default_openai());
-let agent_name = "my agent";
-let agent_handle = env.insert_agent(Some(agent_name), agent).await.unwrap();
-```
-
-When `insert_agent` returns Ok, it will return an `AgentHandler`
-After inserting any Agents or EnvListeners run this command to start running the environment:
-
-```
-let mut env_handle = env.spawn_handle().await.unwrap()
-```
-
-Once the environment is running, the `AgentHandler` can be used to make completion requests
-
-```
-let message = Message::new_user("Hello!");
-let ticket = agent_handle.request_io_completion(message).await.unwrap();
-```
-
-
-There are two ways to Get the response to your completion requests with the returned `ticket` UUid: 
-1. Join the env thread and get the notification from the returned stack: 
-```
-let stack = env_handle.finish_current_job().await?;
-let noti = stack.take_by_ticket(ticket)?;
-let message: &Message = noti.extract_body().try_into().unwrap();
-```
-2. Wait for the message to appear on the notification stack without joining the thread
-```
-let noti = env_handle.wait_for_noticiation(&ticket).await?;
-let message: &Message = noti.extract_body().try_into().unwrap();
-```
-
-
-Completions can also be returned as streams if the `request_stream_completion` method is used:
-
-```
-let stream_handler: &ThreadSafeStreamCompletionHandler = noti.extract_body().try_into().unwrap();
-let mut handler = stream_handler.lock().await;
-let mut whole_message = String::new();
-while let Some(CompletionStreamStatus::Working(token)) = handler
-    .receive(&handle.id, environment.clone_sender())
+let response: String = agent
+    .do_action(io_completion, (), Option::<ListenerTrigger>::None)
     .await
-{
-    whole_message.push_str(&token);
-}
-println!("GOT WHOLE MESSAGE: {}", whole_message);
+    .unwrap();
 ```
+This may look scary at first, lets look at `do_action`'s signature: 
+```
+pub async fn do_action<'a, F, Args, Fut, R>(
+    &'a mut self,
+    f: F,
+    args: Args,
+    trigger: Option<impl Into<ListenerTrigger>>,
+) -> AgentResult<R>
+where
+    F: for<'l> FnOnce(&'a mut Agent, Args) -> Fut,
+    Fut: Future<Output = AgentResult<R>>
+```
+`do_action` takes 4 arguments:
+1. the `Agent` which calls the method
+2. an async function which mutates the agent and returns some result
+3. optionally arguments for the aformentioned function 
+4. An optional trigger for a listener (We'll get to this)
+
+So, in our call to `do_action` earlier, we passed the function `io_completion`, an empty argument and None.
+`espionox` provides the following helper functions for getting completions or embeddings:
+* `get_embedding`
+* `io_completion`
+* `stream_completion`
+* `function_completion`
+We used one of these functions, but we could have just as easily defined our own `io_completion` function and passed it when we called `do_action`
 
 ## Listeners
 
-One of Espionox's best offerings is the EnvListener trait
+One of Espionox's best offerings is the `AgentListener` trait:
 
 ```
-pub trait EnvListener: std::fmt::Debug + Send + Sync + 'static {
-    /// Returns Some when the listener should be triggered
-    fn trigger<'l>(&self, env_message: &'l EnvMessage) -> Option<&'l EnvMessage>;
-    /// method to be called when listener is activated, must return an env message to replace input
-    fn method<'l>(
-        &'l mut self,
-        trigger_message: EnvMessage,
-        dispatch: &'l mut Dispatch,
-    ) -> ListenerMethodReturn;
+pub trait AgentListener: std::fmt::Debug + Send + Sync + 'static {
+    fn trigger<'l>(&self) -> ListenerTrigger;
+    /// needs to be wrapped in `Box::pin(async move {})`
+    fn async_method<'l>(&'l mut self, _a: &'l mut Agent) -> ListenerCallReturn<'l> {
+        Box::pin(async move { Err(ListenerError::NoMethod.into()) })
+    }
+    fn sync_method<'l>(&'l mut self, _a: &'l mut Agent) -> AgentResult<()> {
+        Err(ListenerError::NoMethod.into())
+    }
 }
 ```
-It looks simple, but this trait will allow you to create RAG pipelines,
-add tool use, and create self reflection techniques.
-Think of the EnvMessages as events that can trigger specific things to happen to your agents.
+You will notice 3 methods:
+1. `trigger`: this is how you define when the listener will be triggered. Think of it like an ID. `ListenerTrigger` has 2 variants: 
+    * `ListenerTrigger::String(String)`
+    * `ListenerTrigger::Int(i64)`
+    Remember the `trigger` argument to `do_action`? Ensure a listener is triggered when `do_action` is called by passing a matching `ListenerTrigger`.
+2. `async_method`
+3. `sync_method`
+Each `async_method` and `sync_method` are where you define WHAT the listener will actually do when it's triggered. THESE ARE MUTUALLY EXCLUSIVE, only ONE of these methods should be implemented. 
+Any struct implementing this trait can be inserted into an agent using `Agent::insert_listener`. 
 
-Check the examples directory for more information on `EnvListener`
+### How do you even use a listener??
+
+The utility of listeners may not be immediately obvious to you, but it can be used to create self consistency mechanisms, prompt chains or even RAG pipelines.
+Check the examples directory for more information on `AgentListener`
 
 espionox is very early in development and everything in the API may be subject to change Please feel free to reach out with any questions, suggestions, issues or anything else :)

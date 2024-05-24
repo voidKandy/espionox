@@ -40,7 +40,7 @@ pub struct StreamedCompletionHandler {
     stream: Option<CompletionStream>,
     sender: Option<CompletionStreamSender>,
     receiver: CompletionStreamReceiver,
-    message_content: String,
+    pub message_content: String,
 }
 
 impl std::fmt::Debug for StreamedCompletionHandler {
