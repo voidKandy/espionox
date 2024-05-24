@@ -637,7 +637,7 @@ dependencies = [
 
 [[package]]
 name = "espionox"
-version = "0.1.3"
+version = "0.1.30"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
