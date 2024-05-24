@@ -35,7 +35,6 @@ tools = ["dep:scraper", "dep:headless_chrome", "dep:base64"]
 # Not sure if this is a feature anymore
 embedding_sql = ["dep:sqlx", "dep:pgvector"]
 
-# THIS SHOULD BE GONE BY NEXT UPDATE
 bert = ["dep:rust-bert", "dep:tch"]
 
 
@@ -44,7 +43,7 @@ bert = ["dep:rust-bert", "dep:tch"]
 
 
 [dependencies]
-llm = { git = "https://github.com/rustformers/llm" , branch = "main", optional = true  }
+# llm = { git = "https://github.com/rustformers/llm" , branch = "main", optional = true  }
 # , optional=true 
 sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"], optional = true }
 pgvector = { version = "0.2.2", features = ["sqlx", "postgres"], optional = true }
