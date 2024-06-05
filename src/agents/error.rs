@@ -10,8 +10,6 @@ pub enum AgentError {
     Undefined(#[from] anyhow::Error),
     CompletionError(#[from] CompletionError),
     Listener(#[from] listeners::error::ListenerError),
-    EnvSend,
-    AgentSenderIsNone,
 }
 
 impl Debug for AgentError {
@@ -22,6 +20,11 @@ impl Debug for AgentError {
 
 impl Display for AgentError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self)
+        let display = match self {
+            Self::Listener(err) => err.to_string(),
+            Self::Undefined(err) => err.to_string(),
+            Self::CompletionError(err) => err.to_string(),
+        };
+        write!(f, "{}", display)
     }
 }

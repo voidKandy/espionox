@@ -1,9 +1,9 @@
-pub mod anthropic;
+mod anthropic;
 pub mod error;
 #[cfg(feature = "bert")]
 pub mod huggingface;
-pub mod inference;
-pub mod openai;
+mod inference;
+pub(super) mod openai;
 pub mod streaming;
 use self::{
     anthropic::builder::AnthropicCompletionModel, error::CompletionResult,
@@ -58,7 +58,6 @@ pub struct CompletionModel {
 pub struct ModelParameters {
     /// Total token usage count of the model
     pub total_token_count: u32,
-    /// Temperature is computed to a number between 0 and 1 by dividing this value by 100
     /// What sampling temperature to use, between 0 and 2.
     /// Higher values like 0.8 will make the output more random,
     /// while lower values like 0.2 will make it more focused and deterministic.
@@ -94,6 +93,7 @@ impl Default for ModelParameters {
 }
 
 impl ModelParameters {
+    /// Temperature is computed to a number between 0 and 1 by dividing this value by 100
     fn temperature(&self) -> Result<f32, anyhow::Error> {
         Ok((self.temperature.ok_or(anyhow!("No temperature"))? / 100) as f32)
     }
@@ -153,7 +153,10 @@ impl CompletionModel {
     }
 
     #[tracing::instrument(name = "io completion", skip_all)]
-    pub async fn get_io_completion(&self, messages: &MessageStack) -> CompletionResult<String> {
+    pub(crate) async fn get_io_completion(
+        &self,
+        messages: &MessageStack,
+    ) -> CompletionResult<String> {
         let builder = self.provider.inner_builder();
         let headers = builder.headers(&self.api_key);
         let url = builder.url_str();
@@ -181,7 +184,7 @@ impl CompletionModel {
     }
 
     #[tracing::instrument(name = "streamed completion", skip_all)]
-    pub async fn get_stream_completion(
+    pub(crate) async fn get_stream_completion(
         &self,
         messages: &MessageStack,
     ) -> CompletionResult<ProviderStreamHandler> {
@@ -213,7 +216,7 @@ impl CompletionModel {
     }
 
     #[tracing::instrument(name = "function completion", skip_all)]
-    pub async fn get_fn_completion(
+    pub(crate) async fn get_fn_completion(
         &self,
         messages: &MessageStack,
         function_body: Value,

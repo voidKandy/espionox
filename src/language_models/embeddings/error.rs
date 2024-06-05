@@ -19,6 +19,11 @@ impl Debug for EmbeddingError {
 
 impl Display for EmbeddingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self)
+        let display = match self {
+            Self::Json(err) => err.to_string(),
+            Self::Undefined(err) => err.to_string(),
+            Self::Request(err) => err.to_string(),
+        };
+        write!(f, "{}", display)
     }
 }

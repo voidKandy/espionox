@@ -11,7 +11,7 @@ use serde_json::Value;
 use std::{fmt::Debug, pin::Pin};
 
 #[allow(unused)]
-pub trait CompletionRequestBuilder: Debug + Sync + Send + 'static {
+pub(crate) trait CompletionRequestBuilder: Debug + Sync + Send + 'static {
     fn model_str(&self) -> &str;
     fn url_str(&self) -> &str;
     fn serialize_messages(&self, stack: &MessageStack) -> Value;
@@ -34,7 +34,7 @@ pub trait CompletionRequestBuilder: Debug + Sync + Send + 'static {
         &self,
         stack: &MessageStack,
         // Becuase of the complexity of function calls, we'll just use raw function bodies
-        // Hopefully this changes in the future
+        // this may change in the future
         function_body: Value,
         function_name: &str,
     ) -> CompletionResult<Box<dyn CompletionRequest>> {

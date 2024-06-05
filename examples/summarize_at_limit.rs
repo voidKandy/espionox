@@ -1,13 +1,4 @@
-use espionox::{
-    agents::{
-        actions::io_completion,
-        error::AgentResult,
-        listeners::{AgentListener, ListenerTrigger},
-        memory::{messages::MessageRole, Message},
-        Agent,
-    },
-    language_models::completions::CompletionModel,
-};
+use espionox::{agents::error::AgentResult, prelude::*};
 
 #[derive(Debug)]
 pub struct SummarizeAtLimit {
@@ -52,7 +43,8 @@ impl AgentListener for SummarizeAtLimit {
 }
 
 /// We'll define our own push to cache action method so we can trigger the listener on it
-/// All action methods must be async
+/// All action methods must be async & return AgentResult, which can be coerced from an
+/// `anyhow::Result`
 async fn push_to_cache(agent: &mut Agent, m: Message) -> AgentResult<()> {
     agent.cache.push(m);
     Ok(())

@@ -13,12 +13,12 @@ use self::{
     listeners::{AgentListener, ListenerTrigger},
 };
 
-/// Agent struct for interracting with LLM
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub cache: MessageStack,
     pub(crate) completion_model: CompletionModel,
     #[serde(skip)]
+    /// Essentially callbacks that optionally trigger on the `do_action` method
     listeners: Vec<Box<dyn listeners::AgentListener>>,
 }
 
@@ -36,18 +36,33 @@ impl Agent {
         }
     }
 
-    // pub fn provider(&self) -> ModelProvider {
-    //     self.completion_model.provider()
-    // }
-
     pub fn insert_listener(&mut self, listener: impl AgentListener) {
         self.listeners.push(Box::new(listener));
     }
 
-    pub async fn use_listeners_with_trigger(
-        &mut self,
-        trigger: ListenerTrigger,
-    ) -> AgentResult<()> {
+    pub async fn do_action<'a, F, Args, Fut, R>(
+        &'a mut self,
+        f: F,
+        args: Args,
+        trigger: Option<impl Into<ListenerTrigger>>,
+    ) -> AgentResult<R>
+    where
+        F: for<'l> FnOnce(&'a mut Agent, Args) -> Fut,
+        Fut: Future<Output = AgentResult<R>>,
+    {
+        if let Some(trigger) = trigger {
+            self.use_listeners_with_trigger(trigger.into()).await?;
+        }
+        match f(self, args).await {
+            Ok(result) => Ok(result),
+            Err(err) => {
+                warn!("error in do_action: {:?}", err);
+                Err(err)
+            }
+        }
+    }
+
+    async fn use_listeners_with_trigger(&mut self, trigger: ListenerTrigger) -> AgentResult<()> {
         let mut ls = Vec::new();
 
         let mut i = 0;
@@ -80,27 +95,5 @@ impl Agent {
         self.listeners.append(&mut ls);
 
         Ok(())
-    }
-
-    pub async fn do_action<'a, F, Args, Fut, R>(
-        &'a mut self,
-        f: F,
-        args: Args,
-        trigger: Option<impl Into<ListenerTrigger>>,
-    ) -> AgentResult<R>
-    where
-        F: for<'l> FnOnce(&'a mut Agent, Args) -> Fut,
-        Fut: Future<Output = AgentResult<R>>,
-    {
-        if let Some(trigger) = trigger {
-            self.use_listeners_with_trigger(trigger.into()).await?;
-        }
-        match f(self, args).await {
-            Ok(result) => Ok(result),
-            Err(err) => {
-                warn!("error in do_action: {:?}", err);
-                Err(err)
-            }
-        }
     }
 }

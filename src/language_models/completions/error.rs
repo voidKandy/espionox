@@ -31,6 +31,15 @@ impl Debug for CompletionError {
 
 impl Display for CompletionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self)
+        let display = match self {
+            Self::Json(err) => err.to_string(),
+            Self::Undefined(err) => err.to_string(),
+            Self::Request(err) => err.to_string(),
+            Self::StreamTimeout => "Stream Timeout".to_string(),
+            Self::Provider(err) => err.to_string(),
+            Self::CouldNotCoerce => "Could Not Coerce".to_string(),
+            Self::FunctionNotImplemented => "Function Not Implemented".to_string(),
+        };
+        write!(f, "{}", display)
     }
 }

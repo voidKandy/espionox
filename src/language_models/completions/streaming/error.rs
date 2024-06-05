@@ -8,7 +8,7 @@ pub type StreamResult<T> = Result<T, StreamError>;
 pub enum StreamError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    Serde(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
     StreamBody(#[from] StreamBodyError),
     ReceiverTimeout,
     RetryError,
@@ -22,6 +22,13 @@ impl Debug for StreamError {
 
 impl Display for StreamError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self)
+        let display = match self {
+            Self::Json(err) => err.to_string(),
+            Self::Undefined(err) => err.to_string(),
+            Self::StreamBody(err) => err.to_string(),
+            Self::RetryError => "Retry Error".to_string(),
+            Self::ReceiverTimeout => "Receiver Timeout".to_string(),
+        };
+        write!(f, "{}", display)
     }
 }

@@ -1,12 +1,6 @@
-use crate::language_models::completions::streaming::ProviderStreamHandler;
-
 use super::{error::AgentResult, Agent};
+use crate::language_models::completions::streaming::ProviderStreamHandler;
 use serde_json::Value;
-
-// pub async fn get_embedding(agent: &mut Agent, text: &str) -> AgentResult<Vec<f32>>
-// {
-//     Ok(agent.completion_model.get_embedding(text).await?)
-// }
 
 pub async fn io_completion(agent: &mut Agent, _: ()) -> AgentResult<String> {
     Ok(agent

@@ -232,8 +232,18 @@ removed environment system!
 Listeners are now put on agents directly
 
 # v0.1.31
-Fix README formatting
-Refactored Language Model logic
+
+## Fixes
+README formatting was wrong, that has been corrected
+I forgot to put `#[ignore]` tags on tests that require API keys, those were put back.
+Stack overflow caused by request failures has been fixed.
+
+## Big Refactor
+There has been a huge refactor of the `language_models` module. Logic for implementing a new provider is now a lot easier to reason about. Also, the function structs and builders have all been removed in favor of just using `serde_json::Value`s for function call requests.
+
+## Small Changes 
+Removed Embeddings module from `agents::memory`
+Added `prelude` module
 
 -- TODO -- 
 Get token tracking working

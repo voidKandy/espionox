@@ -213,3 +213,53 @@ pub struct OpenAiUsage {
     pub completion_tokens: Option<i32>,
     pub total_tokens: i32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn openai_response_parsed_correctly() {
+        let value = json!(
+        {
+            "id": "chatcmpl-abc123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "gpt-3.5-turbo-0613",
+            "usage": {
+                "prompt_tokens": 13,
+                "completion_tokens": 7,
+                "total_tokens": 20
+            },
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "\n\nThis is a test!"
+                    },
+                    "logprobs": null,
+                    "finish_reason": "stop",
+                    "index": 0
+                }
+            ]
+        });
+
+        let res: OpenAiResponse = serde_json::from_value(value).unwrap();
+        let expected = OpenAiResponse::Success(OpenAiSuccess {
+            usage: OpenAiUsage {
+                prompt_tokens: 13,
+                completion_tokens: Some(7),
+                total_tokens: 20,
+            },
+            choices: vec![{
+                Choice {
+                    message: GptMessage {
+                        role: "assistant".to_string(),
+                        content: Some("\n\nThis is a test!".to_string()),
+                        function_call: None,
+                    },
+                }
+            }],
+        });
+        assert_eq!(res, expected);
+    }
+}

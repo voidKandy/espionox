@@ -1,14 +1,4 @@
-use espionox::{
-    agents::{
-        actions::io_completion,
-        error::AgentResult,
-        listeners::{AgentListener, ListenerTrigger},
-        memory::MessageRole,
-        Agent,
-    },
-    language_models::completions::CompletionModel,
-};
-
+use espionox::prelude::*;
 /// This is a simple listener that will always ensure a model's memory never has anything more than
 /// it's system prompt in it's memory. Useful for internal Summarizer agents
 #[derive(Debug)]

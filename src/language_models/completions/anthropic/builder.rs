@@ -90,11 +90,33 @@ impl CompletionRequestBuilder for AnthropicCompletionModel {
             stack, params, *self, true,
         )))
     }
+}
 
-    // fn into_function_req_fn(
-    //     &self,
-    //     stack: &MessageStack,
-    //     params: &ModelParameters,
-    // ) -> CompletionResult<Box<dyn CompletionRequest>> {
-    // }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agents::memory::OtherRoleTo;
+    #[test]
+    fn anthropic_agent_cache_to_json() {
+        let mut stack = MessageStack::new("SYSTEM");
+        stack.push(Message::new_user("USER"));
+        stack.push(Message::new_user("USE1"));
+        stack.push(Message::new_user("USE2"));
+        stack.push(Message::new_assistant("ASS"));
+        stack.push(Message::new_assistant("ASS1"));
+        stack.push(Message::new_user("USE1"));
+        stack.push(Message::new_user("USE2"));
+        stack.push(Message::new_other("some_other", "USE2", OtherRoleTo::User));
+        stack.push(Message::new_other(
+            "some_other",
+            "ASS",
+            OtherRoleTo::Assistant,
+        ));
+        let handler = AnthropicCompletionModel::default();
+        let vals = handler.serialize_messages(&stack);
+        println!("VALS: {:?}", vals);
+        let stack: MessageStack =
+            MessageStack::try_from(vals.as_array().unwrap().to_owned()).unwrap();
+        assert_eq!(5, stack.len());
+    }
 }
