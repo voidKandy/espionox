@@ -12,22 +12,23 @@
 First you need to initialize an `Agent`
 `Agent::new` accepts two arguments: 
 1. Optional content of a system prompt, if this is left `None` your agent will have no system prompt
-2. An api key for whichever provider you use (As of writing, only OpenAi and Anthropic providers are supported).
+2. A `CompletionModel` whichever provider you wish to use (As of writing, only OpenAi and Anthropic providers are supported).
 
 ```
+use espionox::prelude::*;
+
 let api_key = std::env::var("OPENAI_KEY").unwrap();
-let agent = Agent::new(Some("This is the system message"), LLM::default_openai(api_key));
+let agent = Agent::new(Some("This is the system message"), CompletionModel::default_openai(api_key));
 ```
 
-Now, In order to prompt your agent you will call `do_action` on it (method name WIP)
-
+Now, In order to prompt your agent you will call `do_action` on it 
 ```
 let response: String = agent
     .do_action(io_completion, (), Option::<ListenerTrigger>::None)
     .await
     .unwrap();
 ```
-This may look scary at first, lets look at `do_action`'s signature: 
+This may look scary at first, but lets look at `do_action`'s signature: 
 ```
 pub async fn do_action<'a, F, Args, Fut, R>(
     &'a mut self,
@@ -41,16 +42,19 @@ where
 ```
 `do_action` takes 4 arguments:
 1. the `Agent` which calls the method
-2. an async function which mutates the agent and returns some result
+2. an async function which mutates the agent and returns an `AgentResult`, which can be coerced from an `anyhow::Result`. So as long as the function signature returns any `AgentResult<T>`, just make sure to call `.into()` on any error return and it should be valid.
 3. optionally arguments for the aformentioned function 
 4. An optional trigger for a listener (We'll get to this)
 
+
 So, in our call to `do_action` earlier, we passed the function `io_completion`, an empty argument and None.
 `espionox` provides the following helper functions for getting completions or embeddings:
-* `get_embedding`
+
 * `io_completion`
 * `stream_completion`
 * `function_completion`
+
+
 We used one of these functions, but we could have just as easily defined our own `io_completion` function and passed it when we called `do_action`
 
 ## Listeners
@@ -60,7 +64,6 @@ One of Espionox's best offerings is the `AgentListener` trait:
 ```
 pub trait AgentListener: std::fmt::Debug + Send + Sync + 'static {
     fn trigger<'l>(&self) -> ListenerTrigger;
-    /// needs to be wrapped in `Box::pin(async move {})`
     fn async_method<'l>(&'l mut self, _a: &'l mut Agent) -> ListenerCallReturn<'l> {
         Box::pin(async move { Err(ListenerError::NoMethod.into()) })
     }
@@ -74,9 +77,11 @@ You will notice 3 methods:
     * `ListenerTrigger::String(String)`
     * `ListenerTrigger::Int(i64)`
     Remember the `trigger` argument to `do_action`? Ensure a listener is triggered when `do_action` is called by passing a matching `ListenerTrigger`.
-2. `async_method`
+2. `async_method`. Which, if implemented, the function body must be wrapped in `Box::pin(async move {})`
 3. `sync_method`
-Each `async_method` and `sync_method` are where you define WHAT the listener will actually do when it's triggered. THESE ARE MUTUALLY EXCLUSIVE, only ONE of these methods should be implemented. 
+
+
+Each `async_method` and `sync_method` are where you define WHAT the listener will actually do when it's triggered. THESE ARE MUTUALLY EXCLUSIVE, only ONE of these methods should be implemented. If both are implemented, the sync method will be the only one to trigger.
 Any struct implementing this trait can be inserted into an agent using `Agent::insert_listener`. 
 
 ### How do you even use a listener??

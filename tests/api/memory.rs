@@ -1,11 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use espionox::{
-        agents::memory::{Message, MessageRole, MessageStack, OtherRoleTo},
-        language_models::{
-            anthropic::AnthropicCompletionHandler, inference::CompletionEndpointHandler,
-        },
-    };
+    use espionox::agents::memory::{Message, MessageRole, MessageStack};
 
     #[test]
     fn message_stack_filter_by_behavior() {
@@ -46,28 +41,5 @@ mod tests {
         println!("{:?}", stack_ref);
         let m = stack_ref.pop(Some(MessageRole::System));
         assert_eq!(None, m);
-    }
-
-    #[test]
-    fn anthropic_agent_cache_to_json() {
-        let mut stack = MessageStack::new("SYSTEM");
-        stack.push(Message::new_user("USER"));
-        stack.push(Message::new_user("USE1"));
-        stack.push(Message::new_user("USE2"));
-        stack.push(Message::new_assistant("ASS"));
-        stack.push(Message::new_assistant("ASS1"));
-        stack.push(Message::new_user("USE1"));
-        stack.push(Message::new_user("USE2"));
-        stack.push(Message::new_other("some_other", "USE2", OtherRoleTo::User));
-        stack.push(Message::new_other(
-            "some_other",
-            "ASS",
-            OtherRoleTo::Assistant,
-        ));
-        let handler = AnthropicCompletionHandler::default();
-        let vals = handler.agent_cache_to_json(&stack);
-        println!("VALS: {:?}", vals);
-        let stack: MessageStack = MessageStack::try_from(vals).unwrap();
-        assert_eq!(5, stack.len());
     }
 }

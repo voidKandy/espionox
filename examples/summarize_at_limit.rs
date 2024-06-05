@@ -1,16 +1,4 @@
-use core::time::Duration;
-use std::collections::HashMap;
-
-use espionox::{
-    agents::{
-        actions::io_completion,
-        error::AgentResult,
-        listeners::{AgentListener, ListenerTrigger},
-        memory::{messages::MessageRole, Message},
-        Agent,
-    },
-    language_models::{ModelProvider, LLM},
-};
+use espionox::{agents::error::AgentResult, prelude::*};
 
 #[derive(Debug)]
 pub struct SummarizeAtLimit {
@@ -34,26 +22,29 @@ impl AgentListener for SummarizeAtLimit {
         _a: &'l mut Agent,
     ) -> espionox::agents::listeners::ListenerCallReturn<'l> {
         Box::pin(async move {
-            let message = Message::new_user(&format!(
-                "Summarize this chat history: {}",
-                _a.cache.to_string()
-            ));
-            self.summarizer.cache.push(message);
+            if _a.cache.len() >= self.limit {
+                let message = Message::new_user(&format!(
+                    "Summarize this chat history: {}",
+                    _a.cache.to_string()
+                ));
+                self.summarizer.cache.push(message);
 
-            let summary = self
-                .summarizer
-                .do_action(io_completion, (), Option::<ListenerTrigger>::None)
-                .await?;
+                let summary = self
+                    .summarizer
+                    .do_action(io_completion, (), Option::<ListenerTrigger>::None)
+                    .await?;
 
-            _a.cache.mut_filter_by(MessageRole::System, true);
-            _a.cache.push(Message::new_assistant(&summary));
-            Ok(())
+                _a.cache.mut_filter_by(MessageRole::System, true);
+                _a.cache.push(Message::new_assistant(&summary));
+            }
+            return Ok(());
         })
     }
 }
 
 /// We'll define our own push to cache action method so we can trigger the listener on it
-/// All action methods must be async
+/// All action methods must be async & return AgentResult, which can be coerced from an
+/// `anyhow::Result`
 async fn push_to_cache(agent: &mut Agent, m: Message) -> AgentResult<()> {
     agent.cache.push(m);
     Ok(())
@@ -63,11 +54,14 @@ async fn push_to_cache(agent: &mut Agent, m: Message) -> AgentResult<()> {
 async fn main() {
     dotenv::dotenv().ok();
     let api_key = std::env::var("ANTHROPIC_KEY").unwrap();
-    let mut agent = Agent::new(Some("You are jerry!!"), LLM::default_anthropic(&api_key));
+    let mut agent = Agent::new(
+        Some("You are jerry!!"),
+        CompletionModel::default_anthropic(&api_key),
+    );
 
     let summarizer = Agent::new(
         Some("Your job is to summarize chunks of a conversation"),
-        LLM::default_anthropic(&api_key),
+        CompletionModel::default_anthropic(&api_key),
     );
     let sal = SummarizeAtLimit::new(5usize, summarizer);
 
@@ -84,7 +78,7 @@ async fn main() {
 
     // env.finalize_dispatch().await.unwrap();
     println!("STACK: {:?}", agent.cache);
-    assert_eq!(agent.cache.len(), 3);
+    assert_eq!(agent.cache.len(), 4);
     assert_eq!(agent.cache.as_ref()[0].role, MessageRole::System);
     assert_eq!(agent.cache.as_ref()[1].role, MessageRole::Assistant);
     assert_eq!(agent.cache.as_ref()[2].role, MessageRole::User);

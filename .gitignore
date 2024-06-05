@@ -1,7 +1,3 @@
 /target
 .env
-/espionox_config
-docker-compose.yaml
-/scripts
-start_session.sh
 .DS_Store

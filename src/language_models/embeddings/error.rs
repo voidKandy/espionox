@@ -1,29 +1,28 @@
-use crate::{errors::error_chain_fmt, language_models::completions::error::CompletionError};
+use crate::errors::error_chain_fmt;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
-use super::listeners;
+pub type EmbeddingResult<T> = Result<T, EmbeddingError>;
 
-pub type AgentResult<T> = Result<T, AgentError>;
 #[derive(thiserror::Error)]
-pub enum AgentError {
+pub enum EmbeddingError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    CompletionError(#[from] CompletionError),
-    Listener(#[from] listeners::error::ListenerError),
+    Json(#[from] serde_json::Error),
+    Request(#[from] reqwest::Error),
 }
 
-impl Debug for AgentError {
+impl Debug for EmbeddingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         error_chain_fmt(self, f)
     }
 }
 
-impl Display for AgentError {
+impl Display for EmbeddingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let display = match self {
-            Self::Listener(err) => err.to_string(),
+            Self::Json(err) => err.to_string(),
             Self::Undefined(err) => err.to_string(),
-            Self::CompletionError(err) => err.to_string(),
+            Self::Request(err) => err.to_string(),
         };
         write!(f, "{}", display)
     }
