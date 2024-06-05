@@ -2,13 +2,11 @@ pub mod actions;
 pub mod error;
 pub mod listeners;
 pub mod memory;
-use std::{fmt::Debug, future::Future};
-
-use memory::MessageStack;
-use tracing::warn;
-
-use crate::language_models::{ModelProvider, LLM};
+use crate::language_models::completions::CompletionModel;
 pub use error::AgentError;
+use memory::MessageStack;
+use std::{fmt::Debug, future::Future};
+use tracing::warn;
 
 use self::{
     error::AgentResult,
@@ -19,28 +17,28 @@ use self::{
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub cache: MessageStack,
-    pub(crate) completion_handler: LLM,
+    pub(crate) completion_model: CompletionModel,
     #[serde(skip)]
     listeners: Vec<Box<dyn listeners::AgentListener>>,
 }
 
 impl Agent {
     /// For creating an Agent given optional system prompt content and model
-    pub fn new(init_prompt: Option<&str>, completion_handler: LLM) -> Self {
+    pub fn new(init_prompt: Option<&str>, completion_model: CompletionModel) -> Self {
         let cache = match init_prompt {
             Some(p) => MessageStack::new(p),
             None => MessageStack::init(),
         };
         Agent {
             cache,
-            completion_handler,
+            completion_model,
             listeners: vec![],
         }
     }
 
-    pub fn provider(&self) -> ModelProvider {
-        self.completion_handler.provider()
-    }
+    // pub fn provider(&self) -> ModelProvider {
+    //     self.completion_model.provider()
+    // }
 
     pub fn insert_listener(&mut self, listener: impl AgentListener) {
         self.listeners.push(Box::new(listener));
@@ -66,7 +64,7 @@ impl Agent {
                     continue;
                 }
                 Err(_) => {
-                    warn!("Sync method is not implemented on this listener")
+                    warn!("sync method is not implemented on this listener")
                 }
             }
             match l.async_method(self).await {
@@ -74,7 +72,7 @@ impl Agent {
                     continue;
                 }
                 Err(_) => {
-                    warn!("Async method is not implemented on this listener")
+                    warn!("async method is not implemented on this listener")
                 }
             }
         }
@@ -97,6 +95,12 @@ impl Agent {
         if let Some(trigger) = trigger {
             self.use_listeners_with_trigger(trigger.into()).await?;
         }
-        f(self, args).await
+        match f(self, args).await {
+            Ok(result) => Ok(result),
+            Err(err) => {
+                warn!("error in do_action: {:?}", err);
+                Err(err)
+            }
+        }
     }
 }

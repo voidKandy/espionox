@@ -1,5 +1,4 @@
 use super::MessageStack;
-use crate::language_models::openai::completions::GptMessage;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -151,29 +150,6 @@ impl From<Value> for FunctionCall {
 impl Into<Value> for FunctionCall {
     fn into(self) -> Value {
         json!({"name": self.name, "arguments": self.arguments})
-    }
-}
-
-impl TryFrom<GptMessage> for FunctionMessage {
-    type Error = anyhow::Error;
-    fn try_from(value: GptMessage) -> Result<Self, Self::Error> {
-        match value.function_call {
-            Some(json_value) => Ok(FunctionMessage {
-                function_call: json_value.into(),
-            }),
-            None => Err(anyhow::anyhow!("GptMessage doesn't contain function call")),
-        }
-    }
-}
-
-impl TryFrom<GptMessage> for Message {
-    type Error = anyhow::Error;
-    fn try_from(value: GptMessage) -> Result<Self, Self::Error> {
-        let content = value.content.ok_or(anyhow!("GptMessage has no content"))?;
-        Ok(Message {
-            role: value.role.try_into()?,
-            content,
-        })
     }
 }
 

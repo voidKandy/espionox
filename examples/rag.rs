@@ -1,11 +1,14 @@
 use espionox::{
     agents::{
-        actions::{get_embedding, io_completion},
-        listeners::{AgentListener, ListenerTrigger},
+        actions::io_completion,
+        listeners::AgentListener,
         memory::{embeddings::EmbeddingVector, messages::MessageRole, Message, ToMessage},
-        Agent, AgentError,
+        Agent,
     },
-    language_models::{openai::embeddings::OpenAiEmbeddingModel, LLM},
+    language_models::{
+        completions::CompletionModel,
+        embeddings::{error::EmbeddingError, EmbeddingModel},
+    },
 };
 use std::collections::HashMap;
 
@@ -16,7 +19,7 @@ pub struct RagListener<'p> {
     data: Option<DbStruct<'p>>,
     /// It depends on your implementation and Data source, but in this example, our RAG listener
     /// will require access to an embedderr
-    embedder: Agent,
+    embedder: EmbeddingModel,
 }
 
 #[derive(Debug, Clone)]
@@ -30,11 +33,8 @@ pub struct Product<'p> {
 pub struct DbStruct<'p>(Vec<Product<'p>>);
 
 impl<'p> RagListener<'p> {
-    async fn embed(&mut self, str: &str) -> Result<Vec<f32>, AgentError> {
-        let embedding: Vec<f32> = self
-            .embedder
-            .do_action(get_embedding, str, Option::<ListenerTrigger>::None)
-            .await?;
+    async fn embed(&mut self, str: &str) -> Result<Vec<f32>, EmbeddingError> {
+        let embedding: Vec<f32> = self.embedder.get_embedding(str).await?;
         Ok(embedding)
     }
 
@@ -193,12 +193,12 @@ impl<'p: 'static> AgentListener for RagListener<'p> {
 async fn main() {
     dotenv::dotenv().ok();
     let api_key = std::env::var("OPENAI_KEY").unwrap();
-    let embedder = Agent::new(
-        None,
-        LLM::new_embedding_model(OpenAiEmbeddingModel::Small.into(), None, &api_key),
+    let embedder = EmbeddingModel::default_openai(&api_key);
+    let mut agent = Agent::new(
+        Some("You are jerry!!"),
+        CompletionModel::default_openai(&api_key),
     );
 
-    let mut agent = Agent::new(Some("You are jerry!!"), LLM::default_openai(&api_key));
     let mut listener = RagListener {
         embedder,
         data: None,

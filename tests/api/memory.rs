@@ -2,8 +2,8 @@
 mod tests {
     use espionox::{
         agents::memory::{Message, MessageRole, MessageStack, OtherRoleTo},
-        language_models::{
-            anthropic::AnthropicCompletionHandler, inference::CompletionEndpointHandler,
+        language_models::completions::{
+            anthropic::builder::AnthropicCompletionModel, inference::CompletionRequestBuilder,
         },
     };
 
@@ -64,10 +64,11 @@ mod tests {
             "ASS",
             OtherRoleTo::Assistant,
         ));
-        let handler = AnthropicCompletionHandler::default();
-        let vals = handler.agent_cache_to_json(&stack);
+        let handler = AnthropicCompletionModel::default();
+        let vals = handler.serialize_messages(&stack);
         println!("VALS: {:?}", vals);
-        let stack: MessageStack = MessageStack::try_from(vals).unwrap();
+        let stack: MessageStack =
+            MessageStack::try_from(vals.as_array().unwrap().to_owned()).unwrap();
         assert_eq!(5, stack.len());
     }
 }

@@ -1,5 +1,4 @@
-use crate::errors::error_chain_fmt;
-use crate::language_models::error::ModelEndpointError;
+use crate::{errors::error_chain_fmt, language_models::completions::error::CompletionError};
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 use super::listeners;
@@ -9,7 +8,7 @@ pub type AgentResult<T> = Result<T, AgentError>;
 pub enum AgentError {
     #[error(transparent)]
     Undefined(#[from] anyhow::Error),
-    ModelError(#[from] ModelEndpointError),
+    CompletionError(#[from] CompletionError),
     Listener(#[from] listeners::error::ListenerError),
     EnvSend,
     AgentSenderIsNone,

@@ -1,55 +1,69 @@
-use std::any::Any;
-
 use espionox::{
-    agents::{
-        memory::{Message, MessageStack},
-        Agent,
-    },
-    language_models::{
-        anthropic::{self, AnthropicCompletionHandler},
-        inference::LLMEmbeddingHandler,
-        openai::{completions::OpenAiCompletionHandler, embeddings::OpenAiEmbeddingModel},
-        LLM,
+    agents::{actions::io_completion, Agent},
+    language_models::completions::{
+        openai::requests::{Choice, GptMessage, OpenAiResponse, OpenAiSuccess, OpenAiUsage},
+        CompletionModel,
     },
 };
-use reqwest::Client;
+use serde_json::json;
 
 use crate::init_test;
 
-// #[ignore]
-// #[tokio::test]
-// async fn embedding_handlers_get_embeddings() {
-//     init_test();
-//     dotenv::dotenv().ok();
-//     let text = "Heyyyy this is a test";
-//     let api_key = std::env::var("OPENAI_KEY").unwrap();
-//     let client = reqwest::Client::new();
-//     let embedder =
-//         LLM::new_embedding_model(LLMEmbeddingHandler::from(OpenAiEmbeddingModel::Small), None);
-//     let response = embedder.get_embedding(text, &api_key, &client).await;
-//     assert!(response.is_ok())
-// }
-//
-// #[ignore]
-// #[tokio::test]
-// async fn completion_handlers_get_completions() {
-//     init_test();
-//     dotenv::dotenv().ok();
-//     let client = Client::new();
-//
-//     let open_ai_key = std::env::var("OPENAI_KEY").unwrap();
-//     let anth_key = std::env::var("ANTHROPIC_KEY").unwrap();
-//     let openai = LLM::default_openai();
-//     let anthropic = LLM::default_anthropic();
-//
-//     let mut messages = MessageStack::new("You are a test model");
-//     messages.push(Message::new_user("HELLO"));
-//
-//     let oai_res = openai
-//         .get_io_completion(&messages, &open_ai_key, &client)
-//         .await;
-//     let anth_res = anthropic
-//         .get_io_completion(&messages, &anth_key, &client)
-//         .await;
-//     assert!(oai_res.is_ok() && anth_res.is_ok());
-// }
+#[test]
+fn openai_response_parsed_correctly() {
+    init_test();
+    let value = json!(
+    {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0613",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nThis is a test!"
+                },
+                "logprobs": null,
+                "finish_reason": "stop",
+                "index": 0
+            }
+        ]
+    });
+
+    let res: OpenAiResponse = serde_json::from_value(value).unwrap();
+    let expected = OpenAiResponse::Success(OpenAiSuccess {
+        usage: OpenAiUsage {
+            prompt_tokens: 13,
+            completion_tokens: Some(7),
+            total_tokens: 20,
+        },
+        choices: vec![{
+            Choice {
+                message: GptMessage {
+                    role: "assistant".to_string(),
+                    content: Some("\n\nThis is a test!".to_string()),
+                    function_call: None,
+                },
+            }
+        }],
+    });
+    assert_eq!(res, expected);
+}
+
+#[tokio::test]
+async fn failed_request_does_not_overflow_stack() {
+    init_test();
+    let llm = CompletionModel::default_anthropic("invalid_key");
+    let mut a = Agent::new(None, llm);
+
+    let res = io_completion(&mut a, ()).await;
+
+    println!("{:?}", res);
+    assert!(res.is_ok());
+}

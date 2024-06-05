@@ -45,12 +45,16 @@ where
 3. optionally arguments for the aformentioned function 
 4. An optional trigger for a listener (We'll get to this)
 
+
 So, in our call to `do_action` earlier, we passed the function `io_completion`, an empty argument and None.
 `espionox` provides the following helper functions for getting completions or embeddings:
+
 * `get_embedding`
 * `io_completion`
 * `stream_completion`
 * `function_completion`
+
+
 We used one of these functions, but we could have just as easily defined our own `io_completion` function and passed it when we called `do_action`
 
 ## Listeners
@@ -76,6 +80,8 @@ You will notice 3 methods:
     Remember the `trigger` argument to `do_action`? Ensure a listener is triggered when `do_action` is called by passing a matching `ListenerTrigger`.
 2. `async_method`
 3. `sync_method`
+
+
 Each `async_method` and `sync_method` are where you define WHAT the listener will actually do when it's triggered. THESE ARE MUTUALLY EXCLUSIVE, only ONE of these methods should be implemented. 
 Any struct implementing this trait can be inserted into an agent using `Agent::insert_listener`. 
 

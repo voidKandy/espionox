@@ -6,7 +6,7 @@ use espionox::{
         memory::MessageRole,
         Agent,
     },
-    language_models::LLM,
+    language_models::completions::CompletionModel,
 };
 
 /// This is a simple listener that will always ensure a model's memory never has anything more than
@@ -30,7 +30,10 @@ async fn main() {
     let api_key = std::env::var("OPENAI_KEY").unwrap();
 
     // Standard boilerplate for building an Environment & Agent
-    let mut agent = Agent::new(Some("You are jerry!!"), LLM::default_openai(&api_key));
+    let mut agent = Agent::new(
+        Some("You are jerry!!"),
+        CompletionModel::default_openai(&api_key),
+    );
     let fgt = Forgetful {};
     agent.insert_listener(fgt);
 

@@ -222,7 +222,7 @@ added `actual()` method to return actual message role to account for the fact th
 `From` implementations are now `TryFrom`
 a new enum `OtherRoleTo` to allow users to pick which the messages get coerced to
 
-# v.0.1.3
+# v0.1.3
 
 Added find by to noti stack
 removed environment system!
@@ -230,3 +230,11 @@ removed environment system!
 `LLM` struct now contains `reqwest::Client` & api key
 
 Listeners are now put on agents directly
+
+# v0.1.31
+Fix README formatting
+Refactored Language Model logic
+
+-- TODO -- 
+Get token tracking working
+
