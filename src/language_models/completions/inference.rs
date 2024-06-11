@@ -1,5 +1,6 @@
 use super::{
     error::{CompletionError, CompletionResult},
+    functions::Function,
     streaming::ProviderStreamHandler,
     ModelParameters,
 };
@@ -30,14 +31,16 @@ pub(crate) trait CompletionRequestBuilder: Debug + Sync + Send + 'static {
     ) -> CompletionResult<Box<dyn CompletionRequest>> {
         Err(CompletionError::FunctionNotImplemented)
     }
-    fn into_function_req(
+    // currently only supports single functions, but functions can technically be added to models
+    // like messages
+    fn serialize_function(
         &self,
         stack: &MessageStack,
-        // Becuase of the complexity of function calls, we'll just use raw function bodies
-        // this may change in the future
-        function_body: Value,
-        function_name: &str,
-    ) -> CompletionResult<Box<dyn CompletionRequest>> {
+        function: Function,
+    ) -> CompletionResult<Value> {
+        Err(CompletionError::FunctionNotImplemented)
+    }
+    fn process_function_response(&self, response_json: Value) -> CompletionResult<Value> {
         Err(CompletionError::FunctionNotImplemented)
     }
 }

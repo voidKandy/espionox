@@ -245,6 +245,72 @@ There has been a huge refactor of the `language_models` module. Logic for implem
 Removed Embeddings module from `agents::memory`
 Added `prelude` module
 
+
+# v0.1.32
+
+## Minor Changes
+made CompletionModels public
+added new() fuction  to CompletionModel
+instead of methods for each OpenAi and Anthropic models, the new `new()` method takes a trait object
+
+## New functions
+instead of using raw JSON to define functions, functions are now defined in 'espx-fn-pseudo-lang' which is written in a more human readable way, and then transpiled into valid JSON.For example 
+
+`get_n_day_weather_forecast(location: string, format!: enum('celcius' | 'farenheight'), num_days!: integer)
+    where 
+        i am 'get an n-day weather forecast'
+        location is 'the city and state, e.g. san francisco, ca'
+        format is 'the temperature unit to use. infer this from the users location.'
+        num_days is 'the number of days to forcast'
+`
+
+transpiles into:
+
+`
+{
+ "name": "get_n_day_weather_forecast",
+      "description": "Get an N-day weather forecast",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "the city and state, e.g. san francisco, ca"
+          },
+            "num_days": {
+            "type": "integer",
+            "description": "the number of days to forcast",
+            },
+          "format": {
+            "type": "string",
+            "enum": ["celcius", "fahrenheight"]
+          }
+        },
+        "required": ["num_days", "format"]
+    }
+}
+`
+
+## A brief overview of the 'language'
+there are 4 available types: `string`, `bool`, `integer`, and `enum`.
+Enum's variants are described within parentheses following the `enum` token, they are surrounded by single quotes and separated by `|`.
+If an identifier is followed by a `!`, it is marked as required. 
+The where clause is optional and allows you to assign descriptions to the function itself, with the `i` token, or any parameters, by using their identifier.
+
+## How to use it for completions 
+the `function_completion` action takes a `Function`, `Function` implements `TryFrom<&str>` where it parses a given string. As of right now, only the OpenAi completion model supports functions. 
+Later, an example will be added to the `examples/` directory, but `tests/api/agent.rs` contains an example test using function completions.
+The completion will return a `serde_json::Value` where the keys are the parameter identifiers.
+For example, the return value of the above function being put through a completion with a user input of "whats the weather like in detroit?" might be:
+`
+{
+    "location": "Detroit, MI",
+    "num_days": "1",
+    "format": "fahrenheight"
+}
+`
+
+
 -- TODO -- 
 Get token tracking working
 

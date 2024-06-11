@@ -1,5 +1,5 @@
 use super::{error::AgentResult, Agent};
-use crate::language_models::completions::streaming::ProviderStreamHandler;
+use crate::language_models::completions::{functions::Function, streaming::ProviderStreamHandler};
 use serde_json::Value;
 
 pub async fn io_completion(agent: &mut Agent, _: ()) -> AgentResult<String> {
@@ -18,9 +18,9 @@ pub async fn stream_completion(agent: &mut Agent, _: ()) -> AgentResult<Provider
     Ok(cs.into())
 }
 
-pub async fn function_completion(agent: &mut Agent, function: (Value, &str)) -> AgentResult<Value> {
+pub async fn function_completion(agent: &mut Agent, function: Function) -> AgentResult<Value> {
     Ok(agent
         .completion_model
-        .get_fn_completion(&agent.cache, function.0, function.1)
+        .get_fn_completion(&agent.cache, function)
         .await?)
 }

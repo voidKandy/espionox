@@ -17,4 +17,3 @@ async fn failed_request_does_not_overflow_stack() {
     println!("{:?}", res);
     assert!(res.is_err());
 }
-

@@ -1,15 +1,17 @@
-mod anthropic;
+pub mod anthropic;
 pub mod error;
+pub mod functions;
 #[cfg(feature = "bert")]
 pub mod huggingface;
 mod inference;
-pub(super) mod openai;
+pub mod openai;
 pub mod streaming;
 use self::{
-    anthropic::builder::AnthropicCompletionModel, error::CompletionResult,
+    anthropic::builder::AnthropicCompletionModel, error::CompletionResult, functions::Function,
     inference::CompletionRequestBuilder, openai::builder::OpenAiCompletionModel,
     streaming::ProviderStreamHandler,
 };
+
 use crate::agents::memory::MessageStack;
 use anyhow::anyhow;
 use reqwest::Client;
@@ -100,22 +102,8 @@ impl ModelParameters {
 }
 
 impl CompletionModel {
-    pub fn new_openai(
-        m: OpenAiCompletionModel,
-        params: ModelParameters,
-        api_key: &str,
-    ) -> CompletionModel {
-        let client = Client::new();
-        Self {
-            provider: m.into(),
-            params,
-            client,
-            api_key: api_key.to_owned(),
-        }
-    }
-
-    pub fn new_anthropic(
-        m: AnthropicCompletionModel,
+    pub fn new(
+        m: impl Into<CompletionProvider>,
         params: ModelParameters,
         api_key: &str,
     ) -> CompletionModel {
@@ -219,30 +207,28 @@ impl CompletionModel {
     pub(crate) async fn get_fn_completion(
         &self,
         messages: &MessageStack,
-        function_body: Value,
-        function_name: &str,
+        function: Function,
     ) -> CompletionResult<Value> {
         let builder = self.provider.inner_builder();
         let headers = builder.headers(&self.api_key);
         let url = builder.url_str();
-        let req = builder.into_function_req(messages, function_body, function_name)?;
-        let json_req = req.as_json()?;
+        let req = builder.serialize_function(messages, function)?;
         info!(
             "\nSending request:\n{:?}\nto: {}\nwith headers: {:?}\n",
-            json_req, url, headers
+            req, url, headers
         );
 
         let response = self
             .client
             .post(url)
             .headers(headers)
-            .json(&json_req)
+            .json(&req)
             .send()
             .await?;
 
         info!("Got response: {:?}", response);
-        match req.process_response(response).await {
-            Ok(r) => return Ok(TryInto::<Value>::try_into(r)?),
+        match builder.process_function_response(response.json().await?) {
+            Ok(r) => return Ok(r),
             Err(err) => {
                 warn!("Error getting function completion: {:?}", err);
                 Err(err.into())

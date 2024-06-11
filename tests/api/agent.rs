@@ -1,12 +1,14 @@
-use crate::{functions::test_function, init_test, test_anthropic_agent, test_openai_agent};
+use crate::{init_test, test_anthropic_agent, test_openai_agent};
 use espionox::{
     agents::{
         actions::{function_completion, io_completion, stream_completion},
         listeners::ListenerTrigger,
         memory::Message,
     },
-    language_models::completions::streaming::ProviderStreamHandler,
+    language_models::completions::{functions::Function, streaming::ProviderStreamHandler},
 };
+use serde::Deserialize;
+use serde_json::json;
 use serde_json::Value;
 use tracing::info;
 
@@ -66,33 +68,34 @@ async fn stream_prompt_agent_works() {
 async fn function_prompt_agent_works() {
     init_test();
     let mut a = test_openai_agent();
-    let function = test_function();
+    let test_func_str = r#"get_n_day_weather_forecast(location: string, format!: enum('celcius' | 'farenheight'), num_days!: integer)
+        where 
+            i am 'get an n-day weather forecast'
+            location is 'the city and state, e.g. san francisco, ca'
+            format is 'the temperature unit to use. infer this from the users location.'
+            num_days is 'the number of days to forcast'
+        "#;
+    let function = Function::try_from(test_func_str).unwrap();
     let message = Message::new_user("What's the weather like in Detroit michigan in celcius?");
     a.cache.push(message);
 
     let json: Value = a
         .do_action(
             function_completion,
-            (function, "get_current_weather"),
+            function,
             Option::<ListenerTrigger>::None,
         )
         .await
         .unwrap();
-
-    if let Some(location) = json
-        .as_object()
-        .and_then(|obj| obj.get("location"))
-        .and_then(|value| value.as_str())
-    {
+    // let json: Ret = serde_json::from_str(json).unwrap();
+    info!("test got json: {:?}", json);
+    assert_eq!(
+        json.get("format").and_then(|value| value.as_str()).unwrap(),
+        "celcius"
+    );
+    if let Some(location) = json.get("location").and_then(|value| value.as_str()) {
         if location != "Detroit, MI" && location != "Detroit, Michigan" {
             assert!(false, "Location returned incorrectly")
         }
     }
-    assert_eq!(
-        json.as_object()
-            .and_then(|obj| obj.get("unit"))
-            .and_then(|value| value.as_str())
-            .unwrap(),
-        "celcius"
-    );
 }

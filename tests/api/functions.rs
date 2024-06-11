@@ -1,37 +1,13 @@
 use serde_json::{json, Value};
+// https://cookbook.openai.com/examples/how_to_call_functions_with_chat_models
 
-// use super::helpers::init_test;
-// use espionox::language_models::openai::completions::functions::{
-//     CustomFunction, Function, Property, PropertyInfo,
-// };
-// use serde_json::json;
-//
-// pub fn weather_test_function() -> CustomFunction {
-//     let location_info = PropertyInfo::new(
-//         "description",
-//         json!("The city and state, e.g. San Francisco, CA"),
-//     );
-//     let unit_info = PropertyInfo::new("enum", json!(["celcius", "fahrenheit"]));
-//
-//     let location_prop = Property::build_from("location")
-//         .return_type("string")
-//         .add_info(location_info)
-//         .finished();
-//     let unit_prop = Property::build_from("unit")
-//         .return_type("string")
-//         .add_info(unit_info)
-//         .finished();
-//
-//     CustomFunction::build_from("get_current_weather")
-//         .description("Get the current weather in a given location")
-//         .add_property(location_prop, true)
-//         .add_property(unit_prop, false)
-//         .finished()
-// }
+#[test]
+fn compile_functions_into_actual() {
+    let str_to_compile = r#"get_current_weather(location!: string, unit: 'celcius' | 'farenheight') 
+        i = 'Get the current weather in a given location'
+        location = 'the city and state, e.g. San Francisco, CA'
+        "#;
 
-pub fn test_function() -> Value {
-    // init_test();
-    // let function: Function = weather_test_function().function();
     let expected_result = json!({
          "name": "get_current_weather",
               "description": "Get the current weather in a given location",
@@ -51,6 +27,32 @@ pub fn test_function() -> Value {
         }
     });
 
-    // assert_eq!(function.json, expected_result);
-    expected_result
+    let str_to_compile = r#"get_n_day_weather_forecast(location!: string, format!: 'celcius' | 'farenheight', num_days!: integer)
+        location = 'the city and state, e.g. San Francisco, CA'
+        format = 'The temperature unit to use. Infer this from the users location.'
+        num_days = 'The number of days to forcast'
+        "#;
+    let expected_result = json!({
+      "name": "get_n_day_weather_forecast",
+              "description": "Get an N-day weather forecast",
+              "parameters": {
+                  "type": "object",
+                  "properties": {
+                      "location": {
+                          "type": "string",
+                          "description": "The city and state, e.g. San Francisco, CA",
+                      },
+                      "format": {
+                          "type": "string",
+                          "enum": ["celsius", "fahrenheit"],
+                          "description": "The temperature unit to use. Infer this from the users location.",
+                      },
+                      "num_days": {
+                          "type": "integer",
+                          "description": "The number of days to forecast",
+                      }
+                  },
+                  "required": ["location", "format", "num_days"]
+              },
+    });
 }
