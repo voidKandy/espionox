@@ -34,7 +34,7 @@ impl AgentListener for SummarizeAtLimit {
                     .do_action(io_completion, (), Option::<ListenerTrigger>::None)
                     .await?;
 
-                _a.cache.mut_filter_by(MessageRole::System, true);
+                _a.cache.mut_filter_by(&MessageRole::System, true);
                 _a.cache.push(Message::new_assistant(&summary));
             }
             return Ok(());

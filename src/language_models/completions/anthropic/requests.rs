@@ -36,9 +36,9 @@ impl AnthropicIoRequest {
         typ: AnthropicCompletionModel,
         stream: bool,
     ) -> Self {
-        let system_stack: MessageStack = stack.ref_filter_by(MessageRole::System, true).into();
+        let system_stack: MessageStack = stack.ref_filter_by(&MessageRole::System, true).into();
         let sans_system_stack: MessageStack =
-            stack.ref_filter_by(MessageRole::System, false).into();
+            stack.ref_filter_by(&MessageRole::System, false).into();
         let system = system_stack
             .as_ref()
             .into_iter()

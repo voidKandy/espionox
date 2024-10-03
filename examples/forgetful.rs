@@ -9,7 +9,7 @@ impl AgentListener for Forgetful {
         ListenerTrigger::from(0)
     }
     fn sync_method<'l>(&'l mut self, agent: &'l mut Agent) -> AgentResult<()> {
-        agent.cache.mut_filter_by(MessageRole::System, true);
+        agent.cache.mut_filter_by(&MessageRole::System, true);
         Ok(())
     }
 }
@@ -31,7 +31,7 @@ async fn main() {
         let _ = agent.do_action(io_completion, (), Some(0)).await.unwrap();
     }
 
-    let stack_sans_system = agent.cache.ref_filter_by(MessageRole::System, false);
+    let stack_sans_system = agent.cache.ref_filter_by(&MessageRole::System, false);
 
     // After removing any system prompts, Jerry's cache length should be 0
     assert_eq!(stack_sans_system.len(), 0);

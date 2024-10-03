@@ -290,6 +290,42 @@ transpiles into:
     }
 }
 `
+nstead of using raw JSON to define functions, functions are now defined in 'espx-fn-pseudo-lang' which is written in a more human readable way, and then transpiled into valid JSON.For example 
+
+`get_n_day_weather_forecast(location: string, format!: enum('celcius' | 'farenheight'), num_days!: integer)
+    where 
+        i am 'get an n-day weather forecast'
+        location is 'the city and state, e.g. san francisco, ca'
+        format is 'the temperature unit to use. infer this from the users location.'
+        num_days is 'the number of days to forcast'
+`
+
+transpiles into:
+
+`
+{
+ "name": "get_n_day_weather_forecast",
+      "description": "Get an N-day weather forecast",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "the city and state, e.g. san francisco, ca"
+          },
+            "num_days": {
+            "type": "integer",
+            "description": "the number of days to forcast",
+            },
+          "format": {
+            "type": "string",
+            "enum": ["celcius", "fahrenheight"]
+          }
+        },
+        "required": ["num_days", "format"]
+    }
+}
+`
 
 ## A brief overview of the 'language'
 there are 4 available types: `string`, `bool`, `integer`, and `enum`.
@@ -309,6 +345,15 @@ For example, the return value of the above function being put through a completi
     "format": "fahrenheight"
 }
 `
+
+
+# v0.1.33
+message stack filters no longer takes ownership of `role`
+MessageStackRef is now publicly available
+Disallowed the pushing of messages with emopty content to message stack
+Streamed Completion receiver `receive` method now returns a `Result<Option<Status>>` instead of `Option<Status>`
+Updated Dependencies
+Added `Serialize` to MessageStackRef
 
 
 -- TODO -- 

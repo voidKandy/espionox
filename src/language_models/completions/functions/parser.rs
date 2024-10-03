@@ -18,7 +18,7 @@ fn remove_first_element<T>(vec: &mut Vec<T>) -> anyhow::Result<T> {
     }
     Err(anyhow!("vec empty!"))
 }
-// maybe make this try later in case a stream is an invalid len
+
 impl TryFrom<Vec<Token>> for Parser {
     type Error = ParserError;
     fn try_from(mut stream: Vec<Token>) -> Result<Self, Self::Error> {

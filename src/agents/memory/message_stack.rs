@@ -3,11 +3,12 @@ use std::option::IterMut;
 use super::messages::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::warn;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MessageStack(pub(crate) Vec<Message>);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct MessageStackRef<'stack>(pub(crate) Vec<&'stack Message>);
 
 impl<'stack> From<Vec<&'stack Message>> for MessageStackRef<'stack> {
@@ -81,13 +82,21 @@ impl<'stack> MessageStack {
     }
 
     /// Create a new MessageStack given the content of a system prompt
+    /// will panic if passed an empty string
     pub fn new(content: &str) -> Self {
+        if content.is_empty() {
+            panic!("cannot create message with empty content to message stack");
+        }
         let message = Message::new_system(content);
         MessageStack::from(vec![message])
     }
 
     /// Push a message to the end of MessageStack
     pub fn push(&mut self, message: Message) {
+        if message.content.is_empty() {
+            warn!("cannot push message with empty content to message stack");
+            return;
+        }
         self.as_mut().push(message);
     }
 
@@ -114,30 +123,30 @@ impl<'stack> MessageStack {
     }
 
     /// Mutates message vector in place. Excludes/Explicitly includes given message role
-    pub fn mut_filter_by(&mut self, role: MessageRole, inclusive: bool) {
+    pub fn mut_filter_by(&mut self, role: &MessageRole, inclusive: bool) {
         match inclusive {
-            true => self.0.retain(|m| m.role == role),
-            false => self.0.retain(|m| m.role != role),
+            true => self.0.retain(|m| &m.role == role),
+            false => self.0.retain(|m| &m.role != role),
         }
     }
 
     /// Returns a MessageStackRef of self. Excludes/Explicitly includes given message role
     pub fn ref_filter_by(
         &'stack self,
-        role: MessageRole,
+        role: &MessageRole,
         inclusive: bool,
     ) -> MessageStackRef<'stack> {
         match inclusive {
             true => self
                 .0
                 .iter()
-                .filter(|m| m.role == role)
+                .filter(|m| &m.role == role)
                 .collect::<Vec<&'stack Message>>()
                 .into(),
             false => self
                 .0
                 .iter()
-                .filter(|m| m.role != role)
+                .filter(|m| &m.role != role)
                 .collect::<Vec<&'stack Message>>()
                 .into(),
         }
@@ -163,18 +172,18 @@ impl<'stack> MessageStackRef<'stack> {
     }
 
     /// Same effect as `filter_by` on MessageStack, except it consumes `MessageStackRef`
-    pub fn filter_by(self, role: MessageRole, inclusive: bool) -> MessageStackRef<'stack> {
+    pub fn filter_by(self, role: &MessageRole, inclusive: bool) -> MessageStackRef<'stack> {
         match inclusive {
             true => self
                 .0
                 .into_iter()
-                .filter(|m| m.role == role)
+                .filter(|m| &m.role == role)
                 .collect::<Vec<&'stack Message>>()
                 .into(),
             false => self
                 .0
                 .into_iter()
-                .filter(|m| m.role != role)
+                .filter(|m| &m.role != role)
                 .collect::<Vec<&'stack Message>>()
                 .into(),
         }

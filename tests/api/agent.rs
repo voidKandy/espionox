@@ -44,7 +44,7 @@ async fn stream_prompt_agent_works() {
         .do_action(stream_completion, (), Option::<ListenerTrigger>::None)
         .await
         .unwrap();
-    while let Some(res) = response.receive(&mut a).await {
+    while let Ok(Some(res)) = response.receive(&mut a).await {
         info!("OpenAi Token: {:?}", res)
     }
     assert_eq!(a.cache.len(), 3);
@@ -56,7 +56,7 @@ async fn stream_prompt_agent_works() {
         .do_action(stream_completion, (), Option::<ListenerTrigger>::None)
         .await
         .unwrap();
-    while let Some(res) = response.receive(&mut a).await {
+    while let Ok(Some(res)) = response.receive(&mut a).await {
         info!("Anthropic token: {:?}", res)
     }
     info!("CACHE: {:?}", a.cache);

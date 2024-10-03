@@ -91,7 +91,10 @@ impl<T> From<CompletionStream> for StreamedCompletionHandler<T> {
 
 impl ProviderStreamHandler {
     #[tracing::instrument("Receive tokens from completion stream", skip(self))]
-    pub async fn receive(&mut self, agent: &mut Agent) -> Option<CompletionStreamStatus> {
+    pub async fn receive(
+        &mut self,
+        agent: &mut Agent,
+    ) -> StreamResult<Option<CompletionStreamStatus>> {
         match self {
             Self::OpenAi(inner) => inner.receive(agent).await,
             Self::Anthropic(inner) => inner.receive(agent).await,
@@ -106,40 +109,38 @@ where
     /// Returns tokens until finished, when finished, sends an update cache request with the full
     /// message. Best used in a while loop
     #[tracing::instrument("Receive tokens from completion stream", skip(self))]
-    async fn receive(&mut self, agent: &mut Agent) -> Option<CompletionStreamStatus> {
+    async fn receive(&mut self, agent: &mut Agent) -> StreamResult<Option<CompletionStreamStatus>> {
         if self.sender.is_some() && self.stream.is_some() {
-            self.spawn().ok()?;
+            tracing::info!("Telling thread to run");
+            self.spawn()?;
         }
-        tracing::info!("Told thread to run");
         if let Some(result) =
             tokio::time::timeout(Duration::from_millis(1000), self.receiver.recv())
                 .await
-                .map_err(|_| StreamError::ReceiverTimeout)
-                .ok()?
+                .map_err(|_| StreamError::ReceiverTimeout)?
         {
-            match result.ok()? {
+            match result? {
                 CompletionStreamStatus::Working(token) => {
                     self.message_content.push_str(&token);
-                    return Some(CompletionStreamStatus::Working(token.to_string()));
+                    return Ok(Some(CompletionStreamStatus::Working(token.to_string())));
                 }
                 CompletionStreamStatus::Finished => {
                     tracing::info!("Stream finished with content: {}", self.message_content);
                     let message = Message::new_assistant(&self.message_content);
                     agent.cache.push(message);
-                    return Some(CompletionStreamStatus::Finished);
+                    return Ok(Some(CompletionStreamStatus::Finished));
                 }
             }
         }
-        None
+        tracing::info!("received none");
+        Ok(None)
     }
 
     #[tracing::instrument("Spawn completion stream thread", skip(self))]
     fn spawn(&mut self) -> Result<(), StreamError> {
         let mut stream = self.stream.take().unwrap();
         let tx = self.sender.take().unwrap();
-        tracing::info!("Completion thread took stream and sender");
-        let _: tokio::task::JoinHandle<Result<(), StreamError>> = tokio::spawn(async move {
-            tracing::info!("Thread should run");
+        tokio::spawn(async move {
             loop {
                 tracing::info!("Beginning of completion stream thread loop");
                 match CompletionStreamingThread::poll_stream_for_type::<T>(&mut stream).await {
@@ -154,6 +155,7 @@ where
                             &CompletionStreamStatus::Finished => true,
                             _ => false,
                         };
+
                         tx.send(Ok(status)).await.map_err(|err| {
                             StreamError::Undefined(anyhow!("Unexpected Error: {:?}", err))
                         })?;
@@ -169,7 +171,8 @@ where
                     }
                 };
             }
-            Ok(())
+            tracing::info!("outside of loop");
+            return Ok::<(), StreamError>(());
         });
 
         Ok(())

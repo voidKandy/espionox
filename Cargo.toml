@@ -1,6 +1,6 @@
 [package]
 name = "espionox"
-version = "0.1.32"
+version = "0.1.33"
 license = "MIT OR Apache-2.0"
 description = "A library for creating multi-agent workflows in Rust"
 homepage="https://github.com/voidKandy/espionox"
