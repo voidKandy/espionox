@@ -49,14 +49,24 @@ impl CompletionProvider {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionModel {
-    provider: CompletionProvider,
-    params: ModelParameters,
-    api_key: String,
+    pub provider: CompletionProvider,
+    pub params: ModelParameters,
+    pub api_key: String,
     #[serde(skip)]
     client: Client,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Eq for CompletionModel {}
+
+impl PartialEq for CompletionModel {
+    fn eq(&self, other: &Self) -> bool {
+        self.provider == other.provider
+            && self.params == other.params
+            && self.api_key == other.api_key
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelParameters {
     /// Total token usage count of the model
     pub total_token_count: u32,
@@ -162,6 +172,7 @@ impl CompletionModel {
             .json(&json_req)
             .send()
             .await?;
+
         match req.process_response(response).await {
             Ok(r) => return Ok(TryInto::<String>::try_into(r)?),
             Err(err) => {
@@ -225,9 +236,9 @@ impl CompletionModel {
             .json(&req)
             .send()
             .await?;
-
-        info!("Got response: {:?}", response);
-        match builder.process_function_response(response.json().await?) {
+        let json = response.json().await?;
+        info!("Got response: {json:#?}");
+        match builder.process_function_response(json) {
             Ok(r) => return Ok(r),
             Err(err) => {
                 warn!("Error getting function completion: {:?}", err);

@@ -10,6 +10,7 @@ pub enum StreamError {
     Undefined(#[from] anyhow::Error),
     Json(#[from] serde_json::Error),
     StreamBody(#[from] StreamBodyError),
+    StreamRecievedErr(serde_json::Value),
     ReceiverTimeout,
     RetryError,
 }
@@ -20,12 +21,19 @@ impl Debug for StreamError {
     }
 }
 
+impl From<serde_json::Value> for StreamError {
+    fn from(value: serde_json::Value) -> Self {
+        Self::StreamRecievedErr(value)
+    }
+}
+
 impl Display for StreamError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let display = match self {
             Self::Json(err) => err.to_string(),
             Self::Undefined(err) => err.to_string(),
             Self::StreamBody(err) => err.to_string(),
+            Self::StreamRecievedErr(err) => err.to_string(),
             Self::RetryError => "Retry Error".to_string(),
             Self::ReceiverTimeout => "Receiver Timeout".to_string(),
         };

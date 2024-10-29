@@ -349,13 +349,34 @@ For example, the return value of the above function being put through a completi
 
 # v0.1.33
 message stack filters no longer takes ownership of `role`
-MessageStackRef is now publicly available
-Disallowed the pushing of messages with emopty content to message stack
+`MessageStackRef` is now publicly available
+Disallowed the pushing of messages with empty content to message stack
 Streamed Completion receiver `receive` method now returns a `Result<Option<Status>>` instead of `Option<Status>`
 Updated Dependencies
-Added `Serialize` to MessageStackRef
+Added `Serialize` to `MessageStackRef`
+
+# v0.1.34
+## Changes to agents
+* Made `Agent.completion_model` public as well as `CompletionModel.params` & `CompletionModel.api_key` and `CompletionModel.provider`
+* added `PartialEq` and `Eq` to `CompletionModel`
+
+## MessageChanges
+* `MessageRole`'s `ToString` implementation now returns the alias of other role as a string, this means `To<Value>` needs to call `role.actual().to_string()` 
+* Added method to `MessageStack` that returns a mutable reference to the system prompt. Because anthropic only allows the system prompt at the very beginning, this means all system prompts are appended under the hood now.
+    - `From<Vec<Message>>` has been changed to ensure system messages are consolidated at the beginning of the Vec
+    - `mut_system_prompt_content` returns a mutable reference to the underlying system prompt string content, it **DOES NOT** return a mutable reference to the `Message` itself to prevent users from changing the role.
+    - `ref_system_prompt_content` does the same as above, but just an immutable ref
+    - `push` will now panic if system prompt is not consolidated to the single start message, if this happens it is because of a problem internally. User's don't/should not have the ability to cause this panic
+
+
+## Changes to `StreamResponse`
+* changed the return type of `poll_stream_for_type` to a new enum `StreamPolLReturn`, which contains either a `serde_json::Value` or `T`. This is because if this function failed at coercing to `T`, it would error in a really bad way.
+* Added `StreamRecievedErr` variant to `StreamError`. if `poll_stream_for_type` returns `Err(Value)`, the sender (`tx` in the `spawn` function), will send `StreamError` and stop the receiving thread.
+
 
 
 -- TODO -- 
+better error reporting from completion endpoints
+local inference
 Get token tracking working
 

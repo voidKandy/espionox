@@ -16,7 +16,7 @@ use self::{
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub cache: MessageStack,
-    pub(crate) completion_model: CompletionModel,
+    pub completion_model: CompletionModel,
     #[serde(skip)]
     /// Essentially callbacks that optionally trigger on the `do_action` method
     listeners: Vec<Box<dyn listeners::AgentListener>>,

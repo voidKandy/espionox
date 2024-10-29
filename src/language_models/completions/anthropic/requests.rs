@@ -70,6 +70,7 @@ impl CompletionRequest for AnthropicIoRequest {
             match self.stream {
                 false => {
                     let json = response.json().await?;
+                    tracing::warn!("got response:  {json:#?}");
                     let response: AnthropicResponse = serde_json::from_value(json)?;
                     match response {
                         AnthropicResponse::Success(mut suc) => {

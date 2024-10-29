@@ -62,6 +62,7 @@ impl CompletionRequest for OpenAiIoRequest {
             match self.stream {
                 false => {
                     let json = response.json().await?;
+                    tracing::warn!("got response:  {json:#?}");
                     let response: OpenAiResponse = serde_json::from_value(json)?;
                     return match response {
                         OpenAiResponse::Success(mut suc) => {

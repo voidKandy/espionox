@@ -65,11 +65,11 @@ pub struct FunctionCall {
 
 impl ToString for MessageRole {
     fn to_string(&self) -> String {
-        match self.actual() {
+        match &self {
             &Self::System => String::from("system"),
             &Self::User => String::from("user"),
             &Self::Assistant => String::from("assistant"),
-            _ => unreachable!(),
+            &Self::Other { alias, .. } => alias.to_string(),
         }
     }
 }
@@ -178,7 +178,7 @@ impl Into<Value> for Message {
             .collect::<Vec<&str>>()
             .join(" ")
             .replace('\n', " ");
-        json!({"role": self.role.to_string(), "content": content})
+        json!({"role": self.role.actual().to_string(), "content": content})
     }
 }
 

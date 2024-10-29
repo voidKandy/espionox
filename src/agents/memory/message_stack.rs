@@ -1,4 +1,4 @@
-use std::option::IterMut;
+use std::{cmp::Ordering, option::IterMut, vec::IntoIter};
 
 use super::messages::*;
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,28 @@ impl Into<MessageStack> for MessageStackRef<'_> {
 
 impl From<Vec<Message>> for MessageStack {
     fn from(value: Vec<Message>) -> Self {
-        Self(value)
+        let (all_system, mut rest): (Vec<Message>, Vec<Message>) = value
+            .into_iter()
+            .partition(|m| m.role.actual() == &MessageRole::System);
+        let sys_message =
+            all_system
+                .into_iter()
+                .enumerate()
+                .fold(Message::new_system(""), |mut mess, (i, m)| {
+                    let content = if i > 0 {
+                        &format!(" {}", m.content)
+                    } else {
+                        &m.content
+                    };
+                    mess.content.push_str(content);
+                    mess
+                });
+        if !sys_message.content.is_empty() {
+            rest.reverse();
+            rest.push(sys_message);
+            rest.reverse();
+        }
+        Self(rest)
     }
 }
 
@@ -91,13 +112,53 @@ impl<'stack> MessageStack {
         MessageStack::from(vec![message])
     }
 
-    /// Push a message to the end of MessageStack
+    /// Returns mutable access to the content of the system prompt of the agent
+    pub fn mut_system_prompt_content(&mut self) -> Option<&mut String> {
+        self.0.first_mut().and_then(|m| {
+            if m.role.actual() == &MessageRole::System {
+                Some(&mut m.content)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn ref_system_prompt_content(&self) -> Option<&str> {
+        self.0.first().and_then(|m| {
+            if m.role.actual() == &MessageRole::System {
+                Some(m.content.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    // pub fn mutate_system_prompt(&mut self, f: impl FnOnce(&mut String)) {
+    //     if let Some(first_message) = self.0.first_mut() {
+    //         f(&mut first_message.content);
+    //     }
+    // }
+
+    /// Push a message to the end of MessageStack, does nothing if the message's content is empty
     pub fn push(&mut self, message: Message) {
-        if message.content.is_empty() {
-            warn!("cannot push message with empty content to message stack");
-            return;
+        if &MessageRole::System == message.role.actual() && self.len() > 0 {
+            if let Some(sys_prompt) = self.mut_system_prompt_content() {
+                sys_prompt.push_str(&format!(" {}", message.content))
+            }
+        } else {
+            if message.content.is_empty() {
+                warn!("cannot push message with empty content to message stack");
+                return;
+            }
+            self.as_mut().push(message);
         }
-        self.as_mut().push(message);
+
+        if self.ref_filter_by(&MessageRole::System, true).len() > 1 {
+            panic!(
+                "expected to get <= 1 system prompts, got {}",
+                self.ref_filter_by(&MessageRole::System, true).len()
+            )
+        }
     }
 
     /// Append another MessageStack to the end of this one
@@ -187,5 +248,28 @@ impl<'stack> MessageStackRef<'stack> {
                 .collect::<Vec<&'stack Message>>()
                 .into(),
         }
+    }
+}
+
+mod tests {
+    use super::{Message, MessageStack};
+
+    #[test]
+    fn message_from_correct() {
+        let messages = vec![
+            Message::new_system("System"),
+            Message::new_user("User message"),
+            Message::new_assistant("Assistant message"),
+            Message::new_user("User message"),
+            Message::new_system("System"),
+            Message::new_system("System"),
+        ];
+        let mut stack = MessageStack::from(messages);
+        stack.push(Message::new_system("End system"));
+
+        assert_eq!(
+            stack.ref_system_prompt_content().unwrap(),
+            "System System System End system"
+        )
     }
 }

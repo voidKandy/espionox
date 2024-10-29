@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
+use tracing::warn;
 use tracing_log::log::info;
 pub mod error;
 use crate::agents::memory::Message;
@@ -95,10 +96,13 @@ impl ProviderStreamHandler {
         &mut self,
         agent: &mut Agent,
     ) -> StreamResult<Option<CompletionStreamStatus>> {
-        match self {
+        let response = match self {
             Self::OpenAi(inner) => inner.receive(agent).await,
             Self::Anthropic(inner) => inner.receive(agent).await,
-        }
+        };
+
+        tracing::warn!("got stream response:  {response:#?}");
+        response
     }
 }
 
@@ -124,6 +128,10 @@ where
                     self.message_content.push_str(&token);
                     return Ok(Some(CompletionStreamStatus::Working(token.to_string())));
                 }
+                // CompletionStreamStatus::Error(json) => {
+                //     tracing::info!("Stream recieved an error: {json:#?}");
+                //     return Err(StreamError::from(json));
+                // }
                 CompletionStreamStatus::Finished => {
                     tracing::info!("Stream finished with content: {}", self.message_content);
                     let message = Message::new_assistant(&self.message_content);
@@ -146,7 +154,15 @@ where
                 match CompletionStreamingThread::poll_stream_for_type::<T>(&mut stream).await {
                     Ok(type_option) => {
                         let status: CompletionStreamStatus = match type_option {
-                            Some(ref typ) => <T as Clone>::clone(&(*typ)).into(),
+                            Some(ret) => match ret {
+                                StreamPollReturn::Ok(typ) => <T as Clone>::clone(&(typ)).into(),
+                                StreamPollReturn::Err(json) => {
+                                    tx.send(Err(StreamError::from(json)))
+                                        .await
+                                        .expect("could not send");
+                                    break;
+                                }
+                            },
                             None => CompletionStreamStatus::Finished,
                         };
                         tracing::info!("Got status: {:?}", status);
@@ -165,9 +181,10 @@ where
                         }
                     }
                     Err(err) => {
-                        if let Err(_) = tx.send(Err(err)).await {
-                            break;
-                        }
+                        tx.send(Err(err))
+                            .await
+                            .expect("failed to send error message back");
+                        break;
                     }
                 };
             }
@@ -179,16 +196,43 @@ where
     }
 }
 
+pub enum StreamPollReturn<T> {
+    Ok(T),
+    Err(serde_json::Value),
+}
+
+impl<T> From<T> for StreamPollReturn<T>
+where
+    T: StreamResponse,
+{
+    fn from(value: T) -> Self {
+        Self::Ok(value)
+    }
+}
+
+impl<T> From<serde_json::Value> for StreamPollReturn<T> {
+    fn from(value: serde_json::Value) -> Self {
+        Self::Err(value)
+    }
+}
+
 impl CompletionStreamingThread {
     #[tracing::instrument(name = "Get token from stream" skip(stream))]
-    async fn poll_stream_for_type<T>(stream: &mut CompletionStream) -> StreamResult<Option<T>>
+    async fn poll_stream_for_type<T>(
+        stream: &mut CompletionStream,
+    ) -> StreamResult<Option<StreamPollReturn<T>>>
     where
         T: StreamResponse,
     {
         while let Some(Ok(stream_response)) = stream.next().await {
-            info!("Stream response json: {:?}", stream_response);
-            let parsed_response: T = serde_json::from_value(stream_response)?;
-            return Ok(Some(parsed_response));
+            warn!("Stream response json: {:?}", stream_response);
+            match serde_json::from_value::<T>(stream_response.clone()) {
+                Ok(val) => return Ok(Some(StreamPollReturn::from(val))),
+                Err(err) => {
+                    warn!("poll stream for type failed to coerce to T: {err:#?}");
+                    return Ok(Some(StreamPollReturn::from(stream_response)));
+                }
+            }
         }
 
         Ok(None)

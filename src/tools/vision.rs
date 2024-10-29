@@ -39,7 +39,7 @@ pub fn message_vector_to_context_with_image(
     let last = vec.as_mut().pop().unwrap();
     vec.as_ref().into_iter().for_each(|m| {
         return_vec.push(json!({
-            "role": m.role.to_string(),
+            "role": m.role.actual().to_string(),
             "content": [{
                 "type": "text",
                 "text": m.content
