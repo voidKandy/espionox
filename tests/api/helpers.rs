@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use dotenv::dotenv;
 use espionox::{
     agents::Agent,

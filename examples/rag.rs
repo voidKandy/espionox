@@ -6,7 +6,7 @@ use espionox::{
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct RagListener<'p> {
+pub struct RagManager<'p> {
     /// RAG listeners can be used as long as they have some connection to a data source. In this
     /// example we use a vector, but it could be anything, including a Database pool.
     data: Option<DbStruct<'p>>,
@@ -37,7 +37,7 @@ fn score_l2(one: &Vec<f32>, other: &Vec<f32>) -> f32 {
     sum_of_squares.sqrt()
 }
 
-impl<'p> RagListener<'p> {
+impl<'p> RagManager<'p> {
     async fn embed(&mut self, str: &str) -> Result<Vec<f32>, EmbeddingError> {
         let embedding: Vec<f32> = self.embedder.get_embedding(str).await?;
         Ok(embedding)
@@ -156,43 +156,6 @@ impl<'p> DbStruct<'p> {
     }
 }
 
-impl<'p: 'static> AgentListener for RagListener<'p> {
-    fn trigger<'l>(&self) -> espionox::agents::listeners::ListenerTrigger {
-        "RAG".to_owned().into()
-    }
-
-    fn async_method<'l>(
-        &'l mut self,
-        agent: &'l mut Agent,
-    ) -> espionox::agents::listeners::ListenerCallReturn<'l> {
-        Box::pin(async move {
-            // We'll grab the last user message sent, so we can have something to embed
-            if let Some(latest_user_message) = agent
-                .cache
-                .as_ref()
-                .iter()
-                .filter(|m| m.role == MessageRole::User)
-                .last()
-            {
-                let qembed = self.embed(&latest_user_message.content).await.unwrap();
-                let strcts = self
-                    .data
-                    .as_ref()
-                    .unwrap()
-                    .get_close_embeddings_from_query_embedding(qembed, 5)
-                    .await;
-                println!(
-                    "STRUCTS PUSHING: {:?}",
-                    strcts.0.iter().map(|p| p.name).collect::<Vec<&str>>()
-                );
-                // We use the embedding to push relevant structs to our agent's memory
-                agent.cache.push(strcts.to_message(MessageRole::System));
-            }
-            Ok(())
-        })
-    }
-}
-
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
@@ -203,19 +166,28 @@ async fn main() {
         CompletionModel::default_openai(&api_key),
     );
 
-    let mut listener = RagListener {
+    let mut rag = RagManager {
         embedder,
         data: None,
     };
 
-    listener.init_products().await;
-    agent.insert_listener(listener);
+    rag.init_products().await;
+    // agent.insert_listener(listener);
 
     let m = Message::new_user("I need a new fitness toy, what is the best product for me?");
-    agent.cache.push(m);
-    let response = agent
-        .do_action(io_completion, (), Some("RAG"))
+    let message_embedding = rag
+        .embed(&m.content)
         .await
-        .unwrap();
+        .expect("Failed to embed message content");
+    let relavent = rag
+        .data
+        .as_ref()
+        .unwrap()
+        .get_close_embeddings_from_query_embedding(message_embedding, 5)
+        .await;
+    println!("Got relavent structs: {relavent:#?}");
+    agent.cache.push(m);
+    agent.cache.push(relavent.to_message(MessageRole::User));
+    let response = agent.io_completion().await.unwrap();
     println!("{:?}", response);
 }

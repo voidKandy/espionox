@@ -18,9 +18,6 @@ path = "src/lib.rs"
 name = "summarize_at_limit"
 path = "examples/summarize_at_limit.rs"
 [[example]]
-name = "forgetful"
-path = "examples/forgetful.rs"
-[[example]]
 name = "rag"
 path = "examples/rag.rs"
 

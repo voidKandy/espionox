@@ -12,40 +12,26 @@ impl SummarizeAtLimit {
     }
 }
 
-impl AgentListener for SummarizeAtLimit {
-    fn trigger<'l>(&self) -> espionox::agents::listeners::ListenerTrigger {
-        "sum".into()
-    }
-
-    fn async_method<'l>(
-        &'l mut self,
-        _a: &'l mut Agent,
-    ) -> espionox::agents::listeners::ListenerCallReturn<'l> {
-        Box::pin(async move {
-            if _a.cache.len() >= self.limit {
-                let message = Message::new_user(&format!(
-                    "Summarize this chat history: {}",
-                    _a.cache.to_string()
-                ));
-                self.summarizer.cache.push(message);
-
-                let summary = self
-                    .summarizer
-                    .do_action(io_completion, (), Option::<ListenerTrigger>::None)
-                    .await?;
-
-                _a.cache.mut_filter_by(&MessageRole::System, true);
-                _a.cache.push(Message::new_assistant(&summary));
-            }
-            return Ok(());
-        })
-    }
-}
-
 /// We'll define our own push to cache action method so we can trigger the listener on it
 /// All action methods must be async & return AgentResult, which can be coerced from an
 /// `anyhow::Result`
-async fn push_to_cache(agent: &mut Agent, m: Message) -> AgentResult<()> {
+async fn push_to_cache_with_limit(
+    agent: &mut Agent,
+    sum: &mut SummarizeAtLimit,
+    m: Message,
+) -> AgentResult<()> {
+    if agent.cache.len() >= sum.limit {
+        let message = Message::new_user(&format!(
+            "Summarize this chat history: {}",
+            agent.cache.to_string()
+        ));
+        sum.summarizer.cache.push(message);
+
+        let summary = sum.summarizer.io_completion().await?;
+
+        agent.cache.mut_filter_by(&MessageRole::System, true);
+        agent.cache.push(Message::new_assistant(&summary));
+    }
     agent.cache.push(m);
     Ok(())
 }
@@ -63,15 +49,14 @@ async fn main() {
         Some("Your job is to summarize chunks of a conversation"),
         CompletionModel::default_anthropic(&api_key),
     );
-    let sal = SummarizeAtLimit::new(5usize, summarizer);
+    let mut sal = SummarizeAtLimit::new(5usize, summarizer);
 
-    agent.insert_listener(sal);
+    // agent.insert_listener(sal);
     let message = Message::new_user("im saying things to fill space");
 
     for _ in 0..=5 {
         // And now we use our predefined action method
-        agent
-            .do_action(push_to_cache, message.clone(), Some("sum"))
+        push_to_cache_with_limit(&mut agent, &mut sal, message.clone())
             .await
             .unwrap();
     }

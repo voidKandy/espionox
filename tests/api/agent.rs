@@ -1,10 +1,6 @@
 use crate::{init_test, test_anthropic_agent, test_openai_agent};
 use espionox::{
-    agents::{
-        actions::{function_completion, io_completion, stream_completion},
-        listeners::ListenerTrigger,
-        memory::Message,
-    },
+    agents::memory::Message,
     language_models::completions::{functions::Function, streaming::ProviderStreamHandler},
 };
 use serde::Deserialize;
@@ -18,17 +14,13 @@ async fn io_prompt_agent_works() {
     init_test();
     let mut a = test_openai_agent();
     a.cache.push(Message::new_user("Hello!"));
-    let result = a
-        .do_action(io_completion, (), Option::<ListenerTrigger>::None)
-        .await;
+    let result = a.io_completion().await;
     info!("response: {:?}", result);
     assert!(result.is_ok());
 
     let mut a = test_anthropic_agent();
     a.cache.push(Message::new_user("Hello!"));
-    let result = a
-        .do_action(io_completion, (), Option::<ListenerTrigger>::None)
-        .await;
+    let result = a.io_completion().await;
     info!("response: {:?}", result);
     assert!(result.is_ok())
 }
@@ -40,10 +32,7 @@ async fn stream_prompt_agent_works() {
     let mut a = test_openai_agent();
     a.cache.push(Message::new_user("Hello!"));
 
-    let mut response: ProviderStreamHandler = a
-        .do_action(stream_completion, (), Option::<ListenerTrigger>::None)
-        .await
-        .unwrap();
+    let mut response: ProviderStreamHandler = a.stream_completion().await.unwrap();
     while let Ok(Some(res)) = response.receive(&mut a).await {
         info!("OpenAi Token: {:?}", res)
     }
@@ -52,10 +41,7 @@ async fn stream_prompt_agent_works() {
     let mut a = test_anthropic_agent();
     a.cache.push(Message::new_user("Hello!"));
 
-    let mut response: ProviderStreamHandler = a
-        .do_action(stream_completion, (), Option::<ListenerTrigger>::None)
-        .await
-        .unwrap();
+    let mut response: ProviderStreamHandler = a.stream_completion().await.unwrap();
     while let Ok(Some(res)) = response.receive(&mut a).await {
         info!("Anthropic token: {:?}", res)
     }
@@ -79,14 +65,7 @@ async fn function_prompt_agent_works() {
     let message = Message::new_user("What's the weather like in Detroit michigan in celcius?");
     a.cache.push(message);
 
-    let json: Value = a
-        .do_action(
-            function_completion,
-            function,
-            Option::<ListenerTrigger>::None,
-        )
-        .await
-        .unwrap();
+    let json: Value = a.function_completion(function).await.unwrap();
     // let json: Ret = serde_json::from_str(json).unwrap();
     info!("test got json: {:?}", json);
     assert_eq!(

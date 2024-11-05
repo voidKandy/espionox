@@ -374,6 +374,11 @@ Added `Serialize` to `MessageStackRef`
 * Added `StreamRecievedErr` variant to `StreamError`. if `poll_stream_for_type` returns `Err(Value)`, the sender (`tx` in the `spawn` function), will send `StreamError` and stop the receiving thread.
 
 
+# v0.1.4
+## Remove Listeners
+Listeners are actually pretty useless & add unnecessary complexity. They have been completely removed.
+All functions that used to exist in the `actions` module have been put directly into the `Agent` implementation.
+I also updated examples & the readme
 
 -- TODO -- 
 better error reporting from completion endpoints

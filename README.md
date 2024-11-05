@@ -7,86 +7,111 @@
 - Making an LLM application in Rust
 - Experimenting with with complex 'prompt flows' such as Chain/Tree of thought
 
-## Getting started
+## Usage
 
 First you need to initialize an `Agent`
+
 `Agent::new` accepts two arguments: 
 1. Optional content of a system prompt, if this is left `None` your agent will have no system prompt
 2. A `CompletionModel` whichever provider you wish to use (As of writing, only OpenAi and Anthropic providers are supported).
 
-```
+```rust
 use espionox::prelude::*;
 
 let api_key = std::env::var("OPENAI_KEY").unwrap();
 let agent = Agent::new(Some("This is the system message"), CompletionModel::default_openai(api_key));
 ```
+Now, In order to prompt your agent you will call any of the following 3 methods: 
++ `io_completion`
++ `stream_completion`
++ `function_completion`
 
-Now, In order to prompt your agent you will call `do_action` on it 
-```
-let response: String = agent
-    .do_action(io_completion, (), Option::<ListenerTrigger>::None)
-    .await
-    .unwrap();
-```
-This may look scary at first, but lets look at `do_action`'s signature: 
-```
-pub async fn do_action<'a, F, Args, Fut, R>(
-    &'a mut self,
-    f: F,
-    args: Args,
-    trigger: Option<impl Into<ListenerTrigger>>,
-) -> AgentResult<R>
-where
-    F: for<'l> FnOnce(&'a mut Agent, Args) -> Fut,
-    Fut: Future<Output = AgentResult<R>>
-```
-`do_action` takes 4 arguments:
-1. the `Agent` which calls the method
-2. an async function which mutates the agent and returns an `AgentResult`, which can be coerced from an `anyhow::Result`. So as long as the function signature returns any `AgentResult<T>`, just make sure to call `.into()` on any error return and it should be valid.
-3. optionally arguments for the aformentioned function 
-4. An optional trigger for a listener (We'll get to this)
-
-
-So, in our call to `do_action` earlier, we passed the function `io_completion`, an empty argument and None.
-`espionox` provides the following helper functions for getting completions or embeddings:
-
-* `io_completion`
-* `stream_completion`
-* `function_completion`
-
-
-We used one of these functions, but we could have just as easily defined our own `io_completion` function and passed it when we called `do_action`
-
-## Listeners
-
-One of Espionox's best offerings is the `AgentListener` trait:
-
-```
-pub trait AgentListener: std::fmt::Debug + Send + Sync + 'static {
-    fn trigger<'l>(&self) -> ListenerTrigger;
-    fn async_method<'l>(&'l mut self, _a: &'l mut Agent) -> ListenerCallReturn<'l> {
-        Box::pin(async move { Err(ListenerError::NoMethod.into()) })
-    }
-    fn sync_method<'l>(&'l mut self, _a: &'l mut Agent) -> AgentResult<()> {
-        Err(ListenerError::NoMethod.into())
-    }
+### Io Completion
+```rust
+impl Agent {
+    pub async fn io_completion(&mut self) -> AgentResult<String>;
 }
 ```
-You will notice 3 methods:
-1. `trigger`: this is how you define when the listener will be triggered. Think of it like an ID. `ListenerTrigger` has 2 variants: 
-    * `ListenerTrigger::String(String)`
-    * `ListenerTrigger::Int(i64)`
-    Remember the `trigger` argument to `do_action`? Ensure a listener is triggered when `do_action` is called by passing a matching `ListenerTrigger`.
-2. `async_method`. Which, if implemented, the function body must be wrapped in `Box::pin(async move {})`
-3. `sync_method`
+This is the most strait-forward way to get a completion from a model, it will simply request a completion from the associated endpoint with the models' current context.
 
+### Stream Completion
+```rust
+impl Agent {
+    pub async fn stream_completion(&mut self) -> AgentResult<ProviderStreamHandler>;
+}
+```
+This will return a stream response handler object that needs to be polled for tokens, for example:
+```rust
+let mut response: ProviderStreamHandler = a.stream_completion().await.unwrap();
+while let Ok(Some(res)) = response.receive(&mut a).await {
+    println!("Received token: {res:?}")
+}
+```
+When the stream completes, the finished message will *automatically* be added to the agent's context, so you *do not* have to worry about making sure the agent is given the completed response
 
-Each `async_method` and `sync_method` are where you define WHAT the listener will actually do when it's triggered. THESE ARE MUTUALLY EXCLUSIVE, only ONE of these methods should be implemented. If both are implemented, the sync method will be the only one to trigger.
-Any struct implementing this trait can be inserted into an agent using `Agent::insert_listener`. 
+### Function Completion
+> Currently only available with `OpenAi` models
+```rust
+impl Agent {
+    pub async fn function_completion(&mut self, function: Function) -> AgentResult<serde_json::Value>;
+}
+```
 
-### How do you even use a listener??
+This is a feature built on top of OpenAi's [function calling API](https://cookbook.openai.com/examples/how_to_call_functions_with_chat_models). Instead of needing to write functions as raw JSON, `espionox` allows you to use it's own language which get's compiled into the correct `JSON` format when fed to the model.
+The structure of a function is as follows: 
+```
+<function name>([<argname: type>])
+    i = <description of what function does>
+    [<optional descriptions of each arg>]
+```
+If an arg's name is followed by a `!`, it means that argument is required.
 
-The utility of listeners may not be immediately obvious to you, but it can be used to create self consistency mechanisms, prompt chains or even RAG pipelines.
-Check the examples directory for more information on `AgentListener`
+Supported argument types: 
++ `bool`
++ `int`
++ `string`
++ `enum` - with variants defined in single quotes, separated by `|`
 
-espionox is very early in development and everything in the API may be subject to change Please feel free to reach out with any questions, suggestions, issues or anything else :)
+##### Weather Function Example
+Imagine you want to use the function given in [OpenAi's example](https://cookbook.openai.com/examples/how_to_call_functions_with_chat_models)
+ ```json
+{
+     "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["celcius", "fahrenheit"]
+              }
+            },
+            "required": ["location"]
+        }
+}
+```
+Instead of hand writing the above `JSON` object, you can use espionox's function language
+```rust
+let weather_function_str = r#"
+    get_current_weather(location!: string, unit: 'celcius' | 'farenheight') 
+            i = 'Get the current weather in a given location'
+            location = 'the city and state, e.g. San Francisco, CA'
+"#;
+let weather_function = Function::try_from(weather_function_str);
+let json_response = agent.function_completion(weather_function).await?;
+```
+The returned `serde_json::Value` contains the specified args and their values as key value pairs. For example, `json_response` might look something like:
+```json
+{
+    "location": "San Francisco, CA",
+    "unit": "fahrenheit"
+}
+```
+___
+`espionox` is very early in development and everything  may be subject to change Please feel free to reach out with any questions, suggestions, issues or anything else :)
+#### [Most Recent Change](/CHANGELOG.md#v0.1.4)
+
