@@ -32,7 +32,7 @@ impl Agent {
     pub async fn io_completion(&mut self) -> AgentResult<String>;
 }
 ```
-This is the most strait-forward way to get a completion from a model, it will simply request a completion from the associated endpoint with the models' current context.
+This is the most straightforward way to get a completion from a model, it will simply request a completion from the associated endpoint with the models' current context.
 
 ### Stream Completion
 ```rust
