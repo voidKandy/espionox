@@ -113,5 +113,5 @@ The returned `serde_json::Value` contains the specified args and their values as
 ```
 ___
 `espionox` is very early in development and everything  may be subject to change Please feel free to reach out with any questions, suggestions, issues or anything else :)
-#### [Most Recent Change](/CHANGELOG.md#v0.1.4)
+#### [Most Recent Change](/CHANGELOG.md#v0.1.40)
 
