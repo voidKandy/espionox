@@ -1,3 +1,24 @@
+<div align="center">
+  <h1>espionox</h1>
+</div>
+<div align="center">
+  <!-- Crates version -->
+  <a href="https://crates.io/crates/epsionox">
+    <img src="https://img.shields.io/crates/v/espionox.svg?style=flat-square"
+    alt="Crates.io version" />
+  </a>
+  <!-- Downloads -->
+  <a href="https://crates.io/crates/espionox">
+    <img src="https://img.shields.io/crates/d/espionox.svg?style=flat-square"
+      alt="Download" />
+  </a>
+  <!-- docs -->
+  <a href="https://docs.rs/espionox">
+    <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
+      alt="docs.rs docs" />
+  </a>
+</div>
+
 # Simplifying Ai Agents in Rust 🕵🏼
 
 `espionox` is an attempt to make building Ai applications in Rust just as approachable as it is with other libraries such as LangChain.
