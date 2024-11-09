@@ -9,7 +9,7 @@ use std::fmt::Debug;
 
 use error::AgentResult;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub cache: MessageStack,
     pub completion_model: CompletionModel,

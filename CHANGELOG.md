@@ -380,6 +380,11 @@ Listeners are actually pretty useless & add unnecessary complexity. They have be
 All functions that used to exist in the `actions` module have been put directly into the `Agent` implementation.
 I also updated examples & the readme
 
+# v0.1.41
+readme
+
+# v0.1.42
+added `Clone` to `Agent`
 -- TODO -- 
 better error reporting from completion endpoints
 local inference
